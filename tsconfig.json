@@ -1,14 +1,18 @@
 {
   "compilerOptions": {
     "baseUrl": "./",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": ["src/*"]
     },
-    "target": "es5",
+    "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "esModuleInterop": true,
@@ -16,7 +20,7 @@
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -30,7 +34,8 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     "next-i18next.config.js",
-    "vitest.config.mts"
+    "vitest.config.mts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

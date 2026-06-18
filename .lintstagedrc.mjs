@@ -6,11 +6,10 @@ const buildEslintCommand = (filenames) =>
     .join(' --file ')}`;
 
 export default {
-  '*.{js,ts,tsx,json,jsx,scss,css}': [
-    "prettier --write '**/*.{js,jsx,ts,tsx,scss,css,json}'",
-    "stylelint '**/*.{scss,css}' --fix",
-    buildEslintCommand,
-    () => 'tsc --noEmit',
-    'vitest related --run',
-  ],
+  // Biome: format + lint (replaces prettier + stylelint)
+  '*.{js,ts,tsx,jsx,json,css}': ['biome check --write'],
+  // ESLint: Next.js-specific rules (app router, no-html-link, etc.)
+  '*.{js,ts,tsx,jsx}': [buildEslintCommand, () => 'tsc --noEmit'],
+  // Run related tests
+  '*.{ts,tsx}': ['vitest related --run'],
 };

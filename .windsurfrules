@@ -1,0 +1,65 @@
+# Windsurf Rules — AI-First Next.js Boilerplate
+
+You are working in a Next.js 15 App Router project. Apply these rules to every file you create or modify.
+
+## Core Stack
+Next.js 15 | React 19 | TypeScript strict | Tailwind + shadcn/ui
+TanStack Query v5 | Zustand v5 | react-hook-form + Zod | ^4.0
+
+## Architecture (strict layering)
+```
+app/page.tsx          (route entry)
+    ↓
+services/*.service.ts  (business logic)
+    ↓
+adapters/*.adapter.ts  (HTTP calls)
+    ↓
+External API
+```
+**RULE**: components/features/ calls services/ — NEVER adapters/ directly.
+
+## File Placement
+| Create | Put it in |
+|--------|-----------|
+| New page | `src/app/[route]/page.tsx` |
+| New API | `src/app/api/[name]/route.ts` |
+| UI primitive | `src/components/common/` |
+| Business component | `src/components/features/` |
+| HTTP function | `src/adapters/[domain]/[domain].adapter.ts` |
+| Business logic | `src/services/[domain].service.ts` |
+| Global state | `src/stores/[name].store.tsx` |
+| Shared hook | `src/hooks/use-[name].ts` |
+| Shared type | `src/types/[domain].types.ts` |
+
+## Server vs Client
+- Default = Server Component (no directive)
+- `'use client'` only for: useState/useEffect, browser APIs, event handlers, TanStack hooks
+- NEVER `'use client'` on layout.tsx
+
+## State
+- Async/API data → TanStack Query
+- Shared UI state → Zustand
+- Forms → react-hook-form (NEVER useState for forms)
+
+## Naming
+- Files: kebab-case | Components: PascalCase named export
+- Zod | ^4.0
+- Default exports ONLY for page.tsx, layout.tsx
+
+## Never
+- `fetch()` in components (use TanStack Query)
+- `console.log` (use logger helper)
+- Hardcoded URLs (use API_ROUTES / WEB_ROUTES)
+- `any` type
+- Business logic in page.tsx (use services/)
+- `process.env` directly (use env from configurations/)
+
+## Canonical Examples
+Read `src/__examples__/` for patterns:
+- `_server-data/` `_client-state/` `_form/` `_full-feature/`
+
+## MCP Tools (when available)
+Use before grepping — faster and gives structural context:
+- `semantic_search_nodes` — find by name
+- `get_impact_radius` — blast radius before refactoring
+- `detect_changes` — review changes with risk score

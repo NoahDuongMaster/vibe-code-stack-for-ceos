@@ -1,0 +1,155 @@
+# Cursor Rules — AI-First Next.js Boilerplate
+
+You are an expert Next.js 15 developer working in this project. Follow these rules exactly.
+
+## Stack
+- Next.js 15 App Router + React 19 + TypeScript (strict)
+- Tailwind CSS + shadcn/ui (components in src/components/common/)
+- TanStack Query v5 — server/async state
+- Zustand v5 — client UI state only
+- react-hook-form + Zod | ^4.0
+- Ky HTTP client — wrapped in src/adapters/xhr.ts
+- Vitest — testing
+
+## Where Does New Code Go?
+
+| What | Where |
+|------|-------|
+| New page | `src/app/[route]/page.tsx` |
+| New API route | `src/app/api/[name]/route.ts` |
+| New UI primitive | `src/components/common/[name].tsx` |
+| New business component | `src/components/features/[name].tsx` |
+| New HTTP call | `src/adapters/[domain]/[domain].adapter.ts` |
+| New business logic | `src/services/[domain].service.ts` |
+| New global state | `src/stores/[name].store.tsx` |
+| New shared hook | `src/hooks/use-[name].ts` |
+| New type | `src/types/[domain].types.ts` |
+| New constant | `src/constants/[name].constant.ts` |
+
+## Server vs Client Component
+
+Add `'use client'` ONLY when:
+- Using useState, useEffect, useRef
+- Accessing window, localStorage, document
+- Using onClick, onChange event handlers
+- Using TanStack Query hooks (useQuery, useMutation)
+
+NEVER add `'use client'` to layout.tsx.
+Default: Server Component (no directive needed).
+
+## State Management
+
+- API data → TanStack Query
+- Shared UI state → Zustand
+- Form state → react-hook-form (never useState for forms)
+- Local state → useState
+- URL state → useSearchParams
+
+## Architecture Layers (strict)
+
+```
+page.tsx / component
+  ↓
+services/[domain].service.ts
+  ↓
+adapters/[domain]/[domain].adapter.ts
+  ↓
+External API
+```
+
+Components NEVER import from adapters/ directly.
+
+## Naming
+
+- Files: `kebab-case.tsx`
+- Components: `PascalCase` named export
+- Hooks: `useXxx` camelCase
+- Zod | ^4.0
+- Types: `T` prefix → `TUser`
+- Constants: `SCREAMING_SNAKE_CASE`
+- Services: `userService = { ... }`
+- Only page.tsx / layout.tsx use default exports
+
+## Code Patterns
+
+### Zod | ^4.0
+```typescript
+export const ZUser = z.object({ id: z.string(), email: z.string().email() })
+export type TUser = z.infer<typeof ZUser>
+```
+
+### Adapter
+```typescript
+const request = new Request()
+export const getUserAPI = async (id: string): Promise<TUser> =>
+  request.get<TUser>(API_ROUTES.GET_USER, { id })
+```
+
+### Service
+```typescript
+export const userService = {
+  async getUser(id: string): Promise<TUser> { return getUserAPI(id) },
+}
+```
+
+### Server Component
+```tsx
+async function Data() {
+  const data = await userService.getUser('1')
+  return <div>{data.name}</div>
+}
+export default function Page() {
+  return <Suspense fallback={<Skeleton />}><Data /></Suspense>
+}
+```
+
+### Client Component
+```tsx
+'use client'
+export function UserCard({ id }: { id: string }) {
+  const { data } = useQuery({ queryKey: ['user', id], queryFn: () => userService.getUser(id) })
+  return <div>{data?.name}</div>
+}
+```
+
+### Form
+```tsx
+'use client'
+const Schema = z.object({ email: z.string().email() })
+type Values = z.infer<typeof Schema>
+
+export function MyForm() {
+  const form = useForm<Values>({ resolver: zodResolver(Schema) })
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <FormField control={form.control} name="email" render={({ field }) => (
+          <FormItem><FormLabel>Email</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+        <Button type="submit">Submit</Button>
+      </form>
+    </Form>
+  )
+}
+```
+
+## Never Do
+
+- `fetch()` inside components → use TanStack Query
+- `'use client'` on layout.tsx → never
+- `useState` for forms → use react-hook-form
+- `console.log` → use logger() from @/helpers/logger.helper
+- Hardcoded URLs → use API_ROUTES / WEB_ROUTES constants
+- `import adapters/` in components → go through services/
+- `type: any` → use proper types or unknown
+- Business logic in page.tsx → put in services/
+- `process.env` directly → use env from configurations/
+- Default exports for components → named exports only
+
+## Reference Examples
+
+Before writing new code, read `src/__examples__/`:
+- `_server-data/` — Server Component + data fetching
+- `_client-state/` — Zustand + client interactivity
+- `_form/` — react-hook-form + Zod | ^4.0
+- `_full-feature/` — Complete pattern: schema → adapter → service → page → component

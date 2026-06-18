@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { WEB_ROUTES } from '@/constants/routes.constant';
+import { WEB_ROUTES } from '@/shared/constants/routes.constant';
 
 const NotFound = () => {
   const router = useRouter();
@@ -24,6 +24,7 @@ const NotFound = () => {
 
           <div className="flex items-center mt-6 gap-x-3">
             <button
+              type="button"
               onClick={() => router.back()}
               className="flex items-center justify-center w-1/2 px-5 py-2 text-sm text-gray-700 transition-colors duration-200 bg-white border rounded-lg gap-x-2 sm:w-auto dark:hover:bg-gray-800 dark:bg-gray-900 hover:bg-gray-100 dark:text-gray-200 dark:border-gray-700"
             >
@@ -34,7 +35,9 @@ const NotFound = () => {
                 strokeWidth="1.5"
                 stroke="currentColor"
                 className="w-5 h-5 rtl:rotate-180"
+                aria-hidden="true"
               >
+                <title>Go back</title>
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

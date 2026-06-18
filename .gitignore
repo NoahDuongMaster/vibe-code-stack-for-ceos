@@ -43,3 +43,15 @@ yarn-error.log*
 package-lock.json
 yarn.lock
 tsconfig.tsbuildinfo
+# Added by code-review-graph
+.code-review-graph/
+graphify-out/
+
+# AI metrics — log.jsonl IS tracked intentionally (objective commit data for monthly analysis)
+# Only exclude temp session markers
+/tmp/ai-session-*.marker
+
+# Playwright
+/playwright-report/
+/e2e-results/
+/test-results/
