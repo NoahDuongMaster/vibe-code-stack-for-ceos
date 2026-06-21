@@ -36,7 +36,7 @@
     "format": "biome format --write .",
     "lint-staged": "lint-staged",
     "prepare": "panda codegen && (husky || true)",
-    "postinstall": "node .husky/install.mjs || true",
+    "postinstall": "node .husky/install.mjs || true; command -v pr-agent >/dev/null 2>&1 || echo '\\n⚠️  pr-agent not found. Run: pip install pr-agent (or ./scripts/setup-ai.sh for full AI setup)\\n'",
     "build:development": "make build-development",
     "start:development": "make start-development",
     "build:staging": "make build-staging",

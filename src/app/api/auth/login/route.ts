@@ -12,8 +12,9 @@ const ZLoginBody = z.object({
   }),
 });
 
-// TODO: replace this with your actual auth backend (Cloudflare Workers, etc.)
-// This route handles the callback after OAuth or credential verification
+// WARNING: This route trusts the client-supplied accessToken without server-side
+// verification. Before production use, validate the token against your auth backend.
+// TODO: replace with actual OAuth callback that verifies tokens server-side.
 export const POST = async (req: NextRequest) => {
   const parsed = ZLoginBody.safeParse(await req.json());
 

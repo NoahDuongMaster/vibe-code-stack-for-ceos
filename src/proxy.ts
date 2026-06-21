@@ -1,25 +1,11 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 60;
 const PROTECTED_ROUTES = ['/dashboard', '/profile', '/settings'];
 const SIGN_IN_PATH = '/sign-in';
 
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return false;
-  }
-
-  entry.count++;
-  return entry.count > RATE_LIMIT_MAX;
-}
+// Rate limiting is handled at the infrastructure layer (Cloudflare WAF / rate limiting rules).
+// In-memory Maps don't survive across stateless edge isolates.
 
 function isProtectedRoute(pathname: string): boolean {
   return PROTECTED_ROUTES.some(
@@ -33,15 +19,6 @@ function generateNonce(): string {
   return btoa(String.fromCharCode(...array));
 }
 
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of rateLimitMap) {
-      if (now > entry.resetAt) rateLimitMap.delete(key);
-    }
-  }, RATE_LIMIT_WINDOW_MS);
-}
-
 export default function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
 
@@ -51,25 +28,6 @@ export default function proxy(request: NextRequest): NextResponse {
       { error: 'Forbidden', code: 'PATH_TRAVERSAL' },
       { status: 403 },
     );
-  }
-
-  if (pathname.startsWith('/api/')) {
-    const ip =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-      request.headers.get('x-real-ip') ??
-      '127.0.0.1';
-
-    if (isRateLimited(ip)) {
-      return NextResponse.json(
-        { error: 'Too Many Requests', code: 'RATE_LIMITED' },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': String(Math.ceil(RATE_LIMIT_WINDOW_MS / 1000)),
-          },
-        },
-      );
-    }
   }
 
   if (isProtectedRoute(pathname)) {

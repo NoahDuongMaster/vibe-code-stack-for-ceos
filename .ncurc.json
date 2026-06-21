@@ -1,4 +1,5 @@
 {
   "upgrade": true,
+  "$comment": "eslint pinned for flat config (v9) compatibility — do not auto-upgrade until ecosystem stabilizes",
   "reject": ["eslint"]
 }

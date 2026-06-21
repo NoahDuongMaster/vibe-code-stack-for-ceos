@@ -43,8 +43,23 @@ else
   curl -LsSf https://astral.sh/uv/install.sh | sh 2>/dev/null || { echo -e "  ${RED}✗ Failed to install uv. Install manually: https://docs.astral.sh/uv/${RESET}"; }
 fi
 
-# ── 2. Build code-review-graph ────────────────────────────────────────────────
-echo -e "\n${BOLD}[2/5] code-review-graph${RESET}"
+# ── 2. Install PR-Agent (open-source code review) ────────────────────────────
+echo -e "\n${BOLD}[2/6] PR-Agent${RESET}"
+
+if command -v pr-agent >/dev/null 2>&1; then
+  echo -e "  ${GREEN}✓${RESET} pr-agent already installed ($(pr-agent --version 2>/dev/null || echo 'unknown version'))"
+elif command -v pipx >/dev/null 2>&1; then
+  echo -e "  Installing pr-agent via pipx..."
+  pipx install pr-agent && echo -e "  ${GREEN}✓${RESET} pr-agent installed" || echo -e "  ${YELLOW}⚠ Failed to install pr-agent via pipx${RESET}"
+elif command -v pip3 >/dev/null 2>&1; then
+  echo -e "  Installing pr-agent via pip3..."
+  pip3 install --user pr-agent && echo -e "  ${GREEN}✓${RESET} pr-agent installed" || echo -e "  ${YELLOW}⚠ Failed to install pr-agent via pip3${RESET}"
+else
+  echo -e "  ${YELLOW}⚠ No pip/pipx found. Install manually: pip install pr-agent${RESET}"
+fi
+
+# ── 3. Build code-review-graph ────────────────────────────────────────────────
+echo -e "\n${BOLD}[3/6] code-review-graph${RESET}"
 
 if command -v uvx >/dev/null 2>&1 || command -v code-review-graph >/dev/null 2>&1; then
   echo -e "  Building full graph..."
@@ -58,8 +73,8 @@ else
   echo -e "  ${YELLOW}⚠ Skipped — uvx not available${RESET}"
 fi
 
-# ── 3. Build graphify ─────────────────────────────────────────────────────────
-echo -e "\n${BOLD}[3/5] graphify${RESET}"
+# ── 4. Build graphify ─────────────────────────────────────────────────────────
+echo -e "\n${BOLD}[4/6] graphify${RESET}"
 
 if [ "$SKIP_GRAPHIFY" = true ]; then
   echo -e "  ${YELLOW}Skipped (--skip-graphify)${RESET}"
@@ -71,8 +86,8 @@ else
   echo -e "  ${YELLOW}⚠ graphify CLI not found — install via pip or skip${RESET}"
 fi
 
-# ── 4. Generate AI IDE configs ────────────────────────────────────────────────
-echo -e "\n${BOLD}[4/5] AI IDE configs${RESET}"
+# ── 5. Generate AI IDE configs ────────────────────────────────────────────────
+echo -e "\n${BOLD}[5/6] AI IDE configs${RESET}"
 
 if [ -x "$ROOT/scripts/gen-ai-config.sh" ]; then
   bash "$ROOT/scripts/gen-ai-config.sh"
@@ -80,9 +95,10 @@ else
   echo -e "  ${YELLOW}⚠ gen-ai-config.sh not found or not executable${RESET}"
 fi
 
-# ── 5. Verify ─────────────────────────────────────────────────────────────────
-echo -e "\n${BOLD}[5/5] Verify${RESET}"
+# ── 6. Verify ─────────────────────────────────────────────────────────────────
+echo -e "\n${BOLD}[6/6] Verify${RESET}"
 
+command -v pr-agent >/dev/null 2>&1 && echo -e "  ${GREEN}✓${RESET} pr-agent" || echo -e "  ${YELLOW}⚠${RESET} pr-agent not installed (pip install pr-agent)"
 [ -d "$ROOT/.code-review-graph" ] && echo -e "  ${GREEN}✓${RESET} .code-review-graph/" || echo -e "  ${YELLOW}⚠${RESET} .code-review-graph/ missing"
 [ -f "$ROOT/.mcp.json" ] && echo -e "  ${GREEN}✓${RESET} .mcp.json" || echo -e "  ${RED}✗${RESET} .mcp.json missing"
 [ -f "$ROOT/CLAUDE.md" ] && echo -e "  ${GREEN}✓${RESET} CLAUDE.md" || echo -e "  ${RED}✗${RESET} CLAUDE.md missing"

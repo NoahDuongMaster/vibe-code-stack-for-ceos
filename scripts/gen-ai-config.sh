@@ -205,22 +205,13 @@ cat > "$ROOT/.husky/pre-commit" << 'PRECOMMIT'
 #!/bin/sh
 npx lint-staged
 
-# AI code review (pre-commit) — skip in CI or when SKIP_AI_REVIEW=1
-if [ -z "$CI" ] && [ -z "$SKIP_AI_REVIEW" ] && command -v claude >/dev/null 2>&1; then
-  RULES_FILE="$(git rev-parse --show-toplevel)/.ai/rules.md"
+# AI code review (pre-commit) via PR-Agent (open-source, Apache 2.0)
+# Skip in CI or when SKIP_AI_REVIEW=1. Install: pip install pr-agent
+if [ -z "$CI" ] && [ -z "$SKIP_AI_REVIEW" ] && command -v pr-agent >/dev/null 2>&1; then
   DIFF=$(git diff --staged)
-  if [ -n "$DIFF" ] && [ -f "$RULES_FILE" ]; then
-    RULES=$(cat "$RULES_FILE")
-    REVIEW_PROMPT=$(cat <<REVIEW_EOF
-Senior engineer review. Check for bugs, security issues, architecture violations, and convention violations based on the project rules below.
-Say LGTM if clean, or list issues concisely (one line each).
-
---- PROJECT RULES ---
-$RULES
-REVIEW_EOF
-)
-    echo "$DIFF" | claude --print "$REVIEW_PROMPT" || \
-      echo "[AI review] Could not run automatically. Run manually: /review-changes"
+  if [ -n "$DIFF" ]; then
+    echo "$DIFF" | pr-agent review --local || \
+      echo "[AI review] Pre-commit review skipped. Will run at PR level via GitHub Action."
   fi
 fi
 PRECOMMIT

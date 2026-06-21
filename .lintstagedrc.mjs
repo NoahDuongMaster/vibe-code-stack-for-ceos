@@ -1,7 +1,7 @@
 const config = {
   '*.{js,ts,tsx,jsx,json,css}': ['biome check --write'],
   '*.{js,ts,tsx,jsx}': ['eslint --fix'],
-  '*.{ts,tsx}': [() => 'tsc --noEmit'],
+  '*.{ts,tsx}': [() => 'tsc --noEmit', 'vitest related --run'],
 };
 
 export default config;
