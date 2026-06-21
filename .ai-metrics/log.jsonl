@@ -1,2 +1,3 @@
 {"ts":"2026-06-18T09:40:46Z","hash":"3ce3aab5d67b3900a97226c6b00850a32a1358df","ai":false,"ins":7629,"del":6995,"files":217,"msg":"refactor: rebuild folder structure to vertical slice architecture + AI layer"}
 {"ts":"2026-06-21T04:48:28Z","hash":"609764c9ef2138d6952a01046fdffce07666a90f","ai":true,"ins":5869,"del":3046,"files":134,"msg":"chore(web): no-issue remove deprecated configuration files and update project ru"}
+{"ts":"2026-06-21T14:25:03Z","hash":"5bb2a790c0670182fd923e3f05efc6fd5ab7af6b","ai":true,"ins":48,"del":102,"files":12,"msg":"chore(web): no-issue update lint-staged configuration add comment to ncurc json "}
