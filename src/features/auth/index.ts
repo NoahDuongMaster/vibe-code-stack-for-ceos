@@ -1,3 +1,2 @@
-// Auth feature public API
-// Only export what other features / app/ need
-// Internal implementation stays in _components/, adapters/, services/
+export type { TSessionData, TSessionUser } from '@/shared/types/session.types';
+export { loginAction, logoutAction } from './actions/auth.action';

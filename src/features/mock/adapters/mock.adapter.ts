@@ -1,5 +1,5 @@
-import { Request } from '@/shared/lib/xhr';
 import { API_ROUTES } from '@/shared/constants/routes.constant';
+import { Request } from '@/shared/lib/xhr';
 
 import type { TGetMockQuery, TGetMockResponse } from '../schemas/mock.schema';
 

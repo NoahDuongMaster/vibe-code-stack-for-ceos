@@ -7,15 +7,33 @@
 import { Field } from '@ark-ui/react/field';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import { z } from 'zod';
+import { toaster } from '@/shared/lib/toaster';
 import { logger } from '@/shared/utils/logger.helper';
+import { css } from '@/styled-system/css';
 
 const CreateUserSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Enter a valid email address'),
 });
 type CreateUserValues = z.infer<typeof CreateUserSchema>;
+
+const inputStyles = css({
+  display: 'flex',
+  h: '10',
+  w: 'full',
+  rounded: 'md',
+  borderWidth: '1px',
+  borderColor: 'input',
+  bg: 'background',
+  px: '3',
+  py: '2',
+  fontSize: 'sm',
+  _placeholder: { color: 'muted.foreground' },
+  _focusVisible: { outline: 'none', ring: '2px solid', ringColor: 'ring' },
+  _disabled: { cursor: 'not-allowed', opacity: 0.5 },
+  _invalid: { borderColor: 'destructive' },
+});
 
 export default function FormExamplePage() {
   const {
@@ -29,49 +47,88 @@ export default function FormExamplePage() {
   });
 
   async function onSubmit(values: CreateUserValues) {
-    // In production: await userService.createUser(values)
     logger.info(`Submitted: ${JSON.stringify(values)}`);
-    toast.success('User created!');
+    toaster.success({ title: 'User created!' });
     reset();
   }
 
   return (
-    <div className="p-8 max-w-md mx-auto space-y-6">
+    <div
+      className={css({
+        p: '8',
+        maxW: 'md',
+        mx: 'auto',
+        display: 'flex',
+        flexDir: 'column',
+        gap: '6',
+      })}
+    >
       <div>
-        <h1 className="text-2xl font-bold">Form Example</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className={css({ fontSize: '2xl', fontWeight: 'bold' })}>
+          Form Example
+        </h1>
+        <p className={css({ color: 'muted.foreground', mt: '1' })}>
           Ark UI Field + react-hook-form + Zod.
         </p>
       </div>
 
-      <div className="rounded-lg border bg-card p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Create User</h2>
+      <div
+        className={css({
+          rounded: 'lg',
+          borderWidth: '1px',
+          bg: 'card',
+          p: '6',
+          display: 'flex',
+          flexDir: 'column',
+          gap: '4',
+        })}
+      >
+        <h2 className={css({ fontSize: 'lg', fontWeight: 'semibold' })}>
+          Create User
+        </h2>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className={css({ display: 'flex', flexDir: 'column', gap: '4' })}
+        >
           <Field.Root invalid={!!errors.name}>
-            <Field.Label className="text-sm font-medium">Name</Field.Label>
+            <Field.Label
+              className={css({ fontSize: 'sm', fontWeight: 'medium' })}
+            >
+              Name
+            </Field.Label>
             <Field.Input
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[invalid]:border-destructive"
+              className={inputStyles}
               placeholder="Alice"
               {...register('name')}
             />
-            <Field.HelperText className="text-sm text-muted-foreground">
+            <Field.HelperText
+              className={css({ fontSize: 'sm', color: 'muted.foreground' })}
+            >
               Your full display name.
             </Field.HelperText>
-            <Field.ErrorText className="text-sm text-destructive">
+            <Field.ErrorText
+              className={css({ fontSize: 'sm', color: 'destructive' })}
+            >
               {errors.name?.message}
             </Field.ErrorText>
           </Field.Root>
 
           <Field.Root invalid={!!errors.email}>
-            <Field.Label className="text-sm font-medium">Email</Field.Label>
+            <Field.Label
+              className={css({ fontSize: 'sm', fontWeight: 'medium' })}
+            >
+              Email
+            </Field.Label>
             <Field.Input
               type="email"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[invalid]:border-destructive"
+              className={inputStyles}
               placeholder="alice@example.com"
               {...register('email')}
             />
-            <Field.ErrorText className="text-sm text-destructive">
+            <Field.ErrorText
+              className={css({ fontSize: 'sm', color: 'destructive' })}
+            >
               {errors.email?.message}
             </Field.ErrorText>
           </Field.Root>
@@ -79,7 +136,23 @@ export default function FormExamplePage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-medium h-10 px-4 hover:bg-primary/90 transition-colors disabled:pointer-events-none disabled:opacity-50"
+            className={css({
+              w: 'full',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              rounded: 'md',
+              bg: 'primary',
+              color: 'primary.foreground',
+              fontSize: 'sm',
+              fontWeight: 'medium',
+              h: '10',
+              px: '4',
+              cursor: 'pointer',
+              transition: 'colors',
+              _hover: { opacity: 0.9 },
+              _disabled: { pointerEvents: 'none', opacity: 0.5 },
+            })}
           >
             {isSubmitting ? 'Creating…' : 'Create User'}
           </button>

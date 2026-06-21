@@ -1,10 +1,5 @@
 {
   "compilerOptions": {
-    "baseUrl": "./",
-    "ignoreDeprecations": "6.0",
-    "paths": {
-      "@/*": ["src/*"]
-    },
     "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
@@ -26,15 +21,16 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "next-i18next.config.js",
-    "vitest.config.mts",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]

@@ -4,33 +4,83 @@
 
 import { Suspense } from 'react';
 import { getMockAPI } from '@/features/mock';
+import { css } from '@/styled-system/css';
 
 async function DataContent() {
   const result = await getMockAPI({ delay: 1000 });
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-2">
-      <h2 className="font-semibold">Server-side Data</h2>
-      <p className="text-sm text-muted-foreground">{result.data}</p>
+    <div
+      className={css({
+        rounded: 'lg',
+        borderWidth: '1px',
+        bg: 'card',
+        p: '6',
+        display: 'flex',
+        flexDir: 'column',
+        gap: '2',
+      })}
+    >
+      <h2 className={css({ fontWeight: 'semibold' })}>Server-side Data</h2>
+      <p className={css({ fontSize: 'sm', color: 'muted.foreground' })}>
+        {result.data}
+      </p>
     </div>
   );
 }
 
 export default function ServerDataPage() {
   return (
-    <div className="p-8 space-y-6 max-w-2xl mx-auto">
+    <div
+      className={css({
+        p: '8',
+        maxW: '2xl',
+        mx: 'auto',
+        display: 'flex',
+        flexDir: 'column',
+        gap: '6',
+      })}
+    >
       <div>
-        <h1 className="text-2xl font-bold">Server Component Example</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className={css({ fontSize: '2xl', fontWeight: 'bold' })}>
+          Server Component Example
+        </h1>
+        <p className={css({ color: 'muted.foreground', mt: '1' })}>
           Data is fetched on the server. No loading state managed by client.
         </p>
       </div>
 
       <Suspense
         fallback={
-          <div className="rounded-lg border bg-card p-6 space-y-3">
-            <div className="h-5 w-40 animate-pulse rounded-md bg-muted" />
-            <div className="h-4 w-full animate-pulse rounded-md bg-muted" />
+          <div
+            className={css({
+              rounded: 'lg',
+              borderWidth: '1px',
+              bg: 'card',
+              p: '6',
+              display: 'flex',
+              flexDir: 'column',
+              gap: '3',
+            })}
+          >
+            <div
+              className={css({
+                h: '5',
+                w: '40',
+                animation: 'pulse 2s ease-in-out infinite',
+                rounded: 'md',
+                bg: 'muted',
+              })}
+            />
+            <div
+              className={css({
+                h: '4',
+                w: 'full',
+                animation: 'pulse 2s ease-in-out infinite',
+                rounded: 'md',
+                bg: 'muted',
+              })}
+            />
           </div>
         }
       >

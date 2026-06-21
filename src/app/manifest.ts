@@ -2,9 +2,10 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'NextJS Boilerplate PWA',
-    short_name: 'NextJS Boilerplate PWA',
-    description: 'A Progressive Web App built with Next.js',
+    name: 'AI-First Next.js Boilerplate',
+    short_name: 'AI-First Next.js',
+    description:
+      'Production-ready Next.js 15 boilerplate with vertical slice architecture, built for AI-assisted development.',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',

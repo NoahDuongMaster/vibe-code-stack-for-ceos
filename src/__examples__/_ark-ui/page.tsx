@@ -1,7 +1,7 @@
 'use client';
 
 // EXAMPLE: Ark UI headless components
-// All components are unstyled — apply Tailwind classes directly on the parts
+// All components are unstyled — apply Panda CSS styles directly on the parts
 // data-[state=open], data-[highlighted], data-[selected] etc. for state-based styling
 
 import { Accordion } from '@ark-ui/react/accordion';
@@ -13,6 +13,8 @@ import { Tooltip } from '@ark-ui/react/tooltip';
 import { Check, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { useState } from 'react';
 import { ColorModeToggle } from '@/features/color-mode';
+import { css } from '@/styled-system/css';
+import { flex } from '@/styled-system/patterns';
 
 const frameworks = createListCollection({
   items: [
@@ -26,29 +28,63 @@ export default function ArkUIExamplePage() {
   const [notifications, setNotifications] = useState(true);
 
   return (
-    <div className="p-8 max-w-2xl mx-auto space-y-10">
-      <div className="flex items-center justify-between">
+    <div
+      className={css({
+        p: '8',
+        maxW: '2xl',
+        mx: 'auto',
+        display: 'flex',
+        flexDir: 'column',
+        gap: '10',
+      })}
+    >
+      <div className={flex({ align: 'center', justify: 'space-between' })}>
         <div>
-          <h1 className="text-2xl font-bold">Ark UI Examples</h1>
-          <p className="text-muted-foreground mt-1">
-            Headless components — styled with plain Tailwind.
+          <h1 className={css({ fontSize: '2xl', fontWeight: 'bold' })}>
+            Ark UI Examples
+          </h1>
+          <p className={css({ color: 'muted.foreground', mt: '1' })}>
+            Headless components — styled with Panda CSS.
           </p>
         </div>
         <ColorModeToggle />
       </div>
 
       {/* Tabs */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <section
+        className={css({ display: 'flex', flexDir: 'column', gap: '3' })}
+      >
+        <h2
+          className={css({
+            fontSize: 'sm',
+            fontWeight: 'semibold',
+            textTransform: 'uppercase',
+            letterSpacing: 'wider',
+            color: 'muted.foreground',
+          })}
+        >
           Tabs
         </h2>
         <Tabs.Root defaultValue="overview">
-          <Tabs.List className="flex border-b gap-1">
+          <Tabs.List className={flex({ borderBottomWidth: '1px', gap: '1' })}>
             {['overview', 'settings', 'billing'].map((tab) => (
               <Tabs.Trigger
                 key={tab}
                 value={tab}
-                className="px-4 py-2 text-sm font-medium capitalize text-muted-foreground border-b-2 border-transparent data-[selected]:border-primary data-[selected]:text-foreground transition-colors hover:text-foreground"
+                className={css({
+                  px: '4',
+                  py: '2',
+                  fontSize: 'sm',
+                  fontWeight: 'medium',
+                  textTransform: 'capitalize',
+                  color: 'muted.foreground',
+                  borderBottomWidth: '2px',
+                  borderColor: 'transparent',
+                  cursor: 'pointer',
+                  transition: 'colors',
+                  _hover: { color: 'foreground' },
+                  _selected: { borderColor: 'primary', color: 'foreground' },
+                })}
               >
                 {tab}
               </Tabs.Trigger>
@@ -56,19 +92,31 @@ export default function ArkUIExamplePage() {
           </Tabs.List>
           <Tabs.Content
             value="overview"
-            className="pt-4 text-sm text-muted-foreground"
+            className={css({
+              pt: '4',
+              fontSize: 'sm',
+              color: 'muted.foreground',
+            })}
           >
             Overview content goes here.
           </Tabs.Content>
           <Tabs.Content
             value="settings"
-            className="pt-4 text-sm text-muted-foreground"
+            className={css({
+              pt: '4',
+              fontSize: 'sm',
+              color: 'muted.foreground',
+            })}
           >
             Settings content goes here.
           </Tabs.Content>
           <Tabs.Content
             value="billing"
-            className="pt-4 text-sm text-muted-foreground"
+            className={css({
+              pt: '4',
+              fontSize: 'sm',
+              color: 'muted.foreground',
+            })}
           >
             Billing content goes here.
           </Tabs.Content>
@@ -76,28 +124,79 @@ export default function ArkUIExamplePage() {
       </section>
 
       {/* Select */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <section
+        className={css({ display: 'flex', flexDir: 'column', gap: '3' })}
+      >
+        <h2
+          className={css({
+            fontSize: 'sm',
+            fontWeight: 'semibold',
+            textTransform: 'uppercase',
+            letterSpacing: 'wider',
+            color: 'muted.foreground',
+          })}
+        >
           Select
         </h2>
         <Select.Root collection={frameworks} positioning={{ sameWidth: true }}>
-          <Select.Label className="text-sm font-medium">Framework</Select.Label>
+          <Select.Label
+            className={css({ fontSize: 'sm', fontWeight: 'medium' })}
+          >
+            Framework
+          </Select.Label>
           <Select.Control>
-            <Select.Trigger className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <Select.Trigger
+              className={flex({
+                h: '10',
+                w: 'full',
+                align: 'center',
+                justify: 'space-between',
+                rounded: 'md',
+                borderWidth: '1px',
+                borderColor: 'input',
+                bg: 'background',
+                px: '3',
+                py: '2',
+                fontSize: 'sm',
+                cursor: 'pointer',
+                _focus: {
+                  outline: 'none',
+                  ring: '2px solid',
+                  ringColor: 'ring',
+                },
+              })}
+            >
               <Select.ValueText placeholder="Select a framework" />
-              <ChevronDown className="h-4 w-4 opacity-50" />
+              <ChevronDown className={css({ h: '4', w: '4', opacity: 0.5 })} />
             </Select.Trigger>
           </Select.Control>
           <Select.Positioner>
-            <Select.Content className="z-50 rounded-md border bg-popover shadow-md overflow-hidden">
+            <Select.Content
+              className={css({
+                zIndex: 50,
+                rounded: 'md',
+                borderWidth: '1px',
+                bg: 'popover',
+                shadow: 'md',
+                overflow: 'hidden',
+              })}
+            >
               {frameworks.items.map((item) => (
                 <Select.Item
                   key={item.value}
                   item={item}
-                  className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
+                  className={flex({
+                    cursor: 'pointer',
+                    align: 'center',
+                    gap: '2',
+                    px: '3',
+                    py: '2',
+                    fontSize: 'sm',
+                    _highlighted: { bg: 'accent', color: 'accent.foreground' },
+                  })}
                 >
                   <Select.ItemIndicator>
-                    <Check className="h-4 w-4" />
+                    <Check className={css({ h: '4', w: '4' })} />
                   </Select.ItemIndicator>
                   <Select.ItemText>{item.label}</Select.ItemText>
                 </Select.Item>
@@ -108,11 +207,24 @@ export default function ArkUIExamplePage() {
       </section>
 
       {/* Accordion */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <section
+        className={css({ display: 'flex', flexDir: 'column', gap: '3' })}
+      >
+        <h2
+          className={css({
+            fontSize: 'sm',
+            fontWeight: 'semibold',
+            textTransform: 'uppercase',
+            letterSpacing: 'wider',
+            color: 'muted.foreground',
+          })}
+        >
           Accordion
         </h2>
-        <Accordion.Root collapsible className="rounded-md border divide-y">
+        <Accordion.Root
+          collapsible
+          className={css({ rounded: 'md', borderWidth: '1px', divideY: '1px' })}
+        >
           {[
             {
               value: 'q1',
@@ -122,7 +234,7 @@ export default function ArkUIExamplePage() {
             {
               value: 'q2',
               title: 'Why no pre-built styles?',
-              body: 'You bring your own styling system — Tailwind, CSS Modules, CSS-in-JS. No specificity battles.',
+              body: 'You bring your own styling system — Panda CSS, CSS Modules, CSS-in-JS. No specificity battles.',
             },
             {
               value: 'q3',
@@ -131,14 +243,43 @@ export default function ArkUIExamplePage() {
             },
           ].map(({ value, title, body }) => (
             <Accordion.Item key={value} value={value}>
-              <Accordion.ItemTrigger className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium hover:bg-accent/50 transition-colors">
+              <Accordion.ItemTrigger
+                className={flex({
+                  w: 'full',
+                  align: 'center',
+                  justify: 'space-between',
+                  px: '4',
+                  py: '3',
+                  fontSize: 'sm',
+                  fontWeight: 'medium',
+                  cursor: 'pointer',
+                  transition: 'colors',
+                  _hover: { bg: 'accent/50' },
+                })}
+              >
                 {title}
                 <Accordion.ItemIndicator>
-                  <ChevronRight className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-90" />
+                  <ChevronRight
+                    className={css({
+                      h: '4',
+                      w: '4',
+                      transition: 'transform',
+                      transitionDuration: '200ms',
+                      _open: { transform: 'rotate(90deg)' },
+                    })}
+                  />
                 </Accordion.ItemIndicator>
               </Accordion.ItemTrigger>
-              <Accordion.ItemContent className="overflow-hidden text-sm text-muted-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
-                <p className="px-4 pb-3">{body}</p>
+              <Accordion.ItemContent
+                className={css({
+                  overflow: 'hidden',
+                  fontSize: 'sm',
+                  color: 'muted.foreground',
+                  _open: { animation: 'fadeIn 0.2s ease-out' },
+                  _closed: { animation: 'fadeOut 0.15s ease-in' },
+                })}
+              >
+                <p className={css({ px: '4', pb: '3' })}>{body}</p>
               </Accordion.ItemContent>
             </Accordion.Item>
           ))}
@@ -146,30 +287,89 @@ export default function ArkUIExamplePage() {
       </section>
 
       {/* Switch + Tooltip */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <section
+        className={css({ display: 'flex', flexDir: 'column', gap: '3' })}
+      >
+        <h2
+          className={css({
+            fontSize: 'sm',
+            fontWeight: 'semibold',
+            textTransform: 'uppercase',
+            letterSpacing: 'wider',
+            color: 'muted.foreground',
+          })}
+        >
           Switch + Tooltip
         </h2>
-        <div className="flex items-center gap-4">
+        <div className={flex({ align: 'center', gap: '4' })}>
           <Switch.Root
             checked={notifications}
             onCheckedChange={(e) => setNotifications(e.checked)}
-            className="flex items-center gap-2 cursor-pointer"
+            className={flex({ align: 'center', gap: '2', cursor: 'pointer' })}
           >
-            <Switch.Control className="relative inline-flex h-6 w-11 items-center rounded-full border-2 border-transparent bg-input transition-colors data-[state=checked]:bg-primary">
-              <Switch.Thumb className="pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0.5" />
+            <Switch.Control
+              className={css({
+                position: 'relative',
+                display: 'inline-flex',
+                h: '6',
+                w: '11',
+                alignItems: 'center',
+                rounded: 'full',
+                borderWidth: '2px',
+                borderColor: 'transparent',
+                bg: 'input',
+                transition: 'colors',
+                _checked: { bg: 'primary' },
+              })}
+            >
+              <Switch.Thumb
+                className={css({
+                  pointerEvents: 'none',
+                  display: 'block',
+                  h: '4',
+                  w: '4',
+                  rounded: 'full',
+                  bg: 'white',
+                  shadow: 'lg',
+                  transition: 'transform',
+                  _checked: { transform: 'translateX(20px)' },
+                  _unchecked: { transform: 'translateX(2px)' },
+                })}
+              />
             </Switch.Control>
-            <Switch.Label className="text-sm font-medium">
+            <Switch.Label
+              className={css({ fontSize: 'sm', fontWeight: 'medium' })}
+            >
               Notifications
             </Switch.Label>
           </Switch.Root>
 
           <Tooltip.Root openDelay={200}>
-            <Tooltip.Trigger className="text-sm text-muted-foreground underline underline-offset-2 cursor-help">
-              What's this?
+            <Tooltip.Trigger
+              className={css({
+                fontSize: 'sm',
+                color: 'muted.foreground',
+                textDecoration: 'underline',
+                textUnderlineOffset: '2px',
+                cursor: 'help',
+              })}
+            >
+              What&apos;s this?
             </Tooltip.Trigger>
             <Tooltip.Positioner>
-              <Tooltip.Content className="z-50 rounded-md bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95">
+              <Tooltip.Content
+                className={css({
+                  zIndex: 50,
+                  rounded: 'md',
+                  bg: 'popover',
+                  px: '3',
+                  py: '1.5',
+                  fontSize: 'sm',
+                  color: 'popover.foreground',
+                  shadow: 'md',
+                  _open: { animation: 'fadeIn 0.15s ease-out' },
+                })}
+              >
                 Toggle email and push notifications for your account.
               </Tooltip.Content>
             </Tooltip.Positioner>
@@ -178,33 +378,146 @@ export default function ArkUIExamplePage() {
       </section>
 
       {/* Dialog */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <section
+        className={css({ display: 'flex', flexDir: 'column', gap: '3' })}
+      >
+        <h2
+          className={css({
+            fontSize: 'sm',
+            fontWeight: 'semibold',
+            textTransform: 'uppercase',
+            letterSpacing: 'wider',
+            color: 'muted.foreground',
+          })}
+        >
           Dialog
         </h2>
         <Dialog.Root>
-          <Dialog.Trigger className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-medium h-10 px-4 hover:bg-primary/90 transition-colors">
+          <Dialog.Trigger
+            className={css({
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              rounded: 'md',
+              bg: 'primary',
+              color: 'primary.foreground',
+              fontSize: 'sm',
+              fontWeight: 'medium',
+              h: '10',
+              px: '4',
+              cursor: 'pointer',
+              transition: 'colors',
+              _hover: { opacity: 0.9 },
+            })}
+          >
             Open Dialog
           </Dialog.Trigger>
-          <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <Dialog.Positioner className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <Dialog.Content className="w-full max-w-md rounded-lg bg-background p-6 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
-              <div className="flex items-center justify-between mb-4">
-                <Dialog.Title className="text-lg font-semibold">
+          <Dialog.Backdrop
+            className={css({
+              position: 'fixed',
+              inset: '0',
+              zIndex: 50,
+              bg: 'black/50',
+              _open: { animation: 'fadeIn 0.2s ease-out' },
+              _closed: { animation: 'fadeOut 0.15s ease-in' },
+            })}
+          />
+          <Dialog.Positioner
+            className={css({
+              position: 'fixed',
+              inset: '0',
+              zIndex: 50,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: '4',
+            })}
+          >
+            <Dialog.Content
+              className={css({
+                w: 'full',
+                maxW: 'md',
+                rounded: 'lg',
+                bg: 'background',
+                p: '6',
+                shadow: 'lg',
+                _open: {
+                  animation: 'fadeIn 0.2s ease-out, zoomIn 0.2s ease-out',
+                },
+                _closed: {
+                  animation: 'fadeOut 0.15s ease-in, zoomOut 0.15s ease-in',
+                },
+              })}
+            >
+              <div
+                className={flex({
+                  align: 'center',
+                  justify: 'space-between',
+                  mb: '4',
+                })}
+              >
+                <Dialog.Title
+                  className={css({ fontSize: 'lg', fontWeight: 'semibold' })}
+                >
                   Confirm action
                 </Dialog.Title>
-                <Dialog.CloseTrigger className="rounded-sm opacity-70 hover:opacity-100 transition-opacity">
-                  <X className="h-4 w-4" />
+                <Dialog.CloseTrigger
+                  className={css({
+                    rounded: 'sm',
+                    opacity: 0.7,
+                    cursor: 'pointer',
+                    transition: 'opacity',
+                    _hover: { opacity: 1 },
+                  })}
+                >
+                  <X className={css({ h: '4', w: '4' })} />
                 </Dialog.CloseTrigger>
               </div>
-              <Dialog.Description className="text-sm text-muted-foreground mb-6">
+              <Dialog.Description
+                className={css({
+                  fontSize: 'sm',
+                  color: 'muted.foreground',
+                  mb: '6',
+                })}
+              >
                 This action cannot be undone. Are you sure you want to continue?
               </Dialog.Description>
-              <div className="flex justify-end gap-3">
-                <Dialog.CloseTrigger className="inline-flex items-center justify-center rounded-md border text-sm font-medium h-10 px-4 hover:bg-accent transition-colors">
+              <div className={flex({ justify: 'flex-end', gap: '3' })}>
+                <Dialog.CloseTrigger
+                  className={css({
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    rounded: 'md',
+                    borderWidth: '1px',
+                    fontSize: 'sm',
+                    fontWeight: 'medium',
+                    h: '10',
+                    px: '4',
+                    cursor: 'pointer',
+                    transition: 'colors',
+                    _hover: { bg: 'accent' },
+                  })}
+                >
                   Cancel
                 </Dialog.CloseTrigger>
-                <Dialog.CloseTrigger className="inline-flex items-center justify-center rounded-md bg-destructive text-white text-sm font-medium h-10 px-4 hover:bg-destructive/90 transition-colors">
+                <Dialog.CloseTrigger
+                  className={css({
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    rounded: 'md',
+                    bg: 'destructive',
+                    color: 'white',
+                    fontSize: 'sm',
+                    fontWeight: 'medium',
+                    h: '10',
+                    px: '4',
+                    cursor: 'pointer',
+                    transition: 'colors',
+                    _hover: { opacity: 0.9 },
+                  })}
+                >
                   Continue
                 </Dialog.CloseTrigger>
               </div>

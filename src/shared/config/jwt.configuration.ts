@@ -1,6 +1,6 @@
 import { env } from './env.configuration';
 
-const PROJECT_NAME = env.client.NEXT_PUBLIC_PROJECT_NAME!;
+const PROJECT_NAME = env.client.NEXT_PUBLIC_PROJECT_NAME;
 
 const jwt = {
   accessToken: {
@@ -13,7 +13,7 @@ const jwt = {
       domain:
         process.env.NODE_ENV === 'development'
           ? undefined
-          : env.client.NEXT_PUBLIC_CORS_COOKIE!,
+          : (env.client.NEXT_PUBLIC_CORS_COOKIE ?? undefined),
     },
   },
   refreshToken: {
@@ -26,7 +26,7 @@ const jwt = {
       domain:
         process.env.NODE_ENV === 'development'
           ? undefined
-          : env.client.NEXT_PUBLIC_CORS_COOKIE!,
+          : (env.client.NEXT_PUBLIC_CORS_COOKIE ?? undefined),
     },
   },
 };

@@ -1,7 +1,0 @@
-{
-  "extends": "stylelint-config-standard-scss",
-  "rules": {
-    "scss/at-rule-no-unknown": null,
-    "selector-id-pattern": null
-  }
-}

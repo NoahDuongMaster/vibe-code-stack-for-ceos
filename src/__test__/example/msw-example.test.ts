@@ -19,7 +19,7 @@ import { server } from '../mocks/server';
 describe('MSW default handlers', () => {
   it('GET /api/health returns ok status', async () => {
     const response = await fetch('/api/health');
-    const data = await response.json();
+    const data: Record<string, unknown> = await response.json();
 
     expect(response.status).toBe(200);
     expect(data.status).toBe('ok');
@@ -32,7 +32,7 @@ describe('MSW default handlers', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'test@example.com', password: 'password' }),
     });
-    const data = await response.json();
+    const data: Record<string, unknown> = await response.json();
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
@@ -46,6 +46,14 @@ describe('MSW default handlers', () => {
     });
 
     expect(response.status).toBe(401);
+  });
+
+  it('POST /api/auth/logout returns success', async () => {
+    const response = await fetch('/api/auth/logout', { method: 'POST' });
+    const data: Record<string, unknown> = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
   });
 });
 

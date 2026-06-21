@@ -2,9 +2,10 @@ import { $fetch, FetchError, type FetchOptions } from 'ofetch';
 import { env } from '@/shared/config/env.configuration';
 import { jwt } from '@/shared/config/jwt.configuration';
 import { WEB_ROUTES } from '@/shared/constants/routes.constant';
+import { camelizeKeys, snakifyKeys } from '@/shared/utils/case.helper';
 
 const DEFAULT_TIMEOUT = 30_000;
-const DEFAULT_BASE_URL = env.client.NEXT_PUBLIC_API_ENDPOINT!;
+const DEFAULT_BASE_URL = env.client.NEXT_PUBLIC_API_ENDPOINT ?? '';
 const DEFAULT_REFRESH_PATH = 'refresh-token'; // TODO: change to actual refresh endpoint
 
 // --- token helpers (client-only) ---
@@ -63,8 +64,12 @@ export class Request {
         credentials: 'include',
       },
     );
-    const newAccess = res.data[jwt.accessToken.key]!;
-    const newRefresh = res.data[jwt.refreshToken.key]!;
+    const newAccess = res.data[jwt.accessToken.key];
+    const newRefresh = res.data[jwt.refreshToken.key];
+    if (!newAccess || !newRefresh) {
+      clearTokensAndRedirect();
+      throw new Error('Invalid refresh response');
+    }
     setTokens(newAccess, newRefresh);
     return newAccess;
   }
@@ -79,6 +84,26 @@ export class Request {
         ...options.headers,
       },
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+      onRequest({ options: reqOpts }) {
+        if (
+          reqOpts.body &&
+          typeof reqOpts.body === 'object' &&
+          !(reqOpts.body instanceof FormData) &&
+          !(reqOpts.body instanceof Blob) &&
+          !(reqOpts.body instanceof ArrayBuffer) &&
+          !(reqOpts.body instanceof URLSearchParams)
+        ) {
+          reqOpts.body = snakifyKeys(reqOpts.body);
+        }
+        if (reqOpts.params && typeof reqOpts.params === 'object') {
+          reqOpts.params = snakifyKeys(reqOpts.params);
+        }
+      },
+      onResponse({ response }) {
+        if (response._data && typeof response._data === 'object') {
+          response._data = camelizeKeys(response._data);
+        }
+      },
     };
 
     try {

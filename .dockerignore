@@ -1,8 +1,33 @@
-Dockerfile
-.dockerignore
 node_modules
-npm-debug.log
-README.md
 .next
-docker
+dist
 .git
+docker
+
+# AI/IDE configs
+.ai
+.ai-metrics
+.claude
+.cursor
+.gemini
+.kiro
+.qoder
+graphify-out
+
+# Test & docs
+coverage
+playwright-report
+test-results
+*.md
+!README.md
+
+# Env (injected at build via COPY .env.*.sample)
+.env
+.env.*
+!.env.development.sample
+!.env.staging.sample
+!.env.production.sample
+
+# Misc
+npm-debug.log
+.DS_Store

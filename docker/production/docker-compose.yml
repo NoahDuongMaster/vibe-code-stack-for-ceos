@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   web-production:
     build:
@@ -8,3 +6,5 @@ services:
     image: web-production
     ports:
       - '80:80'
+    env_file:
+      - ../../.env.production.sample

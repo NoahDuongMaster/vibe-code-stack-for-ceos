@@ -2,25 +2,44 @@
 // Rules: no 'use client', minimal logic — render Client Components via Suspense
 
 import { Suspense } from 'react';
+import { css } from '@/styled-system/css';
+import { grid } from '@/styled-system/patterns';
 import { PostList } from './components/post-list';
 
 export default function FullFeaturePage() {
   return (
-    <div className="p-8 space-y-6 max-w-4xl mx-auto">
+    <div
+      className={css({
+        p: '8',
+        maxW: '4xl',
+        mx: 'auto',
+        display: 'flex',
+        flexDir: 'column',
+        gap: '6',
+      })}
+    >
       <div>
-        <h1 className="text-2xl font-bold">Full Feature Example</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className={css({ fontSize: '2xl', fontWeight: 'bold' })}>
+          Full Feature Example
+        </h1>
+        <p className={css({ color: 'muted.foreground', mt: '1' })}>
           Complete pattern: schema → adapter → service → hook → component → page
         </p>
       </div>
 
       <Suspense
         fallback={
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className={grid({ gap: '4', columns: { base: 1, md: 2 } })}>
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="h-32 w-full animate-pulse rounded-xl bg-muted"
+                className={css({
+                  h: '32',
+                  w: 'full',
+                  animation: 'pulse 2s ease-in-out infinite',
+                  rounded: 'xl',
+                  bg: 'muted',
+                })}
               />
             ))}
           </div>

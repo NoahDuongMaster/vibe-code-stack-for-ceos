@@ -6,23 +6,21 @@ const jiti = createJiti(fileURLToPath(import.meta.url));
 
 jiti.esmResolve('./src/shared/config/env.configuration.ts');
 
-const isDev = process.env.NODE_ENV !== 'production';
-
-const cspValue = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' blob: data: https:",
-  "font-src 'self' data:",
-  "connect-src 'self' https:",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  ...(!isDev ? ['upgrade-insecure-requests'] : []),
-].join('; ');
-
 const securityHeaders = [
+  {
+    key: 'Content-Security-Policy',
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' https://fonts.gstatic.com",
+      "connect-src 'self' https: wss:",
+      "frame-ancestors 'self'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; '),
+  },
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -37,12 +35,6 @@ const securityHeaders = [
   {
     key: 'Permissions-Policy',
     value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
-  },
-  {
-    key: isDev
-      ? 'Content-Security-Policy-Report-Only'
-      : 'Content-Security-Policy',
-    value: cspValue,
   },
 ];
 
@@ -85,4 +77,21 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Only apply Sentry webpack wrapper for `next build` (Docker/Node.js).
+// vinext (Vite-based) does not support webpack — skip to avoid the warning.
+const sentryEnabled = !!process.env.SENTRY_ORG && !!process.env.SENTRY_PROJECT;
+
+let config: NextConfig = nextConfig;
+
+if (sentryEnabled) {
+  const { withSentryConfig } = await import('@sentry/nextjs');
+  config = withSentryConfig(nextConfig, {
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    silent: !process.env.CI,
+    widenClientFileUpload: true,
+    tunnelRoute: '/monitoring',
+  });
+}
+
+export default config;

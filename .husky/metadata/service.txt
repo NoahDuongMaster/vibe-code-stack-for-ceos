@@ -1,1 +1,1 @@
-dapp|admin|infra|backend|admin-backend|proxy|snapshot|tma|serverless
+dapp|admin|infra|backend|admin-backend|proxy|snapshot|tma|serverless|web

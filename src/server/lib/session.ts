@@ -1,10 +1,11 @@
 import 'server-only';
 import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
+import { env } from '@/shared/config/env.configuration';
 import type { TSessionData } from '@/shared/types/session.types';
 
 const SESSION_OPTIONS = {
-  password: process.env.SESSION_SECRET!,
+  password: env.server.SESSION_SECRET,
   cookieName: 'app-session',
   cookieOptions: {
     secure: process.env.NODE_ENV === 'production',

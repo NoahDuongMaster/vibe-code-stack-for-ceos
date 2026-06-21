@@ -3,7 +3,7 @@ import {
   type ReactNode,
   useContext,
   useEffect,
-  useRef,
+  useState,
 } from 'react';
 import { type StoreApi, useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
@@ -13,7 +13,6 @@ type GlobalState = {
 };
 
 type GlobalActions = {
-  // eslint-disable-next-line no-unused-vars
   setTheme: (theme: 'dark' | 'light') => void;
 };
 
@@ -50,15 +49,11 @@ interface GlobalStoreProviderProps {
 const GlobalStoreContext = createContext<StoreApi<GlobalStore> | null>(null);
 
 const GlobalStoreProvider = ({ children }: GlobalStoreProviderProps) => {
-  const storeRef = useRef<StoreApi<GlobalStore> | null>(null);
-  if (!storeRef.current) {
-    storeRef.current = createGlobalStore();
-  }
+  const [store] = useState(() => createGlobalStore());
 
   useEffect(() => {
     function matchMode(e: MediaQueryListEvent) {
-      if (!storeRef.current) return;
-      storeRef.current.setState({ theme: e.matches ? 'dark' : 'light' });
+      store.setState({ theme: e.matches ? 'dark' : 'light' });
     }
 
     const mql = window.matchMedia('(prefers-color-scheme: dark)');
@@ -68,21 +63,20 @@ const GlobalStoreProvider = ({ children }: GlobalStoreProviderProps) => {
 
     const systemTheme = mql.matches ? 'dark' : 'light';
     const userTheme = localStorage.getItem('theme') as GlobalState['theme'];
-    storeRef.current?.setState({ theme: userTheme || systemTheme });
+    store.setState({ theme: userTheme || systemTheme });
 
     return () => {
       mql.removeEventListener('change', matchMode);
     };
-  }, []);
+  }, [store]);
 
   return (
-    <GlobalStoreContext.Provider value={storeRef.current}>
+    <GlobalStoreContext.Provider value={store}>
       {children}
     </GlobalStoreContext.Provider>
   );
 };
 
-// eslint-disable-next-line no-unused-vars
 const useGlobalStore = <T,>(selector: (store: GlobalStore) => T): T => {
   const globalStoreContext = useContext(GlobalStoreContext);
 

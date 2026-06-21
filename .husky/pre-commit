@@ -3,20 +3,19 @@ npx lint-staged
 
 # AI code review (pre-commit) — skip in CI or when SKIP_AI_REVIEW=1
 if [ -z "$CI" ] && [ -z "$SKIP_AI_REVIEW" ] && command -v claude >/dev/null 2>&1; then
+  RULES_FILE="$(git rev-parse --show-toplevel)/.ai/rules.md"
   DIFF=$(git diff --staged)
-  if [ -n "$DIFF" ]; then
-    echo "$DIFF" | claude --print "Senior engineer review for a Next.js 15 App Router project. Check:
-1) Bugs — logic errors, null-safety, unhandled edge cases
-2) Security — no secrets/tokens in code, no XSS vectors, no eval()
-3) Architecture violations:
-   - app/ must ONLY import from features/[name]/index.ts (never deep internals)
-   - features/[name]/_components/ and _hooks/ must NOT be imported outside their own feature
-   - shared/ must NOT import from features/ or app/
-   - server/lib/ must NOT be imported in Client Components or shared/
-   - Cross-feature imports are forbidden
-   - Feature adapters must ONLY be called from their own feature's services
-4) Conventions — named exports only (no default export on non-page files), no 'any', no console.log, no hardcoded URLs
-Say LGTM if clean, or list issues concisely (one line each)." || \
+  if [ -n "$DIFF" ] && [ -f "$RULES_FILE" ]; then
+    RULES=$(cat "$RULES_FILE")
+    REVIEW_PROMPT=$(cat <<REVIEW_EOF
+Senior engineer review. Check for bugs, security issues, architecture violations, and convention violations based on the project rules below.
+Say LGTM if clean, or list issues concisely (one line each).
+
+--- PROJECT RULES ---
+$RULES
+REVIEW_EOF
+)
+    echo "$DIFF" | claude --print "$REVIEW_PROMPT" || \
       echo "[AI review] Could not run automatically. Run manually: /review-changes"
   fi
 fi

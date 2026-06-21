@@ -142,10 +142,55 @@ describe('Request (xhr adapter)', () => {
     await req.get('/api/public');
 
     expect(mockFetch.mock.calls[0]).toBeDefined();
-    const opts = mockFetch.mock.calls[0]![1] as Record<string, unknown>;
+    const opts = mockFetch.mock.calls[0]?.[1] as Record<string, unknown>;
     const headers = opts.headers as Record<string, string> | undefined;
     expect(headers?.Authorization).toBeUndefined();
 
     vi.unstubAllGlobals();
+  });
+
+  it('returns null for tokens when window is undefined (server-side)', async () => {
+    const originalWindow = globalThis.window;
+    // @ts-expect-error -- simulate server environment
+    delete globalThis.window;
+
+    vi.resetModules();
+    const { Request: ServerRequest } = await import('@/shared/lib/xhr');
+
+    mockFetch.mockResolvedValue({ ok: true });
+    const req = new ServerRequest();
+    await req.get('/api/server-route');
+
+    const opts = mockFetch.mock.calls[0]?.[1] as Record<string, unknown>;
+    const headers = opts.headers as Record<string, string> | undefined;
+    expect(headers?.Authorization).toBeUndefined();
+
+    globalThis.window = originalWindow;
+  });
+});
+
+describe('Request – fallback base URL', () => {
+  let Request: typeof import('@/shared/lib/xhr')['Request'];
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+
+    vi.doMock('@/shared/config/env.configuration', () => ({
+      env: { client: { NEXT_PUBLIC_API_ENDPOINT: null } },
+    }));
+
+    ({ Request } = await import('@/shared/lib/xhr'));
+  });
+
+  it('uses empty string as baseURL when NEXT_PUBLIC_API_ENDPOINT is null', async () => {
+    mockFetch.mockResolvedValue({ data: 'ok' });
+    const req = new Request();
+    await req.get('/api/test');
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/test',
+      expect.objectContaining({ baseURL: '' }),
+    );
   });
 });

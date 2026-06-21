@@ -1,8 +1,8 @@
 // Step 2 of full-feature pattern: adapter — raw HTTP calls only
 // Rules: one function per endpoint, no business logic, no error transforms here
 
-import { Request } from '@/shared/lib/xhr';
 import { API_ROUTES } from '@/shared/constants/routes.constant';
+import { Request } from '@/shared/lib/xhr';
 import type { TPaginatedResponse } from '@/shared/types/api.types';
 import type {
   TCreatePostInput,

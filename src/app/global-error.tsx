@@ -1,6 +1,8 @@
 'use client';
 
+import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
+import { css } from '@/styled-system/css';
 
 const GlobalError = ({
   error,
@@ -10,29 +12,74 @@ const GlobalError = ({
   reset: () => void;
 }) => {
   useEffect(() => {
-    if (error) {
-      // biome-ignore lint/suspicious/noConsole: global error boundary logs before monitoring service is initialized
-      console.error(error);
-    }
-    return () => {
-      reset();
-    };
-  }, [error, reset]);
+    Sentry.captureException(error);
+  }, [error]);
   return (
     <html lang="en">
       <body>
-        <section className="bg-white dark:bg-gray-900">
-          <div className="py-8 px-4 mx-auto max-w-screen-xl lg:py-16 lg:px-6">
-            <div className="mx-auto max-w-screen-sm text-center">
-              <h1 className="mb-4 text-7xl tracking-tight font-extrabold lg:text-9xl text-primary-600 dark:text-primary-500">
+        <section className={css({ bg: 'background' })}>
+          <div
+            className={css({
+              py: '8',
+              px: '4',
+              mx: 'auto',
+              maxW: '5xl',
+              lg: { py: '16', px: '6' },
+            })}
+          >
+            <div
+              className={css({ mx: 'auto', maxW: 'xl', textAlign: 'center' })}
+            >
+              <h1
+                className={css({
+                  mb: '4',
+                  fontSize: { base: '7xl', lg: '9xl' },
+                  letterSpacing: 'tight',
+                  fontWeight: 'extrabold',
+                  color: 'destructive',
+                })}
+              >
                 500
               </h1>
-              <p className="mb-4 text-3xl tracking-tight font-bold text-gray-900 md:text-4xl dark:text-white">
+              <p
+                className={css({
+                  mb: '4',
+                  fontSize: { base: '3xl', md: '4xl' },
+                  letterSpacing: 'tight',
+                  fontWeight: 'bold',
+                  color: 'foreground',
+                })}
+              >
                 Internal Server Error.
               </p>
-              <p className="mb-4 text-lg font-light text-gray-500 dark:text-gray-400">
+              <p
+                className={css({
+                  mb: '4',
+                  fontSize: 'lg',
+                  fontWeight: 'light',
+                  color: 'muted.foreground',
+                })}
+              >
                 We are already working to solve the problem.
               </p>
+              <button
+                type="button"
+                onClick={reset}
+                className={css({
+                  mt: '4',
+                  px: '6',
+                  py: '2',
+                  rounded: 'md',
+                  bg: 'primary',
+                  color: 'primary.foreground',
+                  fontSize: 'sm',
+                  fontWeight: 'medium',
+                  cursor: 'pointer',
+                  _hover: { opacity: 0.9 },
+                })}
+              >
+                Try again
+              </button>
             </div>
           </div>
         </section>

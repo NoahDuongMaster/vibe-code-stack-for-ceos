@@ -34,6 +34,7 @@ jobs:
           NEXT_PUBLIC_PROJECT_NAME: e2e-build
           NEXT_PUBLIC_API_ENDPOINT: https://placeholder.example.com
           NEXT_PUBLIC_BASE_URL: https://placeholder.example.com
+          SESSION_SECRET: ci-placeholder-secret-32-chars!!
 
       - name: Run Playwright tests
         run: npx playwright test

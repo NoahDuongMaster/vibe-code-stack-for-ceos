@@ -1,45 +1,37 @@
-FROM node:18-slim AS base
+FROM node:22-slim AS base
 
 # 1. Install dependencies only when needed
 FROM base AS deps
-
-COPY .husky/install.mjs ./app/.husky/
-
 WORKDIR /app
 
-# Install dependencies based on the preferred package manager
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
-RUN \
-  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
-  elif [ -f package-lock.json ]; then npm ci; \
-  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i; \
-  else echo "Lockfile not found." && exit 1; \
-  fi
+COPY package.json package-lock.json* ./
+RUN npm ci --ignore-scripts
 
-# 2. Rebuild the source code only when needed
+# 2. Build with vinext
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# This will do the trick, use the corresponding env file for each environment.
-COPY .env.development .env.production
-RUN npm run build
+COPY .env.development.sample .env
+RUN npx panda codegen && npm run build
 
-# 3. Production image, copy all the files and run next
+# 3. Production image — run vinext standalone server
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY --from=builder /app/public ./public
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/dist/standalone ./
+
+USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
+ENV PORT=3000
+ENV HOST="0.0.0.0"
 
-CMD HOSTNAME="0.0.0.0" node server.js
+# Inject env vars at runtime via docker-compose env_file or -e flags
+CMD ["node", "server.js"]

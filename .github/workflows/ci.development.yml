@@ -1,30 +1,43 @@
-name: NextJS Boilerplate Builder
-on: [push]
+name: CI Development
+
+on:
+  push:
+    branches: [develop]
+
+env:
+  NODE_VERSION: "20"
+
 jobs:
   build:
+    name: Build (Development)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: lts/*
-      - uses: actions/cache@v4
-        with:
-          # See here for caching with `yarn` https://github.com/actions/cache/blob/main/examples.md#node---yarn or you can leverage caching with actions/setup-node https://github.com/actions/setup-node
-          path: |
-            ~/.npm
-            ${{ github.workspace }}/.next/cache
-          # Generate a new cache whenever packages or source files change.
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
-          # If source files changed but packages didn't, rebuild from a prior cache.
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
-      - name: Install depenencies
-        run: yarn install
-      - name: Building NextJS Boilerplate
-        run: yarn build
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
         env:
-          NEXT_PUBLIC_API_ENDPOINT: 'http://localhost:3000'
-          NEXT_PUBLIC_BASE_URL: 'http://localhost:3000'
-          NEXT_PUBLIC_CORS_COOKIE: localhost
-          CORS_ORIGIN: '*.localhost:3000,localhost:3000'
+          NODE_ENV: production
+          NEXT_PUBLIC_PROJECT_NAME: dev-build
+          NEXT_PUBLIC_API_ENDPOINT: https://api.dev.example.com
+          NEXT_PUBLIC_BASE_URL: https://dev.example.com
+          SESSION_SECRET: ci-placeholder-secret-32-chars!!

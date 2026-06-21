@@ -1,338 +1,361 @@
 <div align="center">
 
-# 🤖 AI-First Next.js Boilerplate
+<img src="public/og-image.png" alt="AI-First Next.js Boilerplate" width="100%" />
 
-**The most opinionated, production-ready Next.js boilerplate with first-class AI tooling**
+<br />
+<br />
 
-Ship full-stack Next.js apps faster with a battle-tested architecture that every AI coding assistant understands out of the box — Claude Code, Cursor, Gemini CLI, Kiro, Windsurf, and more all produce consistent, reviewable code from day one.
+# AI-First Next.js Boilerplate
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Biome](https://img.shields.io/badge/Biome-v2-60A5FA?logo=biome&logoColor=white)](https://biomejs.dev)
-[![Vitest](https://img.shields.io/badge/Vitest-v4-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
+### Stop prompting. Start shipping.
+
+The **only** Next.js boilerplate where Claude Code, Cursor, Gemini CLI, Kiro, Copilot, and Windsurf all produce **identical, production-grade code** — without custom prompting.
+
+[![GitHub stars](https://img.shields.io/github/stars/NoahDuongMaster/ai-first-nextjs-boilerplate?style=for-the-badge&logo=github&color=yellow)](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/NoahDuongMaster/ai-first-nextjs-boilerplate?style=for-the-badge&logo=github&color=blue)](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/network/members)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](https://opensource.org/licenses/MIT)
+
+[Get Started](#-quick-start) · [Why This Exists](#-the-problem) · [Features](#-what-you-get) · [Star History](#-star-history)
 
 </div>
 
 ---
 
-## Why This Boilerplate?
+## The Problem
 
-| | `create-next-app` | `t3-app` | **AI-First Boilerplate** |
-|---|---|---|---|
-| Architecture conventions | None | Partial | Strict, ESLint-enforced |
-| AI tool config | None | None | Claude, Cursor, Gemini, Kiro, Windsurf |
-| Pre-commit AI code review | No | No | Yes (Code Review Graph MCP) |
-| Type-safe server actions | No | No | Yes (next-safe-action v8) |
-| Headless UI primitives | None | None | Ark UI v5 (unstyled, accessible) |
-| Canonical examples | No | No | Yes (`src/__examples__/`) |
-| Docker (dev/staging/prod) | No | No | Yes (three-tier) |
-| Security headers | No | No | Yes (CSP, HSTS, OWASP) |
-| International standards | No | Partial | Full (commitlint, branch rules, layered arch) |
+You open Cursor, type "create a user profile page," and get:
+- A file in the wrong folder
+- `useState` for form fields instead of react-hook-form
+- Raw `fetch()` instead of your HTTP client
+- `console.log` everywhere
+- No Zod validation, no error boundaries, no types
+
+**You spend more time fixing AI output than writing code yourself.**
+
+This boilerplate solves that. Every AI tool reads the same rules, follows the same architecture, and produces code that passes your linting, type-checking, and code review — on the first try.
 
 ---
 
-## Features
+## Why Developers Are Switching
 
-### AI-First Development
-- **CLAUDE.md** — single source of truth for Claude Code, Cursor, Copilot, DeepSeek, and any AI assistant
-- **GEMINI.md** — Gemini CLI project context and steering rules
-- **AGENTS.md** — Kiro / OpenAI Agents compatible spec
-- **QODER.md** — Code Review Graph MCP integration guide
-- `.claude/steering/` and `.kiro/steering/` — per-AI rule files that override global behavior
-- Pre-commit AI code review via **Code Review Graph MCP** (semantic impact analysis before every commit)
-- Canonical examples in `src/__examples__/` — AI reads these before generating new code
+<table>
+<tr>
+<th width="250"></th>
+<th width="150" align="center"><code>create-next-app</code></th>
+<th width="150" align="center"><code>t3-app</code></th>
+<th width="200" align="center"><b>AI-First Boilerplate</b></th>
+</tr>
+<tr>
+<td><b>AI understands your architecture</b></td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">6 AI configs, synced</td>
+</tr>
+<tr>
+<td><b>Vertical slice architecture</b></td>
+<td align="center">-</td>
+<td align="center">Partial</td>
+<td align="center">Strict, ESLint-enforced</td>
+</tr>
+<tr>
+<td><b>Pre-commit AI code review</b></td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">Code Review Graph MCP</td>
+</tr>
+<tr>
+<td><b>Type-safe server actions</b></td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">next-safe-action v8</td>
+</tr>
+<tr>
+<td><b>Headless, accessible UI</b></td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">Ark UI v5 (WAI-ARIA)</td>
+</tr>
+<tr>
+<td><b>Canonical AI examples</b></td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center"><code>src/__examples__/</code></td>
+</tr>
+<tr>
+<td><b>Docker (dev/staging/prod)</b></td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">Three-tier setup</td>
+</tr>
+<tr>
+<td><b>Security headers (CSP/HSTS)</b></td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">OWASP-ready</td>
+</tr>
+</table>
 
-### Architecture
-- Strict three-layer architecture: `app → services → adapters → External API`, enforced by ESLint custom rules
-- Named exports everywhere (except `page.tsx` / `layout.tsx`) — no default-export ambiguity
-- Type-safe server actions with **next-safe-action v8** — end-to-end typed mutations
-- Stateless encrypted cookie sessions via **iron-session v8**
-- Universal HTTP client via **ofetch v1** wrapped in `adapters/xhr.ts` — same API on browser, Edge, and SSR
+---
 
-### Developer Experience
-- **Biome v2** — ultra-fast format + lint in one tool (replaces Prettier + partial ESLint)
-- **TypeScript 6** strict mode — `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` enabled
-- **Husky v9** + **commitlint** — branch name validation, commit message format enforced pre-push
-- **Turbopack** dev server — sub-second HMR
-- **react-scan** — runtime performance overlay in development
-- `src/__examples__/` — four canonical patterns AI assistants reference before writing new code
+## What You Get
 
-### UI
-- **Tailwind CSS v4** — CSS-first config, OKLCH color space, no `tailwind.config.js` required
-- **Ark UI v5** — headless, WAI-ARIA compliant primitives (zero vendor lock-in on styles)
-- **Motion (Framer Motion v12)** — tree-shakeable animation library, imported from `motion/react`
-- **Lucide React v1** — consistent icon set
-- **Sonner v2** — toast notifications
-- `cn()` helper via `tailwind-merge` + `clsx` — conflict-safe className composition
+### AI-First Development — *The Core Differentiator*
 
-### Security
-- Content Security Policy (CSP) headers configured in `next.config.ts`
-- HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy
-- OWASP Top 10 considerations documented in `SECURITY.md`
-- `public/.well-known/security.txt` — responsible disclosure policy
+> **One rule file. Six AI tools. Zero drift.**
+
+Every AI coding assistant in your team reads **the same architecture rules** from a single source (`.ai/rules.md`), auto-synced to each tool's config format:
+
+| AI Tool | Config | Status |
+|---------|--------|--------|
+| **Claude Code** | `CLAUDE.md` + `.claude/steering/` | Fully configured |
+| **Cursor** | `.cursorrules` | Fully configured |
+| **Windsurf** | `.windsurfrules` | Fully configured |
+| **GitHub Copilot** | `.github/copilot-instructions.md` | Fully configured |
+| **Gemini CLI** | `.gemini/GEMINI.md` + hooks | Fully configured |
+| **Kiro** | `.kiro/steering/` | Fully configured |
+
+**What this means in practice:** Two developers — one using Cursor, one using Claude Code — generate code that looks like it was written by the same person. No "fix the AI output" phase. No style wars. No architectural drift.
+
+<details>
+<summary><b>Pre-commit AI Code Review (Code Review Graph MCP)</b></summary>
+
+Every commit triggers a **semantic impact analysis** powered by a Tree-sitter knowledge graph:
+- Detects which functions, components, and modules are affected
+- Scores risk level of changes
+- Flags architectural violations before they reach PR review
+- Provides blast radius visualization
+
+This isn't linting — it's structural understanding of your codebase.
+
+</details>
+
+---
+
+### Production-Grade Architecture
+
+```
+src/
+  app/              Routes ONLY — pages, layouts, route handlers
+  features/         Vertical slices — one folder per business domain
+    [name]/
+      _components/  Private UI (never imported outside feature)
+      _hooks/       Private hooks
+      adapters/     HTTP layer (calls shared/lib/xhr)
+      schemas/      Zod schemas + derived types
+      services/     Business logic
+      actions/      next-safe-action server actions
+      index.ts      PUBLIC barrel — the ONLY export surface
+  shared/           Cross-cutting utilities
+  server/           Server-only code (iron-session, etc.)
+```
+
+**Hard rules enforced by ESLint:**
+- `app/` imports ONLY from `features/[name]/index.ts` — never deep paths
+- Features NEVER import from other features
+- `shared/` NEVER imports from `features/` or `app/`
+- Adapters use `shared/lib/xhr.ts` — never raw `fetch()`
+
+---
+
+### Full-Stack Tech Stack
+
+<table>
+<tr><td><b>Framework</b></td><td>Next.js 16 (App Router + Turbopack)</td></tr>
+<tr><td><b>Language</b></td><td>TypeScript 6 (strict mode)</td></tr>
+<tr><td><b>Styling</b></td><td>Panda CSS + Ark UI v5 (headless, WAI-ARIA)</td></tr>
+<tr><td><b>Server State</b></td><td>TanStack Query v5</td></tr>
+<tr><td><b>Client State</b></td><td>Zustand v5 + nuqs (URL state)</td></tr>
+<tr><td><b>Forms</b></td><td>react-hook-form + Zod v4</td></tr>
+<tr><td><b>Server Actions</b></td><td>next-safe-action v8 (end-to-end typed)</td></tr>
+<tr><td><b>Tables</b></td><td>TanStack Table v8</td></tr>
+<tr><td><b>HTTP</b></td><td>ofetch v1 (browser + Edge + SSR)</td></tr>
+<tr><td><b>Auth</b></td><td>iron-session v8 (encrypted cookies)</td></tr>
+<tr><td><b>Animations</b></td><td>Motion (Framer Motion v12)</td></tr>
+<tr><td><b>Testing</b></td><td>Vitest v4 + Testing Library + Playwright</td></tr>
+<tr><td><b>Linting</b></td><td>Biome v2 + ESLint (architectural rules)</td></tr>
+<tr><td><b>Monitoring</b></td><td>Sentry (error tracking + performance)</td></tr>
+<tr><td><b>CI/CD</b></td><td>GitHub Actions (lint → type-check → test → build)</td></tr>
+<tr><td><b>Containers</b></td><td>Docker (dev / staging / prod)</td></tr>
+</table>
+
+---
+
+### Security — Not an Afterthought
+
+- CSP, HSTS, X-Frame-Options, X-Content-Type-Options configured out of the box
+- `import 'server-only'` guard on server modules
+- Zod validation at every API boundary
 - Middleware-based route protection
+- `public/.well-known/security.txt` for responsible disclosure
+- No `eval()`, no `dangerouslySetInnerHTML` without DOMPurify
 
-### Testing
-- **Vitest v4** with `@vitest/ui` — browser-like test environment via jsdom
-- **Testing Library** (React + DOM + user-event) — behavior-driven component tests
-- **MSW v2** — API mocking at the network layer (no service mocks)
-- **Playwright v1.61** — end-to-end tests
-- Coverage via `@vitest/coverage-v8`
-- Convention: mock adapters, never services
+---
 
-### State Management
-- **TanStack Query v5** — server state, async data, cache invalidation
-- **Zustand v5** — lightweight client UI state with `persist` middleware
-- **nuqs v2** — URL search param state (filters, pagination, search)
-- **react-hook-form v7** + **Zod v4** — type-safe forms, never `useState` for fields
-- **TanStack Table v8** — headless data tables with sorting, filtering, pagination
+### Testing — Mock Adapters, Never Services
+
+```bash
+npm run test          # Vitest with interactive UI
+npm run test:check    # CI mode (exits with code)
+npm run test:coverage # Coverage report (v8)
+npx playwright test   # E2E tests
+```
+
+- Mock at the HTTP layer (adapters), never at the service layer
+- `@testing-library/react` for behavior-driven component tests
+- MSW v2 for network-level API mocking
+- Convention: `describe('[ServiceName]') > it('should [behavior] when [condition]')`
+
+---
+
+### Quality Gates — Every Commit
+
+Husky runs automatically on every commit:
+
+1. **Biome** — format + lint (sub-second)
+2. **ESLint** — architectural rules (no `console.log`, no `any`, no cross-feature imports)
+3. **TypeScript** — `tsc --noEmit`, zero errors
+4. **commitlint** — enforces `type(scope): description` format
+5. **Code Review Graph** — semantic impact analysis
+
+> If it doesn't pass the gates, it doesn't get committed. Period.
 
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Clone
-git clone https://github.com/truongdn-it/nextjs-boilerplate
-cd nextjs-boilerplate
+# Clone
+git clone https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate.git
+cd ai-first-nextjs-boilerplate
 
-# 2. Install dependencies
+# Install
 npm install
 
-# 3. Start development server
+# Start dev server (Turbopack)
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Copy `.env.example` to `.env.local` and fill in your values before connecting to external services.
+<details>
+<summary><b>Sync AI configs after editing rules</b></summary>
 
----
-
-## Folder Structure
-
-```
-src/
-├── __examples__/          Canonical patterns — AI reads these before writing
-│   ├── _server-data/      Server Component + async fetch + Suspense
-│   ├── _client-state/     Client Component + Zustand + event handlers
-│   ├── _form/             react-hook-form + Zod validation
-│   └── _full-feature/     schema → adapter → service → page → component
-│
-├── __test__/              Test files mirroring src structure
-│   └── services/          Unit tests for service layer
-│
-├── adapters/              Raw HTTP functions (one file per domain)
-│   └── [domain]/
-│       ├── [domain].adapter.ts   One function per API endpoint
-│       └── [domain].schema.ts    Zod schemas + inferred types
-│
-├── app/                   Next.js App Router pages + API routes
-│   ├── api/               Route handlers
-│   └── (web3)/            Isolated blockchain routes (optional)
-│
-├── components/
-│   └── features/          Business components (Ark UI + plain Tailwind)
-│
-├── config/                Env vars (T3 OSS) + app config — no hardcoded secrets
-├── constants/             Routes (API_ROUTES, WEB_ROUTES), SEO, static data
-├── hooks/                 Shared React hooks (use-[name].ts)
-├── lib/                   iron-session config, third-party wrappers
-├── services/              Business logic — orchestrates adapters
-├── stores/                Zustand stores (*.store.tsx) + QueryClient provider
-├── styles/                Global CSS only (Tailwind entry point)
-├── types/                 Shared TypeScript types ([domain].types.ts)
-└── utils/                 Pure utility functions — no side effects, no API calls
-```
-
-**Architecture data flow:**
-```
-app/ (page.tsx / route.ts)
-        ↓
-services/ (business logic, orchestration)
-        ↓
-adapters/ (raw HTTP calls, one function per endpoint)
-        ↓
-External API
-```
-
-**Hard rule:** `components/` never imports from `adapters/` directly — always through `services/`.
-
----
-
-## AI Tooling
-
-This project is designed so every AI assistant produces architecturally consistent code without custom prompting.
-
-### Claude Code
-
-`CLAUDE.md` (project root) is the primary spec file. It defines:
-- Decision trees for file placement, component type, and state management
-- Naming conventions and anti-patterns
-- Exact code patterns to copy (Zod schemas, adapters, services, forms, stores)
-- Quality gate requirements
-
-`.claude/steering/` contains per-topic rule files loaded automatically.
-
-**Pre-commit AI review** via Code Review Graph MCP:
+All AI tool configs are generated from a single source (`.ai/rules.md`):
 
 ```bash
-# Automatically triggered on git commit via Husky
-# Performs semantic impact analysis — flags high-risk changes before they land
+./scripts/gen-ai-config.sh
 ```
 
-**MCP tools available in Claude Code:**
+This updates `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.github/copilot-instructions.md`, `.gemini/GEMINI.md`, and `.kiro/steering/` — keeping every AI tool in sync.
 
-| Tool | When to use |
-|------|-------------|
-| `semantic_search_nodes` | Find function/component by concept |
-| `get_impact_radius` | Blast radius before refactoring |
-| `detect_changes` | Review staged changes with risk score |
-| `query_graph pattern="callers_of"` | Find all callers of a function |
-| `get_architecture_overview` | Understand module community structure |
+</details>
 
-### Other AI IDEs
+<details>
+<summary><b>Docker environments</b></summary>
 
-| Tool | Config file | What it does |
-|------|-------------|--------------|
-| Cursor | `.cursorrules` | Architecture rules + naming conventions |
-| Windsurf | `.windsurfrules` | Same rules, Windsurf format |
-| Gemini CLI | `GEMINI.md` + `.gemini/` | Project context + steering |
-| Kiro | `AGENTS.md` + `.kiro/steering/` | Spec-driven agent rules |
-| OpenAI Agents | `AGENTS.md` | Universal agent spec |
-| Any tool | `CLAUDE.md` | Universal fallback — all rules in one file |
+```bash
+# Development (hot-reload, source maps)
+npm run build:development && npm run start:development  # → :3001
 
-All config files enforce **identical rules** — two developers using different AI tools produce code that looks like it was written by the same person.
+# Staging (production build, staging env)
+npm run build:staging && npm run start:staging          # → :3002
 
-### Code Review Graph MCP
+# Production (standalone, minimal image)
+npm run build:production && npm run start:production    # → :80
+```
 
-`QODER.md` documents the Code Review Graph MCP server integration. It provides:
-- Persistent incremental knowledge graph of the codebase (Tree-sitter parsed)
-- Semantic code search across the graph
-- Impact radius analysis before merging
-- Community detection to understand module boundaries
+</details>
 
----
+<details>
+<summary><b>Environment variables</b></summary>
 
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server with Turbopack |
-| `npm run build` | Production build |
-| `npm run start` | Start production server (standalone) |
-| `npm run start:dev` | Start Next.js dev server (no Turbopack) |
-| `npm run type-check` | TypeScript check — zero errors required |
-| `npm run lint` | ESLint (Next.js rules + architecture rules) |
-| `npm run lint:biome` | Biome check + auto-fix |
-| `npm run format` | Biome format all files |
-| `npm run test` | Vitest with UI |
-| `npm run test:check` | Vitest CI mode (no UI) |
-| `npm run test:coverage` | Coverage report (v8) |
-| `npm run build:development` | Docker build — development image |
-| `npm run start:development` | Docker start — development container |
-| `npm run build:staging` | Docker build — staging image |
-| `npm run start:staging` | Docker start — staging container |
-| `npm run build:production` | Docker build — production image |
-| `npm run start:production` | Docker start — production container |
-
----
-
-## Environment Variables
-
-Declared in `src/config/env.configuration.ts` using `@t3-oss/env-nextjs`. Never use `process.env.VAR` directly in application code — import from `env` instead.
+Declared in `src/shared/config/env.configuration.ts` with Zod validation. Never use `process.env` directly.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `NEXT_PUBLIC_APP_URL` | Yes | Public base URL of the app |
-| `SESSION_SECRET` | Yes | iron-session encryption secret (32+ chars) |
-| `NEXT_PUBLIC_API_URL` | Yes | Base URL for external API calls |
-| `ANALYZE` | No | Set to `true` to open bundle analyzer |
+| `NEXT_PUBLIC_APP_URL` | Yes | Public base URL |
+| `SESSION_SECRET` | Yes | iron-session secret (32+ chars) |
+| `NEXT_PUBLIC_API_URL` | Yes | External API base URL |
 
-Add new variables to `src/config/env.configuration.ts` with Zod validation before using them anywhere in the codebase.
-
----
-
-## Docker
-
-Three-tier Docker setup with separate Compose files per environment.
-
-```bash
-# Development  (hot-reload, source maps, React DevTools)
-npm run build:development && npm run start:development
-# → http://localhost:3001
-
-# Staging  (production build, staging env vars)
-npm run build:staging && npm run start:staging
-# → http://localhost:3002
-
-# Production  (standalone output, minimal image)
-npm run build:production && npm run start:production
-# → http://localhost:80
-```
-
-Compose files live in `docker/development/`, `docker/staging/`, and `docker/production/`. Each environment has its own `.env` file and Dockerfile optimized for that tier.
+</details>
 
 ---
 
-## Testing
+## All Scripts
 
-```bash
-# Run all tests with interactive UI
-npm run test
-
-# Run tests in CI mode (no UI, exits with code)
-npm run test:check
-
-# Generate coverage report
-npm run test:coverage
-
-# Run Playwright E2E tests
-npx playwright test
-```
-
-**Conventions:**
-- Test files mirror source: `src/__test__/services/user.service.test.ts`
-- Mock at the **adapter layer** (HTTP), never at the service layer
-- Use `@testing-library/react` for components — test behavior, not implementation
-- Use **MSW v2** to intercept network requests in integration tests
+| Command | What it does |
+|---------|-------------|
+| `npm run dev` | Dev server with Turbopack |
+| `npm run build` | Production build |
+| `npm run start` | Start production server |
+| `npm run type-check` | TypeScript check (zero errors) |
+| `npm run lint` | ESLint + architectural rules |
+| `npm run lint:biome` | Biome check + auto-fix |
+| `npm run format` | Biome format all files |
+| `npm run test` | Vitest with UI |
+| `npm run test:check` | Vitest CI mode |
+| `npm run test:coverage` | Coverage report |
+| `npm run build:development` | Docker build (dev) |
+| `npm run build:staging` | Docker build (staging) |
+| `npm run build:production` | Docker build (prod) |
 
 ---
 
-## Quality Gates
+## Project Structure
 
-Every commit is automatically validated by Husky:
-
-1. **Biome** — format + lint check (fast, one tool)
-2. **ESLint** — Next.js rules + custom architectural rules (no `console.log`, no `any`, no adapter imports in components)
-3. **TypeScript** — `tsc --noEmit` — zero type errors
-4. **commitlint** — enforces `type(scope): description` commit format
-5. **Branch validation** — enforces `feat/`, `fix/`, `refactor/`, `hotfix/`, `docs/`, `chore/` prefixes
-
-**Commit format:**
 ```
-feat(auth): add JWT refresh token rotation
-fix(api): handle rate limit 429 response
-refactor(user): extract validation to service layer
+.
+├── .ai/rules.md                  Single source of truth for all AI rules
+├── .claude/steering/             Claude Code steering rules
+├── .cursorrules                  Cursor rules (auto-synced)
+├── .windsurfrules                Windsurf rules (auto-synced)
+├── .github/copilot-instructions  Copilot rules (auto-synced)
+├── .gemini/                      Gemini CLI config + hooks
+├── .kiro/steering/               Kiro steering rules
+├── docker/                       Three-tier Docker setup
+├── scripts/                      AI config sync + setup scripts
+├── src/
+│   ├── app/                      Next.js routes (zero business logic)
+│   ├── features/                 Vertical slices by domain
+│   ├── shared/                   Cross-cutting utilities
+│   ├── server/                   Server-only code
+│   └── __examples__/             Canonical patterns for AI reference
+└── tests/                        Playwright E2E tests
 ```
 
 ---
 
 ## Contributing
 
-Contributions are welcome. Please read `CONTRIBUTING.md` before opening a pull request.
-
-1. Fork the repository
-2. Create a branch: `feat/your-feature-name`
-3. Follow the patterns in `src/__examples__/`
-4. Ensure all quality gates pass: `npm run type-check && npm run lint && npm run test:check`
-5. Open a PR against `main`
+1. Fork the repo
+2. Create a branch: `feat(scope)/issue-123-description`
+3. Follow patterns in `src/__examples__/`
+4. Pass all gates: `npm run type-check && npm run lint && npm run test:check`
+5. Open a PR
 
 ---
 
-## License
+## Star History
 
-MIT — built by [Noah Duong](https://github.com/truongdn-it).
+<a href="https://star-history.com/#NoahDuongMaster/ai-first-nextjs-boilerplate&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=NoahDuongMaster/ai-first-nextjs-boilerplate&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=NoahDuongMaster/ai-first-nextjs-boilerplate&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=NoahDuongMaster/ai-first-nextjs-boilerplate&type=Date" />
+ </picture>
+</a>
 
-Use it in personal projects, commercial products, and internal tooling without restriction.
+---
+
+<div align="center">
+
+**If this saved you time, [star the repo](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate) — it helps others find it.**
+
+Built by [Noah Duong](https://github.com/NoahDuongMaster) · MIT License
+
+<a href="https://buymeacoffee.com/truongdn"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" /></a>
+<a href="https://github.com/sponsors/truongdn-it"><img src="https://img.shields.io/badge/Sponsor-EA4AAA?style=for-the-badge&logo=github-sponsors&logoColor=white" /></a>
+
+</div>

@@ -3,7 +3,6 @@
     "code-review-graph": {
       "command": "uvx",
       "args": ["code-review-graph", "serve"],
-      "cwd": "/Users/truongdn/Desktop/ai-first-nextjs-boilerplate",
       "type": "stdio"
     },
     "context7": {

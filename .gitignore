@@ -16,7 +16,7 @@
 /build
 
 # misc
-.DS_Store
+**/.DS_Store
 *.pem
 
 # debug
@@ -34,15 +34,26 @@ yarn-error.log*
 .env.staging
 .env.development
 .env.production
-.env.staging
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # vercel
 .vercel
 .parcel-cache
 
-package-lock.json
 yarn.lock
 tsconfig.tsbuildinfo
+
+# AI local settings (user-specific, not shared)
+.claude/settings.local.json
+.claude/projects/
+
+# Sentry sourcemaps
+.sentryclirc
 # Added by code-review-graph
 .code-review-graph/
 graphify-out/
@@ -51,7 +62,32 @@ graphify-out/
 # Only exclude temp session markers
 /tmp/ai-session-*.marker
 
+# Panda CSS (generated)
+src/styled-system/
+
+# vinext / Cloudflare
+.vinext/
+.wrangler/
+
 # Playwright
 /playwright-report/
 /e2e-results/
 /test-results/
+/dist/
+
+# OS generated
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+pids/
+*.pid
+*.seed
+
+# Runtime
+.cache/
+.swc/
+.turbo/
