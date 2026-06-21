@@ -6,6 +6,12 @@ on:
   push:
     branches: [main]
 
+env:
+  NEXT_PUBLIC_PROJECT_NAME: e2e-build
+  NEXT_PUBLIC_API_ENDPOINT: https://placeholder.example.com
+  NEXT_PUBLIC_BASE_URL: https://placeholder.example.com
+  SESSION_SECRET: ci-placeholder-secret-32-chars!!
+
 jobs:
   e2e:
     name: E2E Tests
@@ -29,21 +35,9 @@ jobs:
 
       - name: Build
         run: npm run build
-        env:
-          NODE_ENV: test
-          NEXT_PUBLIC_PROJECT_NAME: e2e-build
-          NEXT_PUBLIC_API_ENDPOINT: https://placeholder.example.com
-          NEXT_PUBLIC_BASE_URL: https://placeholder.example.com
-          SESSION_SECRET: ci-placeholder-secret-32-chars!!
 
       - name: Run Playwright tests
         run: npx playwright test
-        env:
-          CI: true
-          NEXT_PUBLIC_PROJECT_NAME: e2e-build
-          NEXT_PUBLIC_API_ENDPOINT: https://placeholder.example.com
-          NEXT_PUBLIC_BASE_URL: https://placeholder.example.com
-          SESSION_SECRET: ci-placeholder-secret-32-chars!!
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
