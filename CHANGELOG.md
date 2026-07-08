@@ -6,6 +6,40 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ---
 
+## [1.1.0](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/compare/vibe-code-stack-for-ceos-v1.0.0...vibe-code-stack-for-ceos-v1.1.0) (2026-07-08)
+
+
+### Features
+
+* add animation ([6ac2852](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/6ac2852c2a0b04256e1b6c9092d39d3aa58d50e7))
+* add global loading ([bc2631b](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/bc2631be5436fb78afacc85bac21b687029cab2d))
+* add global loading ([140cc11](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/140cc113257c989ca88d7830798e21e6f45c4413))
+* added storybook to the project ([5019bb3](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/5019bb3d5cc7241de21cb88390a699fba291ae31))
+* added storybook to the project ([b09ac39](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/b09ac3993514b62e905d0280907aa871f3a37e01))
+* admin dashboard ([7677dd7](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/7677dd7997cb1575b7e7d1b568b46e62543c64b8))
+* admin dashboard ([41e9ab1](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/41e9ab165b95caa40f409f1c0496d0ee0a46d1b2))
+* ci cd ([34ab202](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/34ab202506f5414df895d384066bdc9af9230a2e))
+* ci cd ([219187c](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/219187c2949316d3a7dbd54f04f4af2be9d1355b))
+* connect solana wallet ([b5c9c0a](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/b5c9c0a5bf78806453fc8dd3541459fafda98af3))
+* **dapp:** no-issue  enhance project configuration and add new components ([f04579d](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/f04579d15edb13a172c988bca8b974ade7dbfc08))
+* graphql ([2925a7e](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/2925a7ecb909e8c1a544ef16178f58f5fd4a09e4))
+* graphql ([2005983](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/2005983930998fd9f8caf59a13b17e613d7766e0))
+* update ([2bf83a6](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/2bf83a690d60657429a0de3396036ad0b5ca943e))
+* update ([016208a](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/016208a3be55af16851ce90d8d004c586d9be6da))
+* update README ([127f232](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/127f232b35ecb5fe9123a4da7b6e84048ec79483))
+* update stylelint ([92b294f](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/92b294f386de985b0e8f65fd175b46c2a75b3143))
+
+
+### Bug Fixes
+
+* antd SSR ([f8ff98a](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/f8ff98a3dba372db3b0619d5eec1907c6a19f4a7))
+* antd SSR ([12b253f](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/12b253fdae707ee480bf1b189bcbe45404920c9d))
+* change extension hook file ([1aa872a](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/1aa872a4d0a25b8d1a9da256cdbbbc0707a44315))
+* hotfix ; ([904f9d2](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/904f9d24d3c4f037f99e79ab7f91cec92c90c977))
+* hotfix ; ([1fa26b3](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/1fa26b3bf18761ad847396cb2c4415eee3e740c5))
+* node version github action ([285d0bc](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/285d0bcb3bf91af42b9a284a1db1f0f6b5d6a981))
+* update ([a3ab999](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/commit/a3ab999de88033aa51635bdfe0e5af2ff5d7beac))
+
 ## [Unreleased]
 
 ### Changed
