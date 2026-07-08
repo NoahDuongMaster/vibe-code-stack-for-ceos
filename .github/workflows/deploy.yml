@@ -1,0 +1,170 @@
+name: Deploy
+
+# Gated on CI: this only runs after the "CI" workflow finishes successfully
+# for a push to develop (-> staging) or main (-> production). A deploy can
+# never ship a commit that failed typecheck/lint/test/build.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: "22"
+
+permissions:
+  contents: read
+
+concurrency:
+  # One deploy in flight per branch; never cancel a production deploy that's
+  # already running.
+  group: deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: ${{ github.event.workflow_run.head_branch != 'main' }}
+
+jobs:
+  deploy-staging:
+    name: Deploy (staging)
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'develop'
+    runs-on: ubuntu-latest
+    # Configure this Environment under Settings -> Environments -> staging.
+    # Add repo/environment secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
+    # SESSION_SECRET, DEMO_AUTH_EMAIL, DEMO_AUTH_PASSWORD; and environment
+    # variables (vars): NEXT_PUBLIC_API_ENDPOINT, NEXT_PUBLIC_BASE_URL,
+    # NEXT_PUBLIC_PROJECT_NAME, PUBLIC_API_URL, PUBLIC_SITE_URL, etc.
+    environment: staging
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout (deployed commit)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build dapp
+        run: pnpm --filter @repo/web build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_PROJECT_NAME: ${{ vars.NEXT_PUBLIC_PROJECT_NAME }}
+          NEXT_PUBLIC_API_ENDPOINT: ${{ vars.NEXT_PUBLIC_API_ENDPOINT }}
+          NEXT_PUBLIC_BASE_URL: ${{ vars.NEXT_PUBLIC_BASE_URL }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          DEMO_AUTH_EMAIL: ${{ secrets.DEMO_AUTH_EMAIL }}
+          DEMO_AUTH_PASSWORD: ${{ secrets.DEMO_AUTH_PASSWORD }}
+          # Presence of SENTRY_ORG + SENTRY_PROJECT switches on the Sentry
+          # webpack plugin in next.config.ts, which needs SENTRY_AUTH_TOKEN to
+          # actually authenticate the source-map upload — without it, this is
+          # the one real deploy path and source maps were never uploaded.
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: Deploy dapp
+        run: pnpm --filter @repo/web exec wrangler deploy --env staging
+
+      - name: Build admin
+        run: pnpm --filter @repo/admin build
+        env:
+          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
+          PUBLIC_ENABLE_MOCK_AUTH: ${{ vars.PUBLIC_ENABLE_MOCK_AUTH }}
+      - name: Deploy admin (Pages)
+        run: pnpm --filter @repo/admin exec wrangler pages deploy dist --project-name ai-first-admin --branch staging
+
+      - name: Build landing
+        run: pnpm --filter @repo/landing build
+        env:
+          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
+      - name: Deploy landing
+        run: pnpm --filter @repo/landing exec wrangler deploy --env staging
+
+      - name: Deploy gateway
+        run: pnpm --filter @repo/gateway-cf exec wrangler deploy --env staging
+
+  deploy-production:
+    name: Deploy (production)
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    # Configure this Environment under Settings -> Environments -> production
+    # with "Required reviewers" so every production deploy needs a manual
+    # approval, in addition to the CI gate above. Same secrets/vars as
+    # staging, pointed at production values.
+    environment: production
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout (deployed commit)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build dapp
+        run: pnpm --filter @repo/web build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_PROJECT_NAME: ${{ vars.NEXT_PUBLIC_PROJECT_NAME }}
+          NEXT_PUBLIC_API_ENDPOINT: ${{ vars.NEXT_PUBLIC_API_ENDPOINT }}
+          NEXT_PUBLIC_BASE_URL: ${{ vars.NEXT_PUBLIC_BASE_URL }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          DEMO_AUTH_EMAIL: ${{ secrets.DEMO_AUTH_EMAIL }}
+          DEMO_AUTH_PASSWORD: ${{ secrets.DEMO_AUTH_PASSWORD }}
+          # Presence of SENTRY_ORG + SENTRY_PROJECT switches on the Sentry
+          # webpack plugin in next.config.ts, which needs SENTRY_AUTH_TOKEN to
+          # actually authenticate the source-map upload — without it, this is
+          # the one real deploy path and source maps were never uploaded.
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: Deploy dapp
+        run: pnpm --filter @repo/web exec wrangler deploy --env production
+
+      - name: Build admin
+        run: pnpm --filter @repo/admin build
+        env:
+          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
+          PUBLIC_ENABLE_MOCK_AUTH: ${{ vars.PUBLIC_ENABLE_MOCK_AUTH }}
+      - name: Deploy admin (Pages)
+        run: pnpm --filter @repo/admin exec wrangler pages deploy dist --project-name ai-first-admin --branch main
+
+      - name: Build landing
+        run: pnpm --filter @repo/landing build
+        env:
+          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
+      - name: Deploy landing
+        run: pnpm --filter @repo/landing exec wrangler deploy --env production
+
+      - name: Deploy gateway
+        run: pnpm --filter @repo/gateway-cf exec wrangler deploy --env production

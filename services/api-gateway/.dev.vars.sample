@@ -1,0 +1,12 @@
+# api-gateway (Cloudflare Workers) local secrets, loaded by `wrangler dev`.
+# Copy to `.dev.vars` (git-ignored) and fill in as bindings/secrets grow.
+#
+# In production, set secrets with:  wrangler secret put <NAME>
+# Non-secret config goes in wrangler.jsonc under `vars`.
+#
+# No secrets are required today — the gateway serves the public ApiService.
+# CORS_ORIGINS and UPSTREAM_URL (src/index.ts) are non-secret runtime vars —
+# set them in wrangler.jsonc `vars` per environment, not here.
+#
+# Example (uncomment when you add an upstream service binding token):
+# API_UPSTREAM_TOKEN=""

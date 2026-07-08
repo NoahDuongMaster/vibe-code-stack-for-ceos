@@ -10,30 +10,53 @@
 
 ## Type of Change
 
+<!-- PR title should follow the commit convention: type(scope): issue-123 short description -->
+
 - [ ] feat: New feature
 - [ ] fix: Bug fix
 - [ ] refactor: Code change that neither fixes a bug nor adds a feature
+- [ ] perf: Performance improvement
 - [ ] docs: Documentation only
 - [ ] test: Adding or updating tests
-- [ ] chore: Build process, tooling, or dependency updates
+- [ ] build / ci / chore: Tooling, dependencies, or pipeline
+
+## Affected Workspace(s)
+
+<!-- Check all that this PR touches (matches the commit scope). -->
+
+- [ ] `apps/dapp` — @repo/web (Next.js / vinext)
+- [ ] `apps/admin` — @repo/admin (React / Rsbuild)
+- [ ] `apps/landing` — @repo/landing (Astro)
+- [ ] `services/*` — Connect RPC (api-node / api-gateway)
+- [ ] `packages/*` — shared (protocol / api-core / api-client)
+- [ ] Tooling — CI / Docker / config / scripts
 
 ## Test Plan
 
-<!-- How did you verify this works? -->
+<!-- How did you verify this works? Run from the repo root. -->
 
-- [ ] Unit tests pass (`npm run test:check`)
-- [ ] Type check passes (`npm run type-check`)
-- [ ] Lint passes (`npm run lint && npm run lint:biome`)
-- [ ] Manually tested in browser
+- [ ] Type check passes (`pnpm typecheck`)
+- [ ] Lint passes (`pnpm check:ci && pnpm lint`)
+- [ ] Unit tests pass (`pnpm test`)
+- [ ] Build passes (`pnpm build`)
+- [ ] Manually verified the change
 
 ## Checklist
 
-- [ ] Follows architecture rules: `app/ → features/[name]/index.ts → shared/`
-- [ ] No `any` types, no `console.log`, no direct `fetch()` calls
+- [ ] PR title follows `type(scope): issue-123 description`
+- [ ] No `any` / `as any`, no `console.log` (use the logger)
+- [ ] New files follow naming conventions (kebab-case files, PascalCase exports)
+- [ ] No secrets, tokens, or `.env` values committed
+
+<details>
+<summary><b>apps/dapp (Next.js) — extra checks</b></summary>
+
+- [ ] Follows vertical-slice architecture: `app/ → features/[name]/index.ts → shared/`
 - [ ] No cross-feature imports (`features/A` never imports `features/B`)
-- [ ] New files use correct naming conventions (kebab-case files, PascalCase exports)
+- [ ] No direct `fetch()` — use adapters / `shared/lib`
 - [ ] Server Components by default — `'use client'` only when necessary
-- [ ] Tests added or updated for changed logic
+
+</details>
 
 ## Screenshots
 

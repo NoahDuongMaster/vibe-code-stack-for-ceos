@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -50,11 +50,21 @@
   },
   "overrides": [
     {
-      "includes": ["src/__examples__/**"],
+      "includes": ["**/src/__examples__/**"],
       "linter": {
         "rules": {
           "suspicious": {
             "noArrayIndexKey": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["services/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
           }
         }
       }
@@ -72,7 +82,10 @@
       "!**/.husky",
       "!**/*.config.cjs",
       "!**/src/styles",
-      "!next-env.d.ts"
+      "!**/src/styled-system",
+      "!**/src/gen",
+      "!**/next-env.d.ts",
+      "!**/*.astro"
     ]
   }
 }

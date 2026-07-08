@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ai-first-dapp",
+  "compatibility_date": "2026-06-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./worker/index.ts",
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  },
+  "images": {
+    "binding": "IMAGES"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // `wrangler deploy` with no --env uses this top-level config; pin CI/CD to
+  // `--env staging` / `--env production` explicitly so a name typo can never
+  // land on the wrong Worker. Distinct names avoid collisions on a shared
+  // Cloudflare account. Rollback: `wrangler rollback --env production`.
+  "env": {
+    "staging": {
+      "name": "ai-first-dapp-staging",
+      "vars": { "ENVIRONMENT": "staging" }
+    },
+    "production": {
+      "name": "ai-first-dapp",
+      "vars": { "ENVIRONMENT": "production" }
+    }
+  }
+}

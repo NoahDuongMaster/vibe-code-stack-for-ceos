@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ai-first-admin",
+  "compatibility_date": "2026-06-21",
+  "pages_build_output_dir": "dist",
+  // Cloudflare Pages already separates preview (any non-production branch)
+  // from production (the branch configured in the dashboard) deployments —
+  // there is no separate Worker name to pin per environment here, unlike the
+  // Worker-based apps. Per-environment vars still need to be set in the
+  // Pages dashboard (Settings > Environment variables) or via
+  // `wrangler pages deploy --branch <branch>`; this block documents the
+  // intended values so CI/dashboard config can be reviewed against source.
+  "env": {
+    "preview": {
+      "vars": { "ENVIRONMENT": "preview" }
+    },
+    "production": {
+      "vars": { "ENVIRONMENT": "production" }
+    }
+  }
+}

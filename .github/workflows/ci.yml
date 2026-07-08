@@ -9,108 +9,213 @@ on:
 env:
   NODE_VERSION: "22"
 
+# Least privilege by default; no job here needs to write to the repo.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-typecheck-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-typecheck-
 
       - name: Type check
-        run: npm run type-check
+        run: pnpm typecheck
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-lint-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-lint-
 
       - name: Biome check
-        run: npx biome check .
+        run: pnpm check:ci
 
       - name: ESLint
-        run: npm run lint
+        run: pnpm lint
 
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-test-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-test-
 
       - name: Run tests
-        run: npm run test:check
+        run: pnpm test
 
   security:
     name: Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Audit dependencies
-        run: npm audit --audit-level=high || true
+        run: pnpm audit --audit-level=high
+
+  protocol:
+    name: Protobuf Lint, Codegen Drift & Breaking-Change Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # `buf breaking` diffs against main, so it needs real history —
+          # the default shallow (depth-1) checkout only has this one commit.
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Hard gate: the proto schema itself must always pass STANDARD lint.
+      - name: buf lint
+        run: pnpm --filter @repo/protocol lint
+
+      # Hard gate: packages/protocol/src/gen is committed, generated code —
+      # this catches a proto edited without regenerating (`pnpm --filter
+      # @repo/protocol generate`) before the PR merges.
+      - name: buf generate (codegen drift check)
+        run: pnpm --filter @repo/protocol generate:check
+
+      # Advisory for now (continue-on-error): main doesn't have
+      # packages/protocol yet as of this PR, so the very first run has
+      # nothing to diff against and would always fail. Once this lands on
+      # main, drop continue-on-error to make it a hard gate against
+      # accidental breaking changes to the RPC schema.
+      - name: buf breaking (against main)
+        continue-on-error: true
+        run: pnpm --filter @repo/protocol breaking
 
   build:
     name: Build
     runs-on: ubuntu-latest
     needs: [typecheck, lint, test]
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-build-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-build-
 
       - name: Build
-        run: npm run build
+        run: pnpm build
         env:
           NODE_ENV: production
           NEXT_PUBLIC_PROJECT_NAME: ci-build
           NEXT_PUBLIC_API_ENDPOINT: https://placeholder.example.com
           NEXT_PUBLIC_BASE_URL: https://placeholder.example.com
           SESSION_SECRET: ci-placeholder-secret-32-chars!!
+          DEMO_AUTH_EMAIL: ci@example.com
+          DEMO_AUTH_PASSWORD: ci-placeholder-password

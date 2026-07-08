@@ -1,0 +1,75 @@
+name: 🐛 Bug Report
+description: Report a bug to help us improve
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Please fill out the fields below so we can reproduce and fix it quickly.
+  - type: dropdown
+    id: workspace
+    attributes:
+      label: Affected workspace
+      description: Which app, service, or package is affected? (matches the commit scope)
+      options:
+        - "apps/dapp — @repo/web (Next.js / vinext)"
+        - "apps/admin — @repo/admin (React / Rsbuild)"
+        - "apps/landing — @repo/landing (Astro)"
+        - "services/api-node — @repo/api-node (Connect RPC, Node)"
+        - "services/api-gateway — @repo/gateway-cf (Connect RPC, Workers)"
+        - "packages — protocol / api-core / api-client (shared)"
+        - "Tooling — CI / Docker / config / scripts"
+        - "Not sure"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce the behavior?
+      placeholder: |
+        1. Run `pnpm ...`
+        2. Go to '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / screenshots
+      description: Paste any error output (it will be formatted as code) or drag in screenshots.
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Node / pnpm / OS / browser versions, as relevant.
+      placeholder: "Node 22.x · pnpm 11.x · macOS 15 · Chrome 131"
+    validations:
+      required: false
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I reproduced this on the latest `main`.
+          required: false

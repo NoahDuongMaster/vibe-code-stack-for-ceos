@@ -1,0 +1,69 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ai-first-gateway",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  // Pin CI/CD to `--env staging` / `--env production` explicitly. Rollback:
+  // `wrangler rollback --env production`. UPSTREAM_URL / CORS_ORIGINS are
+  // runtime vars read by src/index.ts — set real values per environment
+  // (or via `wrangler secret put` if they should not be plaintext).
+  // CORS_ORIGINS here is the single CORS authority for browser clients: it
+  // governs both locally-served routes and anything proxied to api-node —
+  // src/index.ts re-stamps every proxied response with this gateway's own
+  // CORS decision, overriding whatever api-node's (separately-configured)
+  // CORS_ORIGINS sends. Keep only this one in sync with real frontend origins.
+  "env": {
+    "staging": {
+      "name": "ai-first-gateway-staging",
+      "vars": {
+        "ENVIRONMENT": "staging",
+        // TODO: set to the real staging admin/dapp origin(s) once the Pages
+        // project's staging branch URL is known, e.g.
+        // "https://staging.ai-first-admin.pages.dev,https://ai-first-dapp-staging.<subdomain>.workers.dev"
+        "CORS_ORIGINS": "",
+        // TODO: point at the staging api-node deployment once it has one
+        // (services/api-node/Dockerfile exists but isn't wired into deploy.yml
+        // yet — no hosting platform has been chosen for it). Until set, the
+        // gateway safely 404s any route it doesn't handle locally instead of
+        // proxying anywhere.
+        "UPSTREAM_URL": ""
+      },
+      // TODO: replace with a real namespace_id — create one with
+      // `wrangler ratelimit namespace create` (or via the dashboard) once
+      // this environment has its own Cloudflare account/zone. Until then,
+      // this binding does not exist in this environment and src/index.ts's
+      // rate-limit check no-ops (see the `env.RATE_LIMITER` guard).
+      "ratelimits": [
+        {
+          "name": "RATE_LIMITER",
+          "namespace_id": "1001",
+          "simple": { "limit": 300, "period": 60 }
+        }
+      ]
+    },
+    "production": {
+      "name": "ai-first-gateway",
+      "vars": {
+        "ENVIRONMENT": "production",
+        // TODO: set to the real production admin/dapp origin(s).
+        "CORS_ORIGINS": "",
+        // TODO: point at the production api-node deployment.
+        "UPSTREAM_URL": ""
+      },
+      // TODO: replace with a real namespace_id (see the staging comment above).
+      "ratelimits": [
+        {
+          "name": "RATE_LIMITER",
+          "namespace_id": "1002",
+          "simple": { "limit": 300, "period": 60 }
+        }
+      ]
+    }
+  }
+  // Add bindings as services grow: KV, D1, R2, Queues,
+  // and `services` bindings to call api-node / other workers directly.
+}

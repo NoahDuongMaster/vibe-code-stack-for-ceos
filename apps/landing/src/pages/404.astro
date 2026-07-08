@@ -1,0 +1,50 @@
+---
+import Nav from '../shared/components/Nav.astro';
+import Footer from '../shared/components/Footer.astro';
+import Layout from '../shared/layouts/Layout.astro';
+---
+
+<Layout
+  title="404 — Page not found · AI-First Monorepo Boilerplate"
+  description="The page you are looking for does not exist or has moved."
+>
+  <Nav />
+  <main id="main-content" class="notfound">
+    <div class="container notfound-inner">
+      <span class="eyebrow">Error 404</span>
+      <h1><span class="gradient-text">Page not found</span></h1>
+      <p class="lead">
+        The page you are looking for does not exist or has moved. Let's get you
+        back on track.
+      </p>
+      <a class="btn btn-primary" href="/">← Back home</a>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<style>
+  .notfound {
+    display: flex;
+    align-items: center;
+    min-height: 70vh;
+  }
+  .notfound-inner {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding-block: 80px;
+  }
+  h1 {
+    font-size: clamp(36px, 6vw, 62px);
+    font-weight: 800;
+  }
+  .lead {
+    max-width: 520px;
+    font-size: clamp(16px, 2.4vw, 19px);
+    color: var(--muted);
+    margin: 0;
+  }
+</style>

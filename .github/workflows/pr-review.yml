@@ -1,0 +1,82 @@
+name: PR Review (GitHub Models)
+
+# Free AI code review — powered by GitHub Models via the built-in GITHUB_TOKEN.
+# No external API key, no paid service. (Replaces the OpenAI-based PR-Agent.)
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  models: read
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: AI Review
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Collect PR diff (capped for context limits)
+        id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr diff "${{ github.event.pull_request.number }}" > full.diff || true
+          head -c 60000 full.diff > pr.txt
+          echo "chars=$(wc -c < pr.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+
+      - name: AI review via GitHub Models
+        id: ai
+        if: ${{ steps.diff.outputs.chars != '0' }}
+        uses: actions/ai-inference@v2
+        with:
+          model: openai/gpt-4o-mini
+          max-completion-tokens: 1200
+          system-prompt: |
+            You are a senior code reviewer for a pnpm + Turborepo monorepo
+            (Next.js/vinext, React/Rsbuild, Astro, and Connect RPC services).
+            Review the pull-request diff provided. Be concise and specific.
+            Prioritise correctness bugs and security issues, then flag clear
+            violations of the repo conventions: no `any`/`as any`, no
+            `console.log`, kebab-case filenames, PascalCase exports, and no
+            cross-feature imports. Reply in GitHub-flavored Markdown with:
+            **Summary** (1-2 sentences), **Findings** (bullets, most important
+            first, cite file paths), then an optional **Nits** section. If the
+            change looks good, say so briefly.
+          prompt-file: pr.txt
+
+      - name: Post review comment
+        if: ${{ steps.ai.outputs.response != '' }}
+        # On a fork PR, GitHub downgrades GITHUB_TOKEN to read-only
+        # regardless of the `permissions:` block above — this step's
+        # createComment call would 403. continue-on-error keeps that from
+        # showing a red X on every community contributor's PR.
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          REVIEW: ${{ steps.ai.outputs.response }}
+        with:
+          script: |
+            const review = process.env.REVIEW || '_No review produced._';
+            const body = [
+              '### 🤖 AI review (GitHub Models)',
+              '',
+              review,
+              '',
+              '<sub>Free automated review via GitHub Models — not a substitute for human review.</sub>',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });

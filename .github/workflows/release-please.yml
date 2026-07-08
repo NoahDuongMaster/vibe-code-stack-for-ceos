@@ -9,10 +9,28 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      # Manifest mode: each app/service/package in release-please-config.json
+      # gets its own version + CHANGELOG + release PR, driven by conventional
+      # commits scoped to that path — not just the root package.json.
+      #
+      # PRs opened with the default GITHUB_TOKEN do not trigger other
+      # workflows (a deliberate GitHub anti-recursion rule), so CI never runs
+      # on release-please's own PRs. To fix that, create a fine-grained
+      # Personal Access Token (repo contents + pull-requests: write) or a
+      # GitHub App installation token, and store it as the
+      # `RELEASE_PLEASE_TOKEN` repo secret. Falls back to GITHUB_TOKEN so
+      # this workflow still works (minus PR->CI triggering) without it.
       - uses: googleapis/release-please-action@v4
         with:
-          release-type: node
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

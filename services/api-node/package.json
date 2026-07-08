@@ -1,0 +1,29 @@
+{
+  "name": "@repo/api-node",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "build": "tsup",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "rpc:smoke": "tsx src/rpc.smoke.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome ci .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@connectrpc/connect": "^2.1.2",
+    "@connectrpc/connect-node": "^2.1.2",
+    "@repo/api-core": "workspace:*",
+    "@repo/protocol": "workspace:*",
+    "@sentry/node": "^10.64.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.19.2",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

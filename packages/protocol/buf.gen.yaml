@@ -1,0 +1,10 @@
+version: v2
+clean: true
+plugins:
+  # Protobuf-ES v2 generates both message types AND service descriptors,
+  # so the separate connect-es plugin is no longer needed.
+  - local: protoc-gen-es
+    out: src/gen
+    opt:
+      - target=ts
+      - import_extension=js

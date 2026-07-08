@@ -3,8 +3,22 @@ services:
     build:
       context: ../../
       dockerfile: docker/production/Dockerfile
+      args:
+        # NEXT_PUBLIC_* are inlined at build time — set real per-environment values
+        # here (override via shell env, e.g. NEXT_PUBLIC_API_ENDPOINT=...).
+        NEXT_PUBLIC_API_ENDPOINT: ${NEXT_PUBLIC_API_ENDPOINT:-https://api.example.com}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-https://app.example.com}
     image: web-production
     ports:
       - '80:80'
+    # No default env file — create a real, git-ignored
+    # ../../apps/dapp/.env.production.local before running this. Compose will
+    # refuse to start without it, by design: this used to fall back to
+    # .env.sample, which ships publicly-known secrets. It MUST set:
+    #   - SESSION_SECRET      (openssl rand -base64 48)
+    #   - DEMO_AUTH_EMAIL     (real login email for the demo auth flow)
+    #   - DEMO_AUTH_PASSWORD  (real login password — NOT the .env.sample value;
+    #                          the app refuses to boot in production if either
+    #                          is missing, see apps/dapp/src/server/lib/auth.ts)
     env_file:
-      - ../../.env.production.sample
+      - ../../apps/dapp/.env.production.local

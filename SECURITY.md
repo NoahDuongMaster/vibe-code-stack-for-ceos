@@ -14,8 +14,8 @@ The following versions of the project are currently being supported with securit
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.0.3   | :white_check_mark: |
-| < 2.0.3 | :x:                |
+| 1.0.x   | :white_check_mark: |
+| < 1.0.0 | :x:                |
 
 ## Security Updates
 
@@ -23,7 +23,7 @@ Security updates will be issued for supported versions in response to verified s
 
 ## Reporting a Non-Security Issue
 
-If you find bugs or other non-security related issues, please open a regular [issue on GitHub](https://github.com/truongdn-it/nextjs-boilerplate/issues).
+If you find bugs or other non-security related issues, please open a regular [issue on GitHub](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/issues).
 
 ## Code of Conduct
 

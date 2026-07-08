@@ -1,0 +1,50 @@
+packages:
+  - 'apps/*'
+  - 'services/*'
+  - 'packages/*'
+
+# Shared dev-tooling versions, declared once here — every workspace package
+# references `"typescript": "catalog:"` etc. instead of its own range, so
+# they can never drift apart again (found already drifted: vitest ^4.1.9 in
+# apps/dapp + packages/api-core vs ^4.1.10 everywhere else; eslint exact-
+# pinned 9.39.4 in apps/dapp vs ^9.39.4 elsewhere). Exact-pinned per .npmrc's
+# `save-exact = true` policy — bump here, once, for the whole workspace.
+catalog:
+  typescript: 6.0.3
+  vitest: 4.1.10
+  eslint: 9.39.4
+
+# `overrides` can only live at the workspace root (package.json's "pnpm"
+# field is no longer read by pnpm 11 — see `pnpm why <pkg>` warnings).
+# - postcss: forces the patched version tree-wide (GHSA-qx2v-qp2m-jg93, XSS
+#   via unescaped `</style>` in CSS stringify output) — every current path to
+#   postcss is transitive through `next`, so no app declares it directly.
+# - @sentry/*: pins every @sentry/* package to one version so the tree
+#   dedupes to a single @sentry/core instead of three drifted copies
+#   (10.59.0 / 10.63.0 / 10.64.0) shipped by @sentry/nextjs, @sentry/react,
+#   @sentry/astro, and @sentry/node declaring different ranges.
+overrides:
+  postcss: '>=8.5.10'
+  esbuild: '>=0.28.1'
+  '@sentry/*': '10.64.0'
+  # The `@sentry/*` glob above doesn't reliably catch a package that a
+  # workspace project depends on *directly* (apps/dapp -> @sentry/nextjs,
+  # apps/admin -> @sentry/react) — explicit entries are needed to actually
+  # dedupe those into the same @sentry/core.
+  '@sentry/nextjs': '10.64.0'
+  '@sentry/react': '10.64.0'
+
+# pnpm v11 consolidated build-script approvals — a single map that replaces the
+# deprecated onlyBuiltDependencies / neverBuiltDependencies / ignoredBuiltDependencies.
+# `true` = allow that dependency's install/build lifecycle scripts to run.
+# (pnpm blocks dependency build scripts by default for supply-chain safety.)
+allowBuilds:
+  '@biomejs/biome': true
+  '@bufbuild/buf': true
+  '@sentry/cli': true
+  '@swc/core': true
+  esbuild: true
+  msw: true
+  sharp: true
+  unrs-resolver: true
+  workerd: true

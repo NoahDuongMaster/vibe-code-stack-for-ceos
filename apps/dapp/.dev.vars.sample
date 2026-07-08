@@ -1,0 +1,14 @@
+# Sample secrets for the Cloudflare Workers runtime (`wrangler dev` / vinext's
+# Workers dev server). Copy to `.dev.vars` (git-ignored) and fill in real
+# values — `.dev.vars` is wrangler's local-secrets file, separate from the
+# `.env`/`.env.sample` pair used by the plain Next.js dev server.
+#
+# Mirrors the vars provisioned in CI at .github/workflows/playwright.yml.
+
+NEXT_PUBLIC_PROJECT_NAME="ai-first-nextjs-boilerplate"
+NEXT_PUBLIC_API_ENDPOINT=http://localhost:3000
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+SESSION_SECRET=dev-session-secret-min-32-chars!!
+DEMO_AUTH_EMAIL=admin@example.com
+DEMO_AUTH_PASSWORD=change-me-please

@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ai-first-landing",
+  "compatibility_date": "2026-06-21",
+  // Static-only Worker: serve Astro's build output (dist/) as assets.
+  "assets": { "directory": "./dist" },
+  "observability": {
+    "enabled": true
+  },
+  // Pin CI/CD to `--env staging` / `--env production` explicitly. Rollback:
+  // `wrangler rollback --env production`.
+  "env": {
+    "staging": {
+      "name": "ai-first-landing-staging"
+    },
+    "production": {
+      "name": "ai-first-landing"
+    }
+  }
+}

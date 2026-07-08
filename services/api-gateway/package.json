@@ -1,0 +1,25 @@
+{
+  "name": "@repo/gateway-cf",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome ci .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@repo/api-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.42.1",
+    "@cloudflare/workers-types": "4.20260621.1",
+    "typescript": "catalog:",
+    "vite": "8.0.16",
+    "vitest": "catalog:",
+    "wrangler": "4.103.0"
+  }
+}

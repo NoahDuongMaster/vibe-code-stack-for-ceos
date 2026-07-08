@@ -8,3 +8,8 @@ indent_size = 2
 indent_style = space
 insert_final_newline = true
 trim_trailing_whitespace = true
+
+# Recipe lines must stay tab-indented — make wouldn't recognize
+# space-indented recipes as commands.
+[Makefile]
+indent_style = tab

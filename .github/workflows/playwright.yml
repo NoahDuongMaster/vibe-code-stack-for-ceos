@@ -2,56 +2,99 @@ name: Playwright E2E
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   push:
-    branches: [main]
+    branches: [main, develop]
 
 env:
   NEXT_PUBLIC_PROJECT_NAME: e2e-build
   NEXT_PUBLIC_API_ENDPOINT: https://placeholder.example.com
   NEXT_PUBLIC_BASE_URL: https://placeholder.example.com
   SESSION_SECRET: ci-placeholder-secret-32-chars!!
+  DEMO_AUTH_EMAIL: e2e@example.com
+  DEMO_AUTH_PASSWORD: ci-placeholder-password
+
+# Least privilege by default; this workflow only needs to check out code and
+# upload its own artifact on failure.
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: |
+          echo "version=$(pnpm --filter @repo/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
 
       - name: Install Chromium
-        run: npx playwright install chromium --with-deps
+        run: pnpm --filter @repo/web exec playwright install chromium --with-deps
+        # `--with-deps` also installs OS-level libs Chromium needs — those
+        # aren't part of the cached browser binaries, so this still has to
+        # run every time; the cache above just skips re-downloading the
+        # ~100MB browser binary itself when unchanged.
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
 
-      - name: Create .dev.vars for vinext Workers runtime
+      - name: Install Chromium's OS dependencies (cache hit)
+        run: pnpm --filter @repo/web exec playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      - name: Create apps/dapp/.dev.vars for vinext Workers runtime
         run: |
-          cat <<EOF > .dev.vars
+          cat <<EOF > apps/dapp/.dev.vars
           NEXT_PUBLIC_PROJECT_NAME=${{ env.NEXT_PUBLIC_PROJECT_NAME }}
           NEXT_PUBLIC_API_ENDPOINT=${{ env.NEXT_PUBLIC_API_ENDPOINT }}
           NEXT_PUBLIC_BASE_URL=${{ env.NEXT_PUBLIC_BASE_URL }}
           SESSION_SECRET=${{ env.SESSION_SECRET }}
+          DEMO_AUTH_EMAIL=${{ env.DEMO_AUTH_EMAIL }}
+          DEMO_AUTH_PASSWORD=${{ env.DEMO_AUTH_PASSWORD }}
           EOF
 
       - name: Build
-        run: npm run build
+        run: pnpm --filter @repo/web build
 
       - name: Run Playwright tests
-        run: npx playwright test
+        run: pnpm --filter @repo/web test:e2e
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report
-          path: playwright-report/
+          # playwright-report/ embeds traces from retried failures; e2e-results/
+          # holds screenshots for failures that were never retried (single-run
+          # tests, or the last of the configured retries) — upload both.
+          path: |
+            apps/dapp/playwright-report/
+            apps/dapp/e2e-results/
           retention-days: 7

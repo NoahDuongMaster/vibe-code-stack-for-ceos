@@ -1,0 +1,17 @@
+{
+  "name": "AI-First Next.js Boilerplate",
+  "short_name": "AI-First",
+  "description": "AI-first monorepo boilerplate — type-safe, edge-ready, built for micro-frontends and microservices.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#6366f1",
+  "background_color": "#0a0c12",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

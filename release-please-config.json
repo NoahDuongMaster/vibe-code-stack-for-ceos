@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "separate-pull-requests": true,
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "vibe-code-stack-for-ceos"
+    },
+    "apps/dapp": {
+      "release-type": "node",
+      "package-name": "@repo/web"
+    },
+    "apps/admin": {
+      "release-type": "node",
+      "package-name": "@repo/admin"
+    },
+    "apps/landing": {
+      "release-type": "node",
+      "package-name": "@repo/landing"
+    },
+    "services/api-node": {
+      "release-type": "node",
+      "package-name": "@repo/api-node"
+    },
+    "services/api-gateway": {
+      "release-type": "node",
+      "package-name": "@repo/gateway-cf"
+    },
+    "packages/protocol": {
+      "release-type": "node",
+      "package-name": "@repo/protocol"
+    },
+    "packages/api-core": {
+      "release-type": "node",
+      "package-name": "@repo/api-core"
+    },
+    "packages/api-client": {
+      "release-type": "node",
+      "package-name": "@repo/api-client"
+    }
+  }
+}

@@ -1,6 +1,6 @@
-# Contributing to [NextJS Boilerplate](https://github.com/truongdn-it/nextjs-boilerplate)
+# Contributing to [Vibe Code Stack For CEOs](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate)
 
-Thank you for your interest in contributing to NextJS Boilerplate! We welcome contributions from the community to make our project better.
+Thank you for your interest in contributing! We welcome contributions from the community to make this monorepo better.
 
 Before you start contributing, please take a moment to read the following guidelines.
 
@@ -12,7 +12,7 @@ This project and everyone participating in it are governed by our [Code of Condu
 
 ### Reporting Bugs
 
-If you find a bug, please open an issue on our [issue tracker](https://github.com/truongdn-it/nextjs-boilerplate/issues). Include detailed information about how to reproduce the bug, and what happened.
+If you find a bug, please open an issue on our [issue tracker](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/issues). Include detailed information about how to reproduce the bug, and what happened.
 
 ### Suggesting Enhancements
 
@@ -22,23 +22,38 @@ If you have ideas on how to improve the project or new features you would like t
 
 We welcome your pull requests! Before submitting a pull request, please make sure to:
 
-1. Fork the repository and create a branch for your changes.
-2. Follow our coding standards (add link to coding standards).
-3. Write meaningful commit messages.
-4. Test your changes thoroughly.
-5. Update the documentation if necessary.
+1. Fork the repository and create a branch following the naming convention below.
+2. Follow the architecture rules in [`CLAUDE.md`](CLAUDE.md) — it's the single source of truth for folder structure, dependency direction, and naming.
+3. Write commit messages following the convention below.
+4. Run `pnpm check:ci`, `pnpm typecheck`, `pnpm lint`, and `pnpm test` for any workspace you touched.
+5. Update `CLAUDE.md` or the relevant `README.md` if your change affects documented behavior.
 
 ### Development Setup
 
-Include information on how to set up the development environment locally, including dependencies and any special configuration.
+```bash
+corepack enable        # ensures the pinned pnpm version is used
+pnpm install
+pnpm dev                # starts every app in the monorepo (Turborepo)
+```
+
+See the root [`README.md`](README.md) for per-app dev commands (`pnpm dev:web`, `pnpm dev:admin`, `pnpm dev:landing`, `pnpm dev:api`) and the [Docker environments](README.md) section for containerized setup.
+
+### Commit & Branch Conventions
+
+```
+type(scope): issue-123 short description   # commit
+type(scope)/issue-123-short-description    # branch
+```
+
+Types: `feat|fix|hotfix|docs|style|refactor|perf|test|build|ci|chore|BREAKING_CHANGE`. Scopes: `dapp|admin|infra|backend|admin-backend|proxy|snapshot|tma|serverless`. Use `no-issue` in place of the issue number for trivial changes. See [`CLAUDE.md`](CLAUDE.md#git-conventions) for the full spec.
 
 ## Coding Standards
 
-Follow our coding standards when making changes to the codebase. Include a link to detailed coding standards documentation if available.
+All coding standards — tech stack, folder structure, naming conventions, error handling, security, and testing rules — live in [`CLAUDE.md`](CLAUDE.md). Read it before opening a PR.
 
 ## License
 
-By contributing to this project, you agree that your contributions will be licensed under the project's [license](https://github.com/truongdn-it/nextjs-boilerplate/blob/main/LICENSE).
+By contributing to this project, you agree that your contributions will be licensed under the project's [license](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/blob/main/LICENSE).
 
 ## Contact
 

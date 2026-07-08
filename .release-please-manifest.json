@@ -1,0 +1,11 @@
+{
+  ".": "1.0.0",
+  "apps/dapp": "1.0.0",
+  "apps/admin": "0.0.0",
+  "apps/landing": "0.0.0",
+  "services/api-node": "0.0.0",
+  "services/api-gateway": "0.0.0",
+  "packages/protocol": "0.0.0",
+  "packages/api-core": "0.0.0",
+  "packages/api-client": "0.0.0"
+}

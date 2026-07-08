@@ -1,0 +1,96 @@
+---
+import { SOCIAL_LINKS } from '../../shared/data/site';
+---
+
+<section class="hero">
+  <div class="container hero-inner">
+    <span class="eyebrow">Monorepo · Micro-FE · Microservices</span>
+    <h1>
+      Ship <span class="gradient-text">AI-first products</span><br />
+      at the edge, faster.
+    </h1>
+    <p class="lead">
+      A type-safe Turborepo boilerplate: a Next.js app, this Astro landing, and
+      Connect RPC services — one contract, end-to-end types, deployed to Cloudflare.
+    </p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#features">Get started</a>
+      <a
+        class="btn btn-ghost"
+        href={SOCIAL_LINKS.github}
+        target="_blank"
+        rel="noreferrer">Star on GitHub</a
+      >
+    </div>
+    <div class="terminal" aria-hidden="true">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <code>npm create ai-first@latest</code>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    padding-block: 110px 90px;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: -40% 0 auto 0;
+    height: 520px;
+    background: radial-gradient(
+      60% 60% at 50% 0%,
+      color-mix(in oklab, var(--accent) 22%, transparent),
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+  .hero-inner {
+    position: relative;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+  }
+  h1 {
+    font-size: clamp(36px, 6vw, 62px);
+    font-weight: 800;
+  }
+  .lead {
+    max-width: 640px;
+    font-size: clamp(16px, 2.4vw, 19px);
+    color: var(--muted);
+    margin: 0;
+  }
+  .cta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 6px;
+  }
+  .terminal {
+    margin-top: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+  }
+  .terminal .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+  .terminal code {
+    margin-left: 6px;
+  }
+</style>

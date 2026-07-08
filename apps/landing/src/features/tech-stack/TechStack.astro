@@ -1,0 +1,48 @@
+---
+import { STACK } from './tech-stack.data';
+---
+
+<section class="section" id="stack">
+  <div class="container">
+    <div class="head">
+      <span class="eyebrow">Batteries included</span>
+      <h2>The stack</h2>
+    </div>
+    <ul class="badges">
+      {STACK.map((s) => <li>{s}</li>)}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .head {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 40px;
+  }
+  .head h2 {
+    font-size: clamp(26px, 4vw, 38px);
+    font-weight: 800;
+  }
+  .badges {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+  .badges li {
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+</style>

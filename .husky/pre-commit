@@ -1,5 +1,4 @@
 #!/bin/sh
-npx lint-staged
+pnpm exec lint-staged
 
-# AI code review runs at PR level via PR-Agent GitHub Action (.github/workflows/pr-agent.yml)
-# Config: .pr_agent.toml
+# AI code review runs at PR level via GitHub Models (.github/workflows/pr-review.yml)

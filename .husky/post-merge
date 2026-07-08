@@ -1,3 +1,0 @@
-#!/bin/sh
-# After git pull/merge: sync AI graphs + regen configs if .ai/ changed
-[ -z "$CI" ] && sh ./scripts/sync-ai.sh 2>/dev/null || true

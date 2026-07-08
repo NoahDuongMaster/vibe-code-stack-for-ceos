@@ -1,0 +1,124 @@
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f7f8fb;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #5b6472;
+  --border: #e7e9f0;
+  --accent: #6366f1;
+  --accent-2: #8b5cf6;
+  --on-accent: #ffffff;
+  --radius: 14px;
+  --maxw: 1120px;
+  --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0c12;
+    --bg-subtle: #0d1019;
+    --card: #111420;
+    --text: #e8eaf2;
+    --muted: #97a0b2;
+    --border: #1c2231;
+    --accent: #818cf8;
+    --accent-2: #a78bfa;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+h1,
+h2,
+h3 {
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.gradient-text {
+  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 15px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+}
+.btn:hover {
+  transform: translateY(-1px);
+}
+.btn-primary {
+  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  color: var(--on-accent);
+  box-shadow: 0 6px 20px -8px var(--accent);
+}
+.btn-ghost {
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--text);
+}
+
+.section {
+  padding-block: 96px;
+}
+.section-subtle {
+  background: var(--bg-subtle);
+  border-block: 1px solid var(--border);
+}

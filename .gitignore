@@ -35,6 +35,11 @@ yarn-error.log*
 .env.development
 .env.production
 
+# Cloudflare Workers local secrets (loaded by `wrangler dev`)
+.dev.vars
+.dev.vars.*
+!.dev.vars.sample
+
 # IDE
 .vscode/
 .idea/
@@ -57,10 +62,6 @@ tsconfig.tsbuildinfo
 # Added by code-review-graph
 .code-review-graph/
 graphify-out/
-
-# AI metrics — log.jsonl IS tracked intentionally (objective commit data for monthly analysis)
-# Only exclude temp session markers
-/tmp/ai-session-*.marker
 
 # Panda CSS (generated)
 src/styled-system/
@@ -91,3 +92,24 @@ pids/
 .cache/
 .swc/
 .turbo/
+
+# ── Monorepo (depth-agnostic — catches apps/*, services/*, packages/*) ──
+**/node_modules/
+**/.next/
+**/dist/
+**/out/
+**/build/
+**/coverage/
+**/styled-system/
+**/.turbo/
+**/.vinext/
+**/.wrangler/
+**/.astro/
+**/playwright-report/
+**/e2e-results/
+**/test-results/
+**/*.tsbuildinfo
+
+# Generated audit/report artifacts — never committed
+*-report.html
+production-readiness-report.html

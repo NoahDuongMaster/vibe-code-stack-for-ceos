@@ -1,12 +1,18 @@
-node_modules
-.next
-dist
+# Dependencies & build output (recreated inside the image) — match every workspace.
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/.vinext
+**/.wrangler
+**/.astro
+**/*.tsbuildinfo
 .git
+
 docker
 
 # AI/IDE configs
 .ai
-.ai-metrics
 .claude
 .cursor
 .gemini
@@ -15,18 +21,17 @@ docker
 graphify-out
 
 # Test & docs
-coverage
-playwright-report
-test-results
+**/coverage
+**/playwright-report
+**/test-results
+**/e2e-results
 *.md
 !README.md
 
-# Env (injected at build via COPY .env.*.sample)
-.env
-.env.*
-!.env.development.sample
-!.env.staging.sample
-!.env.production.sample
+# Env — keep only the committed sample; real values are injected at run time.
+**/.env
+**/.env.*
+!**/.env.sample
 
 # Misc
 npm-debug.log

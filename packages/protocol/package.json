@@ -1,0 +1,24 @@
+{
+  "name": "@repo/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "buf generate",
+    "generate:check": "buf generate && git diff --exit-code -- src/gen",
+    "typecheck": "tsc --noEmit",
+    "lint": "buf lint",
+    "breaking": "buf breaking --against '../../.git#branch=main,subdir=packages/protocol'"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.12.1"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.71.0",
+    "@bufbuild/protoc-gen-es": "^2.12.1",
+    "typescript": "catalog:"
+  }
+}

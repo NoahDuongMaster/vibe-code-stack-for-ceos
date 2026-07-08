@@ -1,0 +1,66 @@
+---
+import { NAV_LINKS, SITE, SOCIAL_LINKS } from '../data/site';
+---
+
+<header class="nav">
+  <div class="container nav-inner">
+    <a href="/" class="brand">
+      <img src="/favicon.svg" alt="" width="26" height="26" />
+      <span>{SITE.shortName}</span>
+    </a>
+    <nav class="nav-links">
+      {NAV_LINKS.map((l) => <a href={l.href}>{l.label}</a>)}
+    </nav>
+    <a
+      class="btn btn-ghost github-link"
+      href={SOCIAL_LINKS.github}
+      target="_blank"
+      rel="noreferrer">GitHub ↗</a
+    >
+  </div>
+</header>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+    background: color-mix(in oklab, var(--bg) 82%, transparent);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 17px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 26px;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .nav-links a:hover {
+    color: var(--text);
+  }
+  @media (max-width: 640px) {
+    .nav-links {
+      gap: 16px;
+      font-size: 14px;
+    }
+    /* The hero section repeats this as "Star on GitHub" — safe to drop the
+       header's copy on narrow screens instead of hiding page navigation. */
+    .github-link {
+      display: none;
+    }
+  }
+</style>

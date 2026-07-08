@@ -1,0 +1,78 @@
+---
+import { FEATURES } from './feature-grid.data';
+---
+
+<section class="section section-subtle" id="features">
+  <div class="container">
+    <div class="head">
+      <span class="eyebrow">Why this stack</span>
+      <h2>Everything wired, nothing locked in</h2>
+    </div>
+    <div class="grid">
+      {
+        FEATURES.map((f) => (
+          <article class="card">
+            <div class="icon">{f.icon}</div>
+            <h3>{f.title}</h3>
+            <p>{f.body}</p>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .head {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 48px;
+  }
+  .head h2 {
+    font-size: clamp(26px, 4vw, 38px);
+    font-weight: 800;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    transition:
+      transform 0.15s ease,
+      border-color 0.15s ease;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+  }
+  .icon {
+    font-size: 26px;
+  }
+  .card h3 {
+    font-size: 18px;
+    margin: 12px 0 6px;
+  }
+  .card p {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 0;
+  }
+  @media (max-width: 900px) {
+    .grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 600px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

@@ -1,0 +1,39 @@
+---
+import { SITE } from '../data/site';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="brand">
+      <img src="/favicon.svg" alt="" width="22" height="22" /> {SITE.shortName} Boilerplate
+    </div>
+    <p>© {year} · Built with Astro on the edge.</p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--border);
+    padding-block: 32px;
+  }
+  .footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+  }
+  .footer p {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0;
+  }
+</style>

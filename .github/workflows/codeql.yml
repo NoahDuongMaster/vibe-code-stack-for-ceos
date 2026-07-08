@@ -1,23 +1,38 @@
-name: CodeQL Security Analysis
+name: CodeQL
 
+# Static application security testing (SAST) — free for public repos and for
+# private repos on GitHub Advanced Security. Results appear under Security →
+# Code scanning.
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
     branches: [main]
   schedule:
+    # Weekly full scan (Mondays 01:30 UTC) to catch newly disclosed patterns.
     - cron: "30 1 * * 1"
 
+# Least privilege by default; the analyze job elevates only what it needs.
 permissions:
-  actions: read
   contents: read
-  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   analyze:
-    name: Analyze
+    name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
-
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["javascript-typescript"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,10 +40,12 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: javascript-typescript
-          queries: security-and-quality
+          languages: ${{ matrix.language }}
+          # JS/TS is interpreted — no compilation step required.
+          build-mode: none
+          queries: security-extended
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
-          category: /language:javascript-typescript
+          category: "/language:${{ matrix.language }}"
