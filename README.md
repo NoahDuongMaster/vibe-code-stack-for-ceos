@@ -365,8 +365,6 @@ Yes — your AI agent can do all five steps. That's the point. 🎩
 
 ## ⭐ Star History
 
-## Star History
-
 <a href="https://www.star-history.com/?repos=NoahDuongMaster%2Fvibe-code-stack-for-ceos&type=timeline&legend=bottom-right">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=NoahDuongMaster/vibe-code-stack-for-ceos&type=timeline&theme=dark&legend=bottom-right&sealed_token=U0Y0K_7mYErU2kz0IMdf9gMUibGZY5NcIWTNI4YG4SsV6S7Z5dznwGbyqlq1UUIZ5blhjBZjtvj3bFK7fDpwjHTP4iyTyICcU-rP-BaQ2aeBVFS8NWV-LYdTm3FAKX-f3OG8CvkA931EwxYcdsB2rh3NyCEMnGKsudTcYcWLl9nfsTTvcrNwkuHI1lik" />
