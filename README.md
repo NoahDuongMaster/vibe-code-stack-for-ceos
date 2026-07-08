@@ -11,8 +11,8 @@
 
 **Stop prompting. Start delegating.** The full-stack monorepo where Claude Code, Cursor, Gemini CLI, Kiro, Copilot, and Windsurf all read **one company handbook** — and ship **identical, production-grade code** on the first try.
 
-[![GitHub stars](https://img.shields.io/github/stars/NoahDuongMaster/ai-first-nextjs-boilerplate?style=for-the-badge&logo=github&color=yellow)](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/NoahDuongMaster/ai-first-nextjs-boilerplate?style=for-the-badge&logo=github&color=blue)](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/network/members)
+[![GitHub stars](https://img.shields.io/github/stars/NoahDuongMaster/vibe-code-stack-for-ceos?style=for-the-badge&logo=github&color=yellow)](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/NoahDuongMaster/vibe-code-stack-for-ceos?style=for-the-badge&logo=github&color=blue)](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/network/members)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](https://opensource.org/licenses/MIT)
@@ -25,7 +25,7 @@
 
 ## 😤 The Problem
 
-You open Cursor, type *"create a user profile page"*, and get:
+You open Cursor, type _"create a user profile page"_, and get:
 
 - A file in the wrong folder
 - `useState` for form fields instead of react-hook-form
@@ -182,20 +182,20 @@ apps/dapp/src/
 
 ### 🌍 A real company, not a toy app
 
-| | Workspace | Stack | Deploys to |
-|--|-----------|-------|------------|
-| 🛍️ | `apps/dapp` | Next.js 16 App Router on vinext (Vite) | Cloudflare Workers |
-| 🛠️ | `apps/admin` | React 19 SPA — Rsbuild, route-split, code-split | Cloudflare Pages |
-| 🪧 | `apps/landing` | Astro — ships **literally zero JS** | Cloudflare Workers |
-| ⚙️ | `services/api-node` | Connect-RPC Node server — tsup build, Dockerfile, graceful shutdown, `/healthz` | Docker |
-| 🌐 | `services/api-gateway` | Edge gateway Worker — CORS allowlist, upstream proxy | Cloudflare Workers |
-| 📜 | `packages/protocol` | Protobuf schemas, buf lint + breaking-change gate in CI | — |
-| 🧠 | `packages/api-core` | One RPC implementation, two runtimes (Node + edge) | — |
-| 🔌 | `packages/api-client` | End-to-end typed browser client | — |
+|     | Workspace              | Stack                                                                           | Deploys to         |
+| --- | ---------------------- | ------------------------------------------------------------------------------- | ------------------ |
+| 🛍️  | `apps/dapp`            | Next.js 16 App Router on vinext (Vite)                                          | Cloudflare Workers |
+| 🛠️  | `apps/admin`           | React 19 SPA — Rsbuild, route-split, code-split                                 | Cloudflare Pages   |
+| 🪧  | `apps/landing`         | Astro — ships **literally zero JS**                                             | Cloudflare Workers |
+| ⚙️  | `services/api-node`    | Connect-RPC Node server — tsup build, Dockerfile, graceful shutdown, `/healthz` | Docker             |
+| 🌐  | `services/api-gateway` | Edge gateway Worker — CORS allowlist, upstream proxy                            | Cloudflare Workers |
+| 📜  | `packages/protocol`    | Protobuf schemas, buf lint + breaking-change gate in CI                         | —                  |
+| 🧠  | `packages/api-core`    | One RPC implementation, two runtimes (Node + edge)                              | —                  |
+| 🔌  | `packages/api-client`  | End-to-end typed browser client                                                 | —                  |
 
 ### 🔐 Security that survived an adversarial audit
 
-- Nonce-based CSP wired the way Next.js actually requires (on the *request* headers — most tutorials get this wrong)
+- Nonce-based CSP wired the way Next.js actually requires (on the _request_ headers — most tutorials get this wrong)
 - iron-session encrypted cookies + cryptographic session validation in middleware
 - Zod at every trust boundary; constant-time credential comparison; login rate limiting
 - Static CSP via `_headers` for admin/landing; allowlist-driven CORS across the backend
@@ -209,6 +209,7 @@ Husky pre-commit → CI (`typecheck`, `check:ci`, `lint`, `test`, `build`) → C
 <summary><b>🤖 Pre-commit AI Code Review (Code Review Graph MCP)</b></summary>
 
 Every commit triggers a **semantic impact analysis** powered by a Tree-sitter knowledge graph:
+
 - Detects which functions, components, and modules are affected
 - Scores risk level of changes
 - Flags architectural violations before they reach PR review
@@ -249,8 +250,8 @@ This isn't linting — it's structural understanding of your codebase.
 
 ```bash
 # Clone
-git clone https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate.git
-cd ai-first-nextjs-boilerplate
+git clone https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos.git
+cd vibe-code-stack-for-ceos
 
 # Install (pnpm is enforced — run `corepack enable` first if you don't have it)
 pnpm install
@@ -292,19 +293,19 @@ For real secrets, create `apps/dapp/.env.<environment>.local` (git-ignored) and 
 
 Declared in `apps/dapp/src/shared/config/env.configuration.ts` with Zod validation. Never use `process.env` directly. Copy `apps/dapp/.env.sample` to get started.
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_PROJECT_NAME` | Yes | App / project display name |
-| `NEXT_PUBLIC_BASE_URL` | Yes | Public base URL (must be a valid URL) |
-| `SESSION_SECRET` | Yes | iron-session secret (32+ chars) |
-| `DEMO_AUTH_EMAIL` | Yes | Login email for the built-in demo auth flow (`src/server/lib/auth.ts`) — the server refuses to boot without it |
-| `DEMO_AUTH_PASSWORD` | Yes | Login password for the built-in demo auth flow — refuses to boot without it, and refuses to boot in production if left as a known placeholder |
-| `NEXT_PUBLIC_API_ENDPOINT` | Optional | Backend API base URL |
-| `NEXT_PUBLIC_CORS_COOKIE` | Optional | Cookie domain for CORS |
-| `NEXT_PUBLIC_SENTRY_DSN` | Optional | Sentry DSN (blank disables Sentry) |
-| `CORS_ORIGINS` / `CORS_RESOURCE` | Optional | Server-only CORS allowlists |
-| `SENTRY_ORG` / `SENTRY_PROJECT` | Optional, build-time only | Enables the Sentry plugin in `next.config.ts` — set as GitHub Environment `vars` in `deploy.yml`, not in `.env` |
-| `SENTRY_AUTH_TOKEN` | Optional, build-time only | Required alongside the two above to upload source maps — set as a GitHub Environment secret |
+| Variable                         | Required                  | Description                                                                                                                                   |
+| -------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_PROJECT_NAME`       | Yes                       | App / project display name                                                                                                                    |
+| `NEXT_PUBLIC_BASE_URL`           | Yes                       | Public base URL (must be a valid URL)                                                                                                         |
+| `SESSION_SECRET`                 | Yes                       | iron-session secret (32+ chars)                                                                                                               |
+| `DEMO_AUTH_EMAIL`                | Yes                       | Login email for the built-in demo auth flow (`src/server/lib/auth.ts`) — the server refuses to boot without it                                |
+| `DEMO_AUTH_PASSWORD`             | Yes                       | Login password for the built-in demo auth flow — refuses to boot without it, and refuses to boot in production if left as a known placeholder |
+| `NEXT_PUBLIC_API_ENDPOINT`       | Optional                  | Backend API base URL                                                                                                                          |
+| `NEXT_PUBLIC_CORS_COOKIE`        | Optional                  | Cookie domain for CORS                                                                                                                        |
+| `NEXT_PUBLIC_SENTRY_DSN`         | Optional                  | Sentry DSN (blank disables Sentry)                                                                                                            |
+| `CORS_ORIGINS` / `CORS_RESOURCE` | Optional                  | Server-only CORS allowlists                                                                                                                   |
+| `SENTRY_ORG` / `SENTRY_PROJECT`  | Optional, build-time only | Enables the Sentry plugin in `next.config.ts` — set as GitHub Environment `vars` in `deploy.yml`, not in `.env`                               |
+| `SENTRY_AUTH_TOKEN`              | Optional, build-time only | Required alongside the two above to upload source maps — set as a GitHub Environment secret                                                   |
 
 </details>
 
@@ -312,16 +313,16 @@ Declared in `apps/dapp/src/shared/config/env.configuration.ts` with Zod validati
 
 ## 📜 All Scripts
 
-| Command (repo root) | What it does |
-|---------------------|-------------|
-| `pnpm dev` | Start every app (Turborepo) |
-| `pnpm dev:web` / `dev:admin` / `dev:landing` / `dev:api` | Start one workspace |
-| `pnpm build` | Build every workspace |
-| `pnpm typecheck` | `tsc --noEmit` across all 8 workspaces |
-| `pnpm lint` | ESLint (apps) · Biome (services) · buf lint (protocol) |
-| `pnpm check` / `check:ci` / `format` | Biome fix / CI check / format |
-| `pnpm test` | Vitest across all workspaces |
-| `pnpm test:e2e` | Playwright E2E (`apps/dapp/e2e/`) |
+| Command (repo root)                                                      | What it does                                           |
+| ------------------------------------------------------------------------ | ------------------------------------------------------ |
+| `pnpm dev`                                                               | Start every app (Turborepo)                            |
+| `pnpm dev:web` / `dev:admin` / `dev:landing` / `dev:api`                 | Start one workspace                                    |
+| `pnpm build`                                                             | Build every workspace                                  |
+| `pnpm typecheck`                                                         | `tsc --noEmit` across all 8 workspaces                 |
+| `pnpm lint`                                                              | ESLint (apps) · Biome (services) · buf lint (protocol) |
+| `pnpm check` / `check:ci` / `format`                                     | Biome fix / CI check / format                          |
+| `pnpm test`                                                              | Vitest across all workspaces                           |
+| `pnpm test:e2e`                                                          | Playwright E2E (`apps/dapp/e2e/`)                      |
 | `pnpm deploy:web` / `deploy:admin` / `deploy:landing` / `deploy:gateway` | Manual deploys (CI does this for you via `deploy.yml`) |
 
 ---
@@ -364,11 +365,11 @@ Yes — your AI agent can do all five steps. That's the point. 🎩
 
 ## ⭐ Star History
 
-<a href="https://star-history.com/#NoahDuongMaster/ai-first-nextjs-boilerplate&Date">
+<a href="https://star-history.com/#NoahDuongMaster/vibe-code-stack-for-ceos&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=NoahDuongMaster/ai-first-nextjs-boilerplate&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=NoahDuongMaster/ai-first-nextjs-boilerplate&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=NoahDuongMaster/ai-first-nextjs-boilerplate&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=NoahDuongMaster/vibe-code-stack-for-ceos&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=NoahDuongMaster/vibe-code-stack-for-ceos&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=NoahDuongMaster/vibe-code-stack-for-ceos&type=Date" />
  </picture>
 </a>
 
@@ -378,7 +379,7 @@ Yes — your AI agent can do all five steps. That's the point. 🎩
 
 ### 🎩 Run your code like a company. Ship like a CEO.
 
-**If this saved you time, [star the repo](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate) — it helps other CEOs find their handbook.**
+**If this saved you time, [star the repo](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos) — it helps other CEOs find their handbook.**
 
 Built by [Noah Duong](https://github.com/NoahDuongMaster) · MIT License
 

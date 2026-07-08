@@ -9,11 +9,13 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+
 - **Migrated from a single Next.js app to a pnpm + Turborepo monorepo**: the app moved to `apps/dapp/` (package `@repo/web`), joined by `apps/admin/` (Rsbuild/React Router SPA) and `apps/landing/` (Astro marketing site); shared Connect-RPC contracts extracted to `packages/protocol`, `packages/api-core`, `packages/api-client`; backend split into `services/api-gateway` (Cloudflare Workers) and `services/api-node` (Node.js)
 - Removed the multi-IDE AI-config generator (`scripts/gen-ai-config.sh`, `.ai/rules.md`) — `CLAUDE.md` is now hand-edited and is the single source of truth for architecture rules (see commit `4c33463`)
 - Switched package manager to pnpm (`packageManager: pnpm@11.2.2`, `only-allow pnpm` preinstall guard)
 
 ### Added
+
 - Multi-agent Playwright E2E test suite (`e2e/smoke.test.ts`, `e2e/navigation.test.ts`)
 - GitHub Actions workflows: CI pipeline, CodeQL security analysis, Playwright E2E
 - MSW v2 network-layer mocking (`src/__test__/mocks/`)
@@ -36,6 +38,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - Post-commit knowledge graph update (`code-review-graph update`)
 
 ### Changed
+
 - Migrated from **Biome v1** to **Biome v2** (`organizeImports` → `assist`, `files.ignore` → `files.includes`)
 - `useEffect` in `global.store.tsx` — scoped `matchMode` inside effect, added `removeEventListener` cleanup
 - CI workflow rebuilt as parallel multi-job pipeline (typecheck / lint / test / security / build)
@@ -43,6 +46,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - `AGENTS.md` updated to match CLAUDE.md stack (Ark UI, ofetch, correct folder paths)
 
 ### Fixed
+
 - `noArrayIndexKey` Biome rule in `src/__examples__/` — resolved via `biome.json` overrides
 - `useButtonType` missing on 5 button elements
 - `useHtmlLang` missing on `global-error.tsx`
@@ -54,6 +58,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 ## [1.0.0] — 2026-06-17
 
 ### Added
+
 - Initial release
 - Next.js 15 App Router + React 19 + TypeScript strict
 - Tailwind CSS v4 (CSS-first, OKLCH) + Ark UI v5
@@ -71,5 +76,5 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - `.kiro/steering/` rules (architecture, conventions, do-not, patterns)
 - Three Docker environments (development, staging, production)
 
-[Unreleased]: https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/releases/tag/v1.0.0
+[Unreleased]: https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/releases/tag/v1.0.0

@@ -23,7 +23,7 @@ Security updates will be issued for supported versions in response to verified s
 
 ## Reporting a Non-Security Issue
 
-If you find bugs or other non-security related issues, please open a regular [issue on GitHub](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/issues).
+If you find bugs or other non-security related issues, please open a regular [issue on GitHub](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/issues).
 
 ## Code of Conduct
 

@@ -1,4 +1,4 @@
-# Contributing to [Vibe Code Stack For CEOs](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate)
+# Contributing to [Vibe Code Stack For CEOs](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos)
 
 Thank you for your interest in contributing! We welcome contributions from the community to make this monorepo better.
 
@@ -12,7 +12,7 @@ This project and everyone participating in it are governed by our [Code of Condu
 
 ### Reporting Bugs
 
-If you find a bug, please open an issue on our [issue tracker](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/issues). Include detailed information about how to reproduce the bug, and what happened.
+If you find a bug, please open an issue on our [issue tracker](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/issues). Include detailed information about how to reproduce the bug, and what happened.
 
 ### Suggesting Enhancements
 
@@ -53,7 +53,7 @@ All coding standards — tech stack, folder structure, naming conventions, error
 
 ## License
 
-By contributing to this project, you agree that your contributions will be licensed under the project's [license](https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate/blob/main/LICENSE).
+By contributing to this project, you agree that your contributions will be licensed under the project's [license](https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos/blob/main/LICENSE).
 
 ## Contact
 

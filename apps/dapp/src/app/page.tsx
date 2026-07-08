@@ -6,10 +6,10 @@ import {
   Shield,
   Terminal,
   Zap,
-} from 'lucide-react';
-import Link from 'next/link';
-import { css } from '@/styled-system/css';
-import { flex, grid } from '@/styled-system/patterns';
+} from "lucide-react";
+import Link from "next/link";
+import { css } from "@/styled-system/css";
+import { flex, grid } from "@/styled-system/patterns";
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
@@ -27,62 +27,62 @@ function GitHubIcon({ className }: { className?: string }) {
 const FEATURES = [
   {
     icon: Zap,
-    title: 'AI-First Development',
+    title: "AI-First Development",
     description:
-      'One CLAUDE.md rule file at the repo root. Every AI coding assistant reads the same architecture rules — consistent, compliant code by construction.',
+      "One CLAUDE.md rule file at the repo root. Every AI coding assistant reads the same architecture rules — consistent, compliant code by construction.",
   },
   {
     icon: Layers,
-    title: 'Vertical Slice Architecture',
+    title: "Vertical Slice Architecture",
     description:
-      'Strict dependency direction: page → service → adapter. Features are isolated, testable, and easy to reason about.',
+      "Strict dependency direction: page → service → adapter. Features are isolated, testable, and easy to reason about.",
   },
   {
     icon: BookOpen,
-    title: 'Documented Code Patterns',
+    title: "Documented Code Patterns",
     description:
-      'Canonical schema/adapter/service/barrel patterns defined in CLAUDE.md. AI assistants and contributors follow the same reference examples.',
+      "Canonical schema/adapter/service/barrel patterns defined in CLAUDE.md. AI assistants and contributors follow the same reference examples.",
   },
   {
     icon: Shield,
-    title: 'Production Security',
+    title: "Production Security",
     description:
-      'CSP headers, input validation with Zod, server-only guards, rate-limited login, and zero secrets in client bundles.',
+      "CSP headers, input validation with Zod, server-only guards, rate-limited login, and zero secrets in client bundles.",
   },
   {
     icon: Terminal,
-    title: 'Developer Experience',
+    title: "Developer Experience",
     description:
-      'Biome + ESLint, Vitest + Playwright, Husky hooks, and type-safe everything — from env vars to API routes.',
+      "Biome + ESLint, Vitest + Playwright, Husky hooks, and type-safe everything — from env vars to API routes.",
   },
   {
     icon: Code2,
-    title: 'Modern Stack',
+    title: "Modern Stack",
     description:
-      'Next.js 16, React 19, TypeScript 6, Panda CSS, Ark UI, TanStack Query, Zustand, and more — all pre-configured.',
+      "Next.js 16, React 19, TypeScript 6, Panda CSS, Ark UI, TanStack Query, Zustand, and more — all pre-configured.",
   },
 ];
 
 const STACK_GROUPS = [
   {
-    label: 'Core',
-    items: ['Next.js 16', 'React 19', 'TypeScript 6'],
+    label: "Core",
+    items: ["Next.js 16", "React 19", "TypeScript 6"],
   },
   {
-    label: 'Styling',
-    items: ['Panda CSS', 'Ark UI'],
+    label: "Styling",
+    items: ["Panda CSS", "Ark UI"],
   },
   {
-    label: 'State',
-    items: ['TanStack Query', 'Zustand', 'nuqs'],
+    label: "State",
+    items: ["TanStack Query", "Zustand", "nuqs"],
   },
   {
-    label: 'Forms & Validation',
-    items: ['react-hook-form', 'Zod', 'next-safe-action'],
+    label: "Forms & Validation",
+    items: ["react-hook-form", "Zod", "next-safe-action"],
   },
   {
-    label: 'Testing',
-    items: ['Vitest', 'Playwright'],
+    label: "Testing",
+    items: ["Vitest", "Playwright"],
   },
 ];
 
@@ -92,24 +92,24 @@ export default function HomePage() {
       {/* Hero */}
       <section
         className={flex({
-          direction: 'column',
-          align: 'center',
-          justify: 'center',
-          minH: '100vh',
-          px: '6',
-          py: '24',
-          position: 'relative',
-          overflow: 'hidden',
+          direction: "column",
+          align: "center",
+          justify: "center",
+          minH: "100vh",
+          px: "6",
+          py: "24",
+          position: "relative",
+          overflow: "hidden",
         })}
       >
         <div
           className={css({
-            position: 'absolute',
+            position: "absolute",
             inset: 0,
-            bgGradient: 'to-b',
-            gradientFrom: 'background',
-            gradientVia: 'background',
-            gradientTo: 'secondary',
+            bgGradient: "to-b",
+            gradientFrom: "background",
+            gradientVia: "background",
+            gradientTo: "secondary",
             opacity: 0.6,
             zIndex: 0,
           })}
@@ -117,37 +117,37 @@ export default function HomePage() {
 
         <div
           className={flex({
-            direction: 'column',
-            align: 'center',
-            gap: '8',
-            maxW: '3xl',
-            w: 'full',
-            textAlign: 'center',
-            position: 'relative',
+            direction: "column",
+            align: "center",
+            gap: "8",
+            maxW: "3xl",
+            w: "full",
+            textAlign: "center",
+            position: "relative",
             zIndex: 1,
           })}
         >
           <span
             className={css({
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '2',
-              rounded: 'full',
-              borderWidth: '1px',
-              borderColor: 'border',
-              bg: 'card',
-              px: '4',
-              py: '1.5',
-              fontSize: 'sm',
-              color: 'muted.foreground',
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "2",
+              rounded: "full",
+              borderWidth: "1px",
+              borderColor: "border",
+              bg: "card",
+              px: "4",
+              py: "1.5",
+              fontSize: "sm",
+              color: "muted.foreground",
             })}
           >
             <span
               className={css({
-                w: '2',
-                h: '2',
-                rounded: 'full',
-                bg: 'oklch(0.7 0.15 160)',
+                w: "2",
+                h: "2",
+                rounded: "full",
+                bg: "oklch(0.7 0.15 160)",
               })}
             />
             Open Source &middot; MIT Licensed
@@ -155,25 +155,25 @@ export default function HomePage() {
 
           <h1
             className={css({
-              fontSize: { base: '4xl', md: '6xl', lg: '7xl' },
-              fontWeight: 'bold',
-              letterSpacing: 'tight',
-              lineHeight: '1.1',
+              fontSize: { base: "4xl", md: "6xl", lg: "7xl" },
+              fontWeight: "bold",
+              letterSpacing: "tight",
+              lineHeight: "1.1",
             })}
           >
             Build with AI.
             <br />
-            <span className={css({ color: 'muted.foreground' })}>
+            <span className={css({ color: "muted.foreground" })}>
               Ship with confidence.
             </span>
           </h1>
 
           <p
             className={css({
-              fontSize: { base: 'lg', md: 'xl' },
-              color: 'muted.foreground',
-              maxW: '2xl',
-              lineHeight: '1.7',
+              fontSize: { base: "lg", md: "xl" },
+              color: "muted.foreground",
+              maxW: "2xl",
+              lineHeight: "1.7",
             })}
           >
             A production-ready Next.js boilerplate where every AI assistant
@@ -184,51 +184,51 @@ export default function HomePage() {
 
           <div
             className={flex({
-              direction: { base: 'column', sm: 'row' },
-              gap: '3',
-              mt: '2',
+              direction: { base: "column", sm: "row" },
+              gap: "3",
+              mt: "2",
             })}
           >
             <Link
-              href="https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate"
+              href="https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos"
               target="_blank"
               rel="noopener noreferrer"
               className={flex({
-                align: 'center',
-                gap: '2',
-                px: '6',
-                py: '3',
-                rounded: 'lg',
-                bg: 'primary',
-                color: 'primary.foreground',
-                fontSize: 'sm',
-                fontWeight: 'semibold',
-                cursor: 'pointer',
-                transition: 'all',
-                transitionDuration: '200ms',
-                _hover: { opacity: 0.9, transform: 'translateY(-1px)' },
+                align: "center",
+                gap: "2",
+                px: "6",
+                py: "3",
+                rounded: "lg",
+                bg: "primary",
+                color: "primary.foreground",
+                fontSize: "sm",
+                fontWeight: "semibold",
+                cursor: "pointer",
+                transition: "all",
+                transitionDuration: "200ms",
+                _hover: { opacity: 0.9, transform: "translateY(-1px)" },
               })}
             >
-              <GitHubIcon className={css({ h: '4', w: '4' })} />
+              <GitHubIcon className={css({ h: "4", w: "4" })} />
               Get Started
-              <ArrowRight className={css({ h: '4', w: '4' })} />
+              <ArrowRight className={css({ h: "4", w: "4" })} />
             </Link>
             <Link
               href="/api/health"
               className={flex({
-                align: 'center',
-                gap: '2',
-                px: '6',
-                py: '3',
-                rounded: 'lg',
-                borderWidth: '1px',
-                borderColor: 'border',
-                fontSize: 'sm',
-                fontWeight: 'semibold',
-                cursor: 'pointer',
-                transition: 'all',
-                transitionDuration: '200ms',
-                _hover: { bg: 'accent', transform: 'translateY(-1px)' },
+                align: "center",
+                gap: "2",
+                px: "6",
+                py: "3",
+                rounded: "lg",
+                borderWidth: "1px",
+                borderColor: "border",
+                fontSize: "sm",
+                fontWeight: "semibold",
+                cursor: "pointer",
+                transition: "all",
+                transitionDuration: "200ms",
+                _hover: { bg: "accent", transform: "translateY(-1px)" },
               })}
             >
               API Health Check
@@ -237,51 +237,51 @@ export default function HomePage() {
 
           <div
             className={css({
-              mt: '8',
-              p: '4',
-              rounded: 'xl',
-              borderWidth: '1px',
-              borderColor: 'border',
-              bg: 'card',
-              w: 'full',
-              maxW: 'lg',
-              fontFamily: 'mono',
-              fontSize: 'sm',
-              textAlign: 'left',
+              mt: "8",
+              p: "4",
+              rounded: "xl",
+              borderWidth: "1px",
+              borderColor: "border",
+              bg: "card",
+              w: "full",
+              maxW: "lg",
+              fontFamily: "mono",
+              fontSize: "sm",
+              textAlign: "left",
             })}
           >
-            <div className={flex({ align: 'center', gap: '2', mb: '3' })}>
+            <div className={flex({ align: "center", gap: "2", mb: "3" })}>
               <span
                 className={css({
-                  w: '3',
-                  h: '3',
-                  rounded: 'full',
-                  bg: 'oklch(0.65 0.2 25)',
+                  w: "3",
+                  h: "3",
+                  rounded: "full",
+                  bg: "oklch(0.65 0.2 25)",
                 })}
               />
               <span
                 className={css({
-                  w: '3',
-                  h: '3',
-                  rounded: 'full',
-                  bg: 'oklch(0.8 0.15 85)',
+                  w: "3",
+                  h: "3",
+                  rounded: "full",
+                  bg: "oklch(0.8 0.15 85)",
                 })}
               />
               <span
                 className={css({
-                  w: '3',
-                  h: '3',
-                  rounded: 'full',
-                  bg: 'oklch(0.7 0.15 160)',
+                  w: "3",
+                  h: "3",
+                  rounded: "full",
+                  bg: "oklch(0.7 0.15 160)",
                 })}
               />
             </div>
-            <code className={css({ color: 'muted.foreground' })}>
-              <span className={css({ color: 'foreground', opacity: 0.5 })}>
+            <code className={css({ color: "muted.foreground" })}>
+              <span className={css({ color: "foreground", opacity: 0.5 })}>
                 $
-              </span>{' '}
+              </span>{" "}
               npx create-next-app -e
-              https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate
+              https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos
             </code>
           </div>
         </div>
@@ -290,35 +290,35 @@ export default function HomePage() {
       {/* Features */}
       <section
         className={css({
-          px: '6',
-          py: { base: '16', md: '24' },
-          maxW: '6xl',
-          mx: 'auto',
+          px: "6",
+          py: { base: "16", md: "24" },
+          maxW: "6xl",
+          mx: "auto",
         })}
       >
         <div
           className={flex({
-            direction: 'column',
-            align: 'center',
-            gap: '4',
-            mb: '16',
-            textAlign: 'center',
+            direction: "column",
+            align: "center",
+            gap: "4",
+            mb: "16",
+            textAlign: "center",
           })}
         >
           <h2
             className={css({
-              fontSize: { base: '3xl', md: '4xl' },
-              fontWeight: 'bold',
-              letterSpacing: 'tight',
+              fontSize: { base: "3xl", md: "4xl" },
+              fontWeight: "bold",
+              letterSpacing: "tight",
             })}
           >
             Everything you need to ship
           </h2>
           <p
             className={css({
-              color: 'muted.foreground',
-              fontSize: 'lg',
-              maxW: 'xl',
+              color: "muted.foreground",
+              fontSize: "lg",
+              maxW: "xl",
             })}
           >
             Batteries included. No configuration rabbit holes. Just clone, code,
@@ -329,59 +329,59 @@ export default function HomePage() {
         <div
           className={grid({
             columns: { base: 1, md: 2, lg: 3 },
-            gap: '6',
+            gap: "6",
           })}
         >
           {FEATURES.map(({ icon: Icon, title, description }) => (
             <div
               key={title}
               className={css({
-                p: '6',
-                rounded: 'xl',
-                borderWidth: '1px',
-                borderColor: 'border',
-                bg: 'card',
-                transition: 'all',
-                transitionDuration: '200ms',
+                p: "6",
+                rounded: "xl",
+                borderWidth: "1px",
+                borderColor: "border",
+                bg: "card",
+                transition: "all",
+                transitionDuration: "200ms",
                 _hover: {
-                  borderColor: 'muted.foreground',
-                  transform: 'translateY(-2px)',
+                  borderColor: "muted.foreground",
+                  transform: "translateY(-2px)",
                 },
               })}
             >
               <div
                 className={flex({
-                  align: 'center',
-                  justify: 'center',
-                  w: '10',
-                  h: '10',
-                  rounded: 'lg',
-                  bg: 'secondary',
-                  mb: '4',
+                  align: "center",
+                  justify: "center",
+                  w: "10",
+                  h: "10",
+                  rounded: "lg",
+                  bg: "secondary",
+                  mb: "4",
                 })}
               >
                 <Icon
                   className={css({
-                    h: '5',
-                    w: '5',
-                    color: 'foreground',
+                    h: "5",
+                    w: "5",
+                    color: "foreground",
                   })}
                 />
               </div>
               <h3
                 className={css({
-                  fontWeight: 'semibold',
-                  fontSize: 'lg',
-                  mb: '2',
+                  fontWeight: "semibold",
+                  fontSize: "lg",
+                  mb: "2",
                 })}
               >
                 {title}
               </h3>
               <p
                 className={css({
-                  fontSize: 'sm',
-                  color: 'muted.foreground',
-                  lineHeight: '1.7',
+                  fontSize: "sm",
+                  color: "muted.foreground",
+                  lineHeight: "1.7",
                 })}
               >
                 {description}
@@ -394,81 +394,81 @@ export default function HomePage() {
       {/* Stack */}
       <section
         className={css({
-          px: '6',
-          py: { base: '16', md: '24' },
-          bg: 'secondary',
+          px: "6",
+          py: { base: "16", md: "24" },
+          bg: "secondary",
         })}
       >
-        <div className={css({ maxW: '4xl', mx: 'auto' })}>
+        <div className={css({ maxW: "4xl", mx: "auto" })}>
           <div
             className={flex({
-              direction: 'column',
-              align: 'center',
-              gap: '4',
-              mb: '12',
-              textAlign: 'center',
+              direction: "column",
+              align: "center",
+              gap: "4",
+              mb: "12",
+              textAlign: "center",
             })}
           >
             <h2
               className={css({
-                fontSize: { base: '3xl', md: '4xl' },
-                fontWeight: 'bold',
-                letterSpacing: 'tight',
+                fontSize: { base: "3xl", md: "4xl" },
+                fontWeight: "bold",
+                letterSpacing: "tight",
               })}
             >
               The Stack
             </h2>
             <p
               className={css({
-                color: 'muted.foreground',
-                fontSize: 'lg',
+                color: "muted.foreground",
+                fontSize: "lg",
               })}
             >
               Modern, maintained, and battle-tested.
             </p>
           </div>
 
-          <div className={flex({ direction: 'column', gap: '6' })}>
+          <div className={flex({ direction: "column", gap: "6" })}>
             {STACK_GROUPS.map(({ label, items }) => (
               <div
                 key={label}
                 className={flex({
-                  direction: { base: 'column', sm: 'row' },
-                  align: { sm: 'center' },
-                  gap: { base: '2', sm: '4' },
+                  direction: { base: "column", sm: "row" },
+                  align: { sm: "center" },
+                  gap: { base: "2", sm: "4" },
                 })}
               >
                 <span
                   className={css({
-                    fontSize: 'xs',
-                    fontWeight: 'semibold',
-                    textTransform: 'uppercase',
-                    letterSpacing: 'wider',
-                    color: 'muted.foreground',
-                    minW: '36',
+                    fontSize: "xs",
+                    fontWeight: "semibold",
+                    textTransform: "uppercase",
+                    letterSpacing: "wider",
+                    color: "muted.foreground",
+                    minW: "36",
                     flexShrink: 0,
                   })}
                 >
                   {label}
                 </span>
-                <div className={flex({ wrap: 'wrap', gap: '2' })}>
+                <div className={flex({ wrap: "wrap", gap: "2" })}>
                   {items.map((tech) => (
                     <span
                       key={tech}
                       className={css({
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        rounded: 'md',
-                        borderWidth: '1px',
-                        borderColor: 'border',
-                        bg: 'background',
-                        px: '3',
-                        py: '1.5',
-                        fontSize: 'sm',
-                        fontFamily: 'mono',
-                        fontWeight: 'medium',
-                        transition: 'colors',
-                        _hover: { borderColor: 'muted.foreground' },
+                        display: "inline-flex",
+                        alignItems: "center",
+                        rounded: "md",
+                        borderWidth: "1px",
+                        borderColor: "border",
+                        bg: "background",
+                        px: "3",
+                        py: "1.5",
+                        fontSize: "sm",
+                        fontFamily: "mono",
+                        fontWeight: "medium",
+                        transition: "colors",
+                        _hover: { borderColor: "muted.foreground" },
                       })}
                     >
                       {tech}
@@ -484,34 +484,34 @@ export default function HomePage() {
       {/* CTA */}
       <section
         className={css({
-          px: '6',
-          py: { base: '16', md: '24' },
+          px: "6",
+          py: { base: "16", md: "24" },
         })}
       >
         <div
           className={flex({
-            direction: 'column',
-            align: 'center',
-            gap: '6',
-            maxW: '2xl',
-            mx: 'auto',
-            textAlign: 'center',
+            direction: "column",
+            align: "center",
+            gap: "6",
+            maxW: "2xl",
+            mx: "auto",
+            textAlign: "center",
           })}
         >
           <h2
             className={css({
-              fontSize: { base: '3xl', md: '4xl' },
-              fontWeight: 'bold',
-              letterSpacing: 'tight',
+              fontSize: { base: "3xl", md: "4xl" },
+              fontWeight: "bold",
+              letterSpacing: "tight",
             })}
           >
             Ready to build?
           </h2>
           <p
             className={css({
-              color: 'muted.foreground',
-              fontSize: 'lg',
-              lineHeight: '1.7',
+              color: "muted.foreground",
+              fontSize: "lg",
+              lineHeight: "1.7",
             })}
           >
             Clone the repo, point your AI tool at it, and start shipping. The
@@ -519,28 +519,28 @@ export default function HomePage() {
             code.
           </p>
           <Link
-            href="https://github.com/NoahDuongMaster/ai-first-nextjs-boilerplate"
+            href="https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos"
             target="_blank"
             rel="noopener noreferrer"
             className={flex({
-              align: 'center',
-              gap: '2',
-              px: '8',
-              py: '3',
-              rounded: 'lg',
-              bg: 'primary',
-              color: 'primary.foreground',
-              fontSize: 'sm',
-              fontWeight: 'semibold',
-              cursor: 'pointer',
-              transition: 'all',
-              transitionDuration: '200ms',
-              _hover: { opacity: 0.9, transform: 'translateY(-1px)' },
+              align: "center",
+              gap: "2",
+              px: "8",
+              py: "3",
+              rounded: "lg",
+              bg: "primary",
+              color: "primary.foreground",
+              fontSize: "sm",
+              fontWeight: "semibold",
+              cursor: "pointer",
+              transition: "all",
+              transitionDuration: "200ms",
+              _hover: { opacity: 0.9, transform: "translateY(-1px)" },
             })}
           >
-            <GitHubIcon className={css({ h: '4', w: '4' })} />
+            <GitHubIcon className={css({ h: "4", w: "4" })} />
             View on GitHub
-            <ArrowRight className={css({ h: '4', w: '4' })} />
+            <ArrowRight className={css({ h: "4", w: "4" })} />
           </Link>
         </div>
       </section>
@@ -548,32 +548,32 @@ export default function HomePage() {
       {/* Footer */}
       <footer
         className={css({
-          px: '6',
-          py: '8',
-          borderTopWidth: '1px',
-          borderColor: 'border',
+          px: "6",
+          py: "8",
+          borderTopWidth: "1px",
+          borderColor: "border",
         })}
       >
         <div
           className={flex({
-            direction: { base: 'column', sm: 'row' },
-            align: 'center',
-            justify: 'space-between',
-            gap: '4',
-            maxW: '6xl',
-            mx: 'auto',
+            direction: { base: "column", sm: "row" },
+            align: "center",
+            justify: "space-between",
+            gap: "4",
+            maxW: "6xl",
+            mx: "auto",
           })}
         >
-          <p className={css({ fontSize: 'sm', color: 'muted.foreground' })}>
-            Built by{' '}
+          <p className={css({ fontSize: "sm", color: "muted.foreground" })}>
+            Built by{" "}
             <Link
               href="https://duongnamtruong.com"
               target="_blank"
               rel="noopener noreferrer"
               className={css({
-                color: 'foreground',
-                fontWeight: 'medium',
-                _hover: { textDecoration: 'underline' },
+                color: "foreground",
+                fontWeight: "medium",
+                _hover: { textDecoration: "underline" },
               })}
             >
               Noah Duong
@@ -581,9 +581,9 @@ export default function HomePage() {
           </p>
           <p
             className={css({
-              fontSize: 'sm',
-              color: 'muted.foreground',
-              fontFamily: 'mono',
+              fontSize: "sm",
+              color: "muted.foreground",
+              fontFamily: "mono",
             })}
           >
             MIT License

@@ -5,7 +5,7 @@
 #
 # Mirrors the vars provisioned in CI at .github/workflows/playwright.yml.
 
-NEXT_PUBLIC_PROJECT_NAME="ai-first-nextjs-boilerplate"
+NEXT_PUBLIC_PROJECT_NAME="vibe-code-stack-for-ceos"
 NEXT_PUBLIC_API_ENDPOINT=http://localhost:3000
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
