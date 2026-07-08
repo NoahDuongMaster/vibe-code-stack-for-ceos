@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="apps/dapp/public/og-image.png" alt="Vibe Code Stack For CEOs" width="100%" />
+<img src=".github/assets/readme-cover.png" alt="Vibe Code Stack For CEOs — You're the CEO. Your AI agents are the engineering org." width="100%" />
 
 <br />
 <br />

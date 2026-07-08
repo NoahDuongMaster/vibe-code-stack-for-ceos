@@ -1,0 +1,199 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1020"/>
+      <stop offset="0.55" stop-color="#12172E"/>
+      <stop offset="1" stop-color="#1B1440"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FDE68A"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#818CF8"/>
+      <stop offset="1" stop-color="#C084FC"/>
+    </linearGradient>
+    <radialGradient id="glowPurple" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7C3AED" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#7C3AED" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowBlue" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#3B82F6" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#3B82F6" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V44" fill="none" stroke="#8B9BD1" stroke-opacity="0.055"/>
+    </pattern>
+  </defs>
+
+  <!-- background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <ellipse cx="880" cy="300" rx="430" ry="330" fill="url(#glowPurple)"/>
+  <ellipse cx="250" cy="180" rx="380" ry="280" fill="url(#glowBlue)"/>
+  <circle cx="618" cy="86" r="2" fill="#C7D2FE" opacity="0.35"/>
+  <circle cx="1128" cy="150" r="2.5" fill="#C7D2FE" opacity="0.3"/>
+  <circle cx="560" cy="540" r="2" fill="#C7D2FE" opacity="0.25"/>
+  <circle cx="1150" cy="560" r="2" fill="#C7D2FE" opacity="0.3"/>
+  <circle cx="640" cy="300" r="1.5" fill="#C7D2FE" opacity="0.3"/>
+  <rect y="622" width="1200" height="8" fill="url(#accent)"/>
+
+  <!-- ============ LEFT: title block ============ -->
+  <g font-family="Helvetica Neue,Helvetica,Arial,sans-serif">
+    <!-- badge -->
+    <rect x="60" y="62" width="312" height="32" rx="16" fill="#6366F1" fill-opacity="0.13" stroke="#6366F1" stroke-opacity="0.55"/>
+    <text x="216" y="83" text-anchor="middle" font-size="12.5" font-weight="700" letter-spacing="2" fill="#A5B4FC">ONE HANDBOOK · EVERY AI AGENT</text>
+
+    <!-- title -->
+    <text x="60" y="158" font-size="56" font-weight="800" fill="#F8FAFC">Vibe Code Stack</text>
+    <text x="60" y="218" font-size="56" font-weight="800" fill="#F8FAFC">for</text>
+    <text x="160" y="218" font-size="56" font-weight="800" fill="url(#gold)">CEOs</text>
+
+    <!-- tagline -->
+    <text x="60" y="264" font-size="21" fill="#94A3B8">You're the CEO. Your AI agents are</text>
+    <text x="60" y="292" font-size="21" fill="#94A3B8">the engineering org.</text>
+
+    <!-- meme quote -->
+    <rect x="60" y="320" width="5" height="66" rx="2.5" fill="url(#accent)"/>
+    <text x="82" y="347" font-size="26" font-weight="700" font-style="italic" fill="#E2E8F0">Stop prompting.</text>
+    <text x="82" y="379" font-size="26" font-weight="700" font-style="italic" fill="#E2E8F0">Start delegating.</text>
+
+    <!-- tech chips row 1 -->
+    <g font-size="13" fill="#CBD5E1">
+      <rect x="60" y="418" width="96" height="30" rx="15" fill="#151B2E" stroke="#3B4266"/>
+      <text x="108" y="437" text-anchor="middle">Next.js 16</text>
+      <rect x="168" y="418" width="82" height="30" rx="15" fill="#151B2E" stroke="#3B4266"/>
+      <text x="209" y="437" text-anchor="middle">React 19</text>
+      <rect x="262" y="418" width="110" height="30" rx="15" fill="#151B2E" stroke="#3B4266"/>
+      <text x="317" y="437" text-anchor="middle">TypeScript 6</text>
+      <rect x="384" y="418" width="92" height="30" rx="15" fill="#151B2E" stroke="#3B4266"/>
+      <text x="430" y="437" text-anchor="middle">Turborepo</text>
+    </g>
+    <!-- tech chips row 2 -->
+    <g font-size="13" fill="#CBD5E1">
+      <rect x="60" y="458" width="106" height="30" rx="15" fill="#151B2E" stroke="#3B4266"/>
+      <text x="113" y="477" text-anchor="middle">Connect-RPC</text>
+      <rect x="178" y="458" width="96" height="30" rx="15" fill="#151B2E" stroke="#3B4266"/>
+      <text x="226" y="477" text-anchor="middle">Cloudflare</text>
+      <rect x="286" y="458" width="62" height="30" rx="15" fill="#151B2E" stroke="#3B4266"/>
+      <text x="317" y="477" text-anchor="middle">Zod 4</text>
+    </g>
+
+    <!-- audit stat -->
+    <text x="60" y="562" font-size="14" fill="#64748B">Battle-tested: 26 AI agents · 86 findings · 0 refuted</text>
+  </g>
+
+  <!-- ============ RIGHT: the org-chart meme ============ -->
+  <g font-family="Helvetica Neue,Helvetica,Arial,sans-serif">
+
+    <!-- CEO: top hat -->
+    <rect x="848" y="26" width="64" height="50" rx="5" fill="#111827" stroke="#475569"/>
+    <rect x="848" y="60" width="64" height="11" fill="url(#gold)"/>
+    <rect x="830" y="70" width="100" height="12" rx="6" fill="#111827" stroke="#475569"/>
+
+    <!-- CEO: face -->
+    <circle cx="880" cy="112" r="34" fill="#FFD8A8"/>
+    <rect x="850" y="100" width="60" height="15" rx="7.5" fill="#0B1020"/>
+    <rect x="856" y="104" width="18" height="3" rx="1.5" fill="#F8FAFC" opacity="0.25"/>
+    <path d="M 866 134 Q 880 142 895 132" fill="none" stroke="#8B5A2B" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- CEO: suit -->
+    <path d="M 836 192 Q 836 152 880 150 Q 924 152 924 192 Z" fill="#1E293B" stroke="#334155"/>
+    <path d="M 868 152 L 880 168 L 892 152 Z" fill="#F8FAFC"/>
+    <path d="M 876 160 L 884 160 L 882 186 L 878 186 Z" fill="url(#gold)"/>
+
+    <!-- CEO: speech bubble -->
+    <rect x="940" y="78" width="112" height="40" rx="10" fill="#F8FAFC"/>
+    <path d="M 940 102 L 924 110 L 940 112 Z" fill="#F8FAFC"/>
+    <text x="996" y="104" text-anchor="middle" font-size="17" font-weight="700" font-style="italic" fill="#0F172A">ship it.</text>
+
+    <!-- CEO: label -->
+    <text x="880" y="212" text-anchor="middle" font-size="15" font-weight="700" fill="#F8FAFC">YOU — the CEO</text>
+
+    <!-- connector CEO -> handbook -->
+    <line x1="880" y1="220" x2="880" y2="234" stroke="#475569" stroke-width="2"/>
+    <path d="M 875 233 L 885 233 L 880 241 Z" fill="#475569"/>
+
+    <!-- handbook card -->
+    <rect x="770" y="242" width="220" height="58" rx="12" fill="#0F1626" stroke="url(#accent)" stroke-width="1.5"/>
+    <path d="M 790 256 h 14 l 8 8 v 22 h -22 z" fill="#E2E8F0"/>
+    <path d="M 804 256 l 8 8 h -8 z" fill="#94A3B8"/>
+    <line x1="794" y1="272" x2="806" y2="272" stroke="#64748B" stroke-width="1.5"/>
+    <line x1="794" y1="278" x2="806" y2="278" stroke="#64748B" stroke-width="1.5"/>
+    <text x="822" y="270" font-size="17" font-weight="700" fill="#F8FAFC">AGENTS.md</text>
+    <text x="822" y="288" font-size="11.5" fill="#8B93B0">the company handbook</text>
+
+    <!-- fan lines handbook -> robots -->
+    <line x1="880" y1="300" x2="680" y2="336" stroke="#475569" stroke-width="1.5" opacity="0.8"/>
+    <line x1="880" y1="300" x2="780" y2="336" stroke="#475569" stroke-width="1.5" opacity="0.8"/>
+    <line x1="880" y1="300" x2="880" y2="336" stroke="#475569" stroke-width="1.5" opacity="0.8"/>
+    <line x1="880" y1="300" x2="980" y2="336" stroke="#475569" stroke-width="1.5" opacity="0.8"/>
+    <line x1="880" y1="300" x2="1080" y2="336" stroke="#475569" stroke-width="1.5" opacity="0.8"/>
+
+    <!-- robots -->
+    <!-- Claude -->
+    <g>
+      <line x1="680" y1="344" x2="680" y2="352" stroke="#E88968" stroke-width="2"/>
+      <circle cx="680" cy="341" r="3" fill="#E88968"/>
+      <rect x="654" y="352" width="52" height="40" rx="10" fill="#0D1526" stroke="#E88968" stroke-width="2"/>
+      <circle cx="670" cy="368" r="4.5" fill="#E88968"/>
+      <circle cx="690" cy="368" r="4.5" fill="#E88968"/>
+      <rect x="672" y="380" width="16" height="3" rx="1.5" fill="#475569"/>
+      <text x="680" y="412" text-anchor="middle" font-size="12.5" fill="#A5B4FC">Claude</text>
+    </g>
+    <!-- Cursor -->
+    <g>
+      <line x1="780" y1="344" x2="780" y2="352" stroke="#E2E8F0" stroke-width="2"/>
+      <circle cx="780" cy="341" r="3" fill="#E2E8F0"/>
+      <rect x="754" y="352" width="52" height="40" rx="10" fill="#0D1526" stroke="#E2E8F0" stroke-width="2"/>
+      <circle cx="770" cy="368" r="4.5" fill="#E2E8F0"/>
+      <circle cx="790" cy="368" r="4.5" fill="#E2E8F0"/>
+      <rect x="772" y="380" width="16" height="3" rx="1.5" fill="#475569"/>
+      <text x="780" y="412" text-anchor="middle" font-size="12.5" fill="#A5B4FC">Cursor</text>
+    </g>
+    <!-- Copilot -->
+    <g>
+      <line x1="880" y1="344" x2="880" y2="352" stroke="#A78BFA" stroke-width="2"/>
+      <circle cx="880" cy="341" r="3" fill="#A78BFA"/>
+      <rect x="854" y="352" width="52" height="40" rx="10" fill="#0D1526" stroke="#A78BFA" stroke-width="2"/>
+      <circle cx="870" cy="368" r="4.5" fill="#A78BFA"/>
+      <circle cx="890" cy="368" r="4.5" fill="#A78BFA"/>
+      <rect x="872" y="380" width="16" height="3" rx="1.5" fill="#475569"/>
+      <text x="880" y="412" text-anchor="middle" font-size="12.5" fill="#A5B4FC">Copilot</text>
+    </g>
+    <!-- Gemini -->
+    <g>
+      <line x1="980" y1="344" x2="980" y2="352" stroke="#60A5FA" stroke-width="2"/>
+      <circle cx="980" cy="341" r="3" fill="#60A5FA"/>
+      <rect x="954" y="352" width="52" height="40" rx="10" fill="#0D1526" stroke="#60A5FA" stroke-width="2"/>
+      <circle cx="970" cy="368" r="4.5" fill="#60A5FA"/>
+      <circle cx="990" cy="368" r="4.5" fill="#60A5FA"/>
+      <rect x="972" y="380" width="16" height="3" rx="1.5" fill="#475569"/>
+      <text x="980" y="412" text-anchor="middle" font-size="12.5" fill="#A5B4FC">Gemini</text>
+    </g>
+    <!-- Windsurf -->
+    <g>
+      <line x1="1080" y1="344" x2="1080" y2="352" stroke="#34D399" stroke-width="2"/>
+      <circle cx="1080" cy="341" r="3" fill="#34D399"/>
+      <rect x="1054" y="352" width="52" height="40" rx="10" fill="#0D1526" stroke="#34D399" stroke-width="2"/>
+      <circle cx="1070" cy="368" r="4.5" fill="#34D399"/>
+      <circle cx="1090" cy="368" r="4.5" fill="#34D399"/>
+      <rect x="1072" y="380" width="16" height="3" rx="1.5" fill="#475569"/>
+      <text x="1080" y="412" text-anchor="middle" font-size="12.5" fill="#A5B4FC">Windsurf</text>
+    </g>
+
+    <!-- converge lines robots -> result -->
+    <line x1="680" y1="422" x2="872" y2="468" stroke="#475569" stroke-width="1.5" opacity="0.8"/>
+    <line x1="780" y1="422" x2="876" y2="468" stroke="#475569" stroke-width="1.5" opacity="0.8"/>
+    <line x1="880" y1="422" x2="880" y2="468" stroke="#475569" stroke-width="1.5" opacity="0.8"/>
+    <line x1="980" y1="422" x2="884" y2="468" stroke="#475569" stroke-width="1.5" opacity="0.8"/>
+    <line x1="1080" y1="422" x2="888" y2="468" stroke="#475569" stroke-width="1.5" opacity="0.8"/>
+
+    <!-- result pill -->
+    <rect x="723" y="470" width="314" height="46" rx="23" fill="#10B981" fill-opacity="0.12" stroke="#10B981" stroke-width="1.5"/>
+    <text x="880" y="499" text-anchor="middle" font-size="16" font-weight="700" fill="#34D399">✓ identical, production-grade code</text>
+
+    <!-- five gates -->
+    <text x="880" y="552" text-anchor="middle" font-family="Menlo,Consolas,monospace" font-size="12.5" fill="#64748B">typecheck ✓ · lint ✓ · test ✓ · build ✓ · audit ✓</text>
+  </g>
+</svg>
