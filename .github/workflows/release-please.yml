@@ -29,7 +29,7 @@ jobs:
       # GitHub App installation token, and store it as the
       # `RELEASE_PLEASE_TOKEN` repo secret. Falls back to GITHUB_TOKEN so
       # this workflow still works (minus PR->CI triggering) without it.
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json

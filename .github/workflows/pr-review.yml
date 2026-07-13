@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Collect PR diff (capped for context limits)
         id: diff
@@ -61,7 +61,7 @@ jobs:
         # createComment call would 403. continue-on-error keeps that from
         # showing a red X on every community contributor's PR.
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           REVIEW: ${{ steps.ai.outputs.response }}
         with:
