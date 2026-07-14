@@ -1,14 +1,14 @@
 import { z } from 'zod';
-import { CoinId } from '@/domain/crypto-market/coin-id';
-import { MarketDataUnavailableError } from '@/domain/crypto-market/errors';
+import { CoinId } from '../../domain/coin-id';
+import { MarketDataUnavailableError } from '../../domain/errors';
 import type {
   MarketDataProvider,
   MarketDataQuery,
-} from '@/domain/crypto-market/market-data-provider.port';
+} from '../../domain/market-data-provider.port';
 import {
   MarketSnapshot,
   type MarketSnapshotProperties,
-} from '@/domain/crypto-market/market-snapshot';
+} from '../../domain/market-snapshot';
 
 const COINGECKO_API_ORIGIN = 'https://api.coingecko.com';
 

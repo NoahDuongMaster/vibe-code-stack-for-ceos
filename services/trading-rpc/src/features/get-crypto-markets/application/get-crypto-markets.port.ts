@@ -1,5 +1,5 @@
-import type { MarketDataQuery } from '@/domain/crypto-market/market-data-provider.port';
-import type { MarketSnapshot } from '@/domain/crypto-market/market-snapshot';
+import type { MarketDataQuery } from '../domain/market-data-provider.port';
+import type { MarketSnapshot } from '../domain/market-snapshot';
 
 /**
  * Application input port for retrieving current crypto market snapshots.

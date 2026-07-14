@@ -7,10 +7,10 @@ import {
 import { ApiService, TradingService } from '@packages/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createServer } from '@/adapters/http.adapter';
-import { GetCryptoMarketsUseCase } from '@/application/get-crypto-markets/get-crypto-markets.use-case';
-import { CoinId } from '@/domain/crypto-market/coin-id';
-import { MarketDataUnavailableError } from '@/domain/crypto-market/errors';
-import { MarketSnapshot } from '@/domain/crypto-market/market-snapshot';
+import { GetCryptoMarketsUseCase } from '@/features/get-crypto-markets/application/get-crypto-markets.use-case';
+import { CoinId } from '@/features/get-crypto-markets/domain/coin-id';
+import { MarketDataUnavailableError } from '@/features/get-crypto-markets/domain/errors';
+import { MarketSnapshot } from '@/features/get-crypto-markets/domain/market-snapshot';
 
 /** Minimal h2c (cleartext HTTP/2) client for the non-RPC HTTP checks. */
 function h2(

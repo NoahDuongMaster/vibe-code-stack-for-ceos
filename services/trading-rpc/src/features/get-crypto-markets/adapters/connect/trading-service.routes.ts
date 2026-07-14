@@ -7,11 +7,11 @@ import {
   GetMarketsResponseSchema,
   TradingService,
 } from '@packages/protocol';
-import { ZGetCryptoMarketsRequest } from '@/adapters/connect/get-crypto-markets.schema';
-import type { GetCryptoMarkets } from '@/application/get-crypto-markets/get-crypto-markets.port';
-import { CoinId } from '@/domain/crypto-market/coin-id';
-import { MarketDataUnavailableError } from '@/domain/crypto-market/errors';
-import { QuoteCurrency } from '@/domain/crypto-market/quote-currency';
+import type { GetCryptoMarkets } from '../../application/get-crypto-markets.port';
+import { CoinId } from '../../domain/coin-id';
+import { MarketDataUnavailableError } from '../../domain/errors';
+import { QuoteCurrency } from '../../domain/quote-currency';
+import { ZGetCryptoMarketsRequest } from './get-crypto-markets.schema';
 
 /**
  * Inbound Connect adapter: validate wire input, invoke the application use

@@ -1,6 +1,6 @@
-import type { CoinId } from '@/domain/crypto-market/coin-id';
-import type { MarketSnapshot } from '@/domain/crypto-market/market-snapshot';
-import type { QuoteCurrency } from '@/domain/crypto-market/quote-currency';
+import type { CoinId } from './coin-id';
+import type { MarketSnapshot } from './market-snapshot';
+import type { QuoteCurrency } from './quote-currency';
 
 /** Domain request understood by any external market-data implementation. */
 export interface MarketDataQuery {
