@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CoinId } from '@/domain/crypto-market/coin-id';
-import { MarketDataUnavailableError } from '@/domain/crypto-market/errors';
-import { QuoteCurrency } from '@/domain/crypto-market/quote-currency';
-import { createCoinGeckoMarketDataProvider } from '@/infra/coingecko/coingecko-market-data.adapter';
+import { CoinId } from '../../domain/coin-id';
+import { MarketDataUnavailableError } from '../../domain/errors';
+import { QuoteCurrency } from '../../domain/quote-currency';
+import { createCoinGeckoMarketDataProvider } from './coingecko-market-data.adapter';
 
 describe('createCoinGeckoMarketDataProvider', () => {
   it('should translate CoinGecko data into provider-neutral market snapshots', async () => {

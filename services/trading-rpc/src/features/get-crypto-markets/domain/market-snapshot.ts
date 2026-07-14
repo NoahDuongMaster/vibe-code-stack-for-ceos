@@ -1,5 +1,5 @@
-import type { CoinId } from '@/domain/crypto-market/coin-id';
-import { InvalidMarketSnapshotError } from '@/domain/crypto-market/errors';
+import type { CoinId } from './coin-id';
+import { InvalidMarketSnapshotError } from './errors';
 
 export interface MarketSnapshotProperties {
   coinId: CoinId;

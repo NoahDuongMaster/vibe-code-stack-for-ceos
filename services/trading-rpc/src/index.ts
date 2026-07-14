@@ -1,8 +1,10 @@
 import * as Sentry from '@sentry/node';
 import { createServer } from '@/adapters/http.adapter';
-import { GetCryptoMarketsUseCase } from '@/application/get-crypto-markets/get-crypto-markets.use-case';
 import { parseRuntimeConfig } from '@/config/runtime-config';
-import { createCoinGeckoMarketDataProvider } from '@/infra/coingecko/coingecko-market-data.adapter';
+import {
+  createCoinGeckoMarketDataProvider,
+  GetCryptoMarketsUseCase,
+} from './features/get-crypto-markets/index.js';
 
 /**
  * TIER 2 — Node.js driving adapter (heavy / stateful services).

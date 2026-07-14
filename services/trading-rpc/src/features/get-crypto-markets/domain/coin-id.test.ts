@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CoinId, InvalidCoinIdError } from '@/domain/crypto-market/coin-id';
+import { CoinId, InvalidCoinIdError } from './coin-id';
 
 describe('CoinId', () => {
   it('should normalize a valid provider coin identifier', () => {

@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  InvalidQuoteCurrencyError,
-  QuoteCurrency,
-} from '@/domain/crypto-market/quote-currency';
+import { InvalidQuoteCurrencyError, QuoteCurrency } from './quote-currency';
 
 describe('QuoteCurrency', () => {
   it('should normalize an allowed quote currency', () => {

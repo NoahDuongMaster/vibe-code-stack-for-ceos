@@ -1,4 +1,4 @@
-import { InvalidCoinIdError } from '@/domain/crypto-market/errors';
+import { InvalidCoinIdError } from './errors';
 
 const COIN_ID_PATTERN = /^[a-z0-9-]+$/;
 const MAX_COIN_ID_LENGTH = 100;
@@ -25,4 +25,4 @@ export class CoinId {
   }
 }
 
-export { InvalidCoinIdError } from '@/domain/crypto-market/errors';
+export { InvalidCoinIdError } from './errors';

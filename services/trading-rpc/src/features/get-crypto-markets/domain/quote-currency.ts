@@ -1,4 +1,4 @@
-import { InvalidQuoteCurrencyError } from '@/domain/crypto-market/errors';
+import { InvalidQuoteCurrencyError } from './errors';
 
 const QUOTE_CURRENCY_PATTERN = /^[a-z]{3,10}$/;
 
@@ -15,4 +15,4 @@ export class QuoteCurrency {
   }
 }
 
-export { InvalidQuoteCurrencyError } from '@/domain/crypto-market/errors';
+export { InvalidQuoteCurrencyError } from './errors';

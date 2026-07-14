@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GetCryptoMarketsUseCase } from '@/application/get-crypto-markets/get-crypto-markets.use-case';
-import { CoinId } from '@/domain/crypto-market/coin-id';
-import type { MarketDataProvider } from '@/domain/crypto-market/market-data-provider.port';
-import { MarketSnapshot } from '@/domain/crypto-market/market-snapshot';
-import { QuoteCurrency } from '@/domain/crypto-market/quote-currency';
+import { CoinId } from '../domain/coin-id';
+import type { MarketDataProvider } from '../domain/market-data-provider.port';
+import { MarketSnapshot } from '../domain/market-snapshot';
+import { QuoteCurrency } from '../domain/quote-currency';
+import { GetCryptoMarketsUseCase } from './get-crypto-markets.use-case';
 
 describe('GetCryptoMarketsUseCase', () => {
   it('should retrieve snapshots through its injected market-data provider port', async () => {

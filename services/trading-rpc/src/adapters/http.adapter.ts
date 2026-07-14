@@ -4,8 +4,10 @@ import fastifyCors from '@fastify/cors';
 import fastifyRateLimit from '@fastify/rate-limit';
 import { createRoutes, isOriginAllowed } from '@packages/api-core';
 import { fastify } from 'fastify';
-import { createTradingServiceRoutes } from '@/adapters/connect/trading-service.routes';
-import type { GetCryptoMarkets } from '@/application/get-crypto-markets/get-crypto-markets.port';
+import {
+  createTradingServiceRoutes,
+  type GetCryptoMarkets,
+} from '../features/get-crypto-markets/index.js';
 
 export interface TServerOptions {
   /** Application input port, assembled by the Node composition root. */
