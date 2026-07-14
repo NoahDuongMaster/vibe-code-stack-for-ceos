@@ -9,8 +9,10 @@
     "start": "node --env-file-if-exists=.env dist/index.js",
     "rpc:smoke": "tsx src/rpc.smoke.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "biome ci .",
-    "test": "vitest run"
+    "lint": "biome ci . && pnpm lint:architecture",
+    "lint:architecture": "node scripts/check-architecture.mjs",
+    "test": "vitest run",
+    "test:architecture": "node --test scripts/check-architecture.test.mjs"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.12.1",
