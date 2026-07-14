@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 import { sealData } from 'iron-session';
 
-// Mirrors src/shared/constants/session.constant.ts / server/lib/session.ts —
+// Mirrors entities/session/model/session.constants.ts —
 // e2e tests run as a separate Playwright/Node process and can't import the
 // app's own TS modules directly, so the cookie name and secret fallback are
 // duplicated here deliberately.

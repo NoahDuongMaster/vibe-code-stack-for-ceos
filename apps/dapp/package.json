@@ -1,5 +1,5 @@
 {
-  "name": "@repo/web",
+  "name": "@apps/dapp",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,8 @@
     "build": "vinext build",
     "start": "vinext start",
     "deploy": "vinext deploy",
-    "lint": "vinext lint",
+    "lint": "vinext lint && pnpm lint:architecture",
+    "lint:architecture": "steiger ./src --fail-on-warnings",
     "typecheck": "tsc --noEmit",
     "type-check": "tsc --noEmit",
     "analyze": "ANALYZE=true vinext build",
@@ -55,6 +56,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.42.1",
     "@cloudflare/workers-types": "4.20260621.1",
+    "@feature-sliced/steiger-plugin": "0.6.0",
     "@next/bundle-analyzer": "16.2.9",
     "@pandacss/dev": "1.11.3",
     "@playwright/test": "1.61.0",
@@ -78,6 +80,7 @@
     "postcss": "^8.5.15",
     "react-scan": "0.5.7",
     "react-server-dom-webpack": "19.2.7",
+    "steiger": "0.5.13",
     "typescript": "catalog:",
     "vinext": "0.1.6",
     "vite": "8.0.16",

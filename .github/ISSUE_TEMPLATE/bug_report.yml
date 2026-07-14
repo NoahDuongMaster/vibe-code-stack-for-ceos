@@ -13,11 +13,11 @@ body:
       label: Affected workspace
       description: Which app, service, or package is affected? (matches the commit scope)
       options:
-        - "apps/dapp — @repo/web (Next.js / vinext)"
-        - "apps/admin — @repo/admin (React / Rsbuild)"
-        - "apps/landing — @repo/landing (Astro)"
-        - "services/api-node — @repo/api-node (Connect RPC, Node)"
-        - "services/api-gateway — @repo/gateway-cf (Connect RPC, Workers)"
+        - "apps/dapp — @apps/dapp (Next.js / vinext)"
+        - "apps/admin — @apps/admin (React / Rsbuild)"
+        - "apps/landing — @apps/landing (Astro)"
+        - "services/trading-rpc — @services/trading-rpc (Connect RPC, Node)"
+        - "services/api-gateway — @services/api-gateway (Connect RPC, Workers)"
         - "packages — protocol / api-core / api-client (shared)"
         - "Tooling — CI / Docker / config / scripts"
         - "Not sure"

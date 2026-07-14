@@ -9,35 +9,35 @@
     },
     "apps/dapp": {
       "release-type": "node",
-      "package-name": "@repo/web"
+      "package-name": "@apps/dapp"
     },
     "apps/admin": {
       "release-type": "node",
-      "package-name": "@repo/admin"
+      "package-name": "@apps/admin"
     },
     "apps/landing": {
       "release-type": "node",
-      "package-name": "@repo/landing"
+      "package-name": "@apps/landing"
     },
-    "services/api-node": {
+    "services/trading-rpc": {
       "release-type": "node",
-      "package-name": "@repo/api-node"
+      "package-name": "@services/trading-rpc"
     },
     "services/api-gateway": {
       "release-type": "node",
-      "package-name": "@repo/gateway-cf"
+      "package-name": "@services/api-gateway"
     },
     "packages/protocol": {
       "release-type": "node",
-      "package-name": "@repo/protocol"
+      "package-name": "@packages/protocol"
     },
     "packages/api-core": {
       "release-type": "node",
-      "package-name": "@repo/api-core"
+      "package-name": "@packages/api-core"
     },
     "packages/api-client": {
       "release-type": "node",
-      "package-name": "@repo/api-client"
+      "package-name": "@packages/api-client"
     }
   }
 }

@@ -163,13 +163,13 @@ jobs:
 
       # Hard gate: the proto schema itself must always pass STANDARD lint.
       - name: buf lint
-        run: pnpm --filter @repo/protocol lint
+        run: pnpm --filter @packages/protocol lint
 
       # Hard gate: packages/protocol/src/gen is committed, generated code —
       # this catches a proto edited without regenerating (`pnpm --filter
-      # @repo/protocol generate`) before the PR merges.
+      # @packages/protocol generate`) before the PR merges.
       - name: buf generate (codegen drift check)
-        run: pnpm --filter @repo/protocol generate:check
+        run: pnpm --filter @packages/protocol generate:check
 
       # Advisory for now (continue-on-error): main doesn't have
       # packages/protocol yet as of this PR, so the very first run has
@@ -178,7 +178,7 @@ jobs:
       # accidental breaking changes to the RPC schema.
       - name: buf breaking (against main)
         continue-on-error: true
-        run: pnpm --filter @repo/protocol breaking
+        run: pnpm --filter @packages/protocol breaking
 
   build:
     name: Build

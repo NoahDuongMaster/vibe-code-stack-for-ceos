@@ -26,53 +26,38 @@ export default tseslint.config(
     },
   },
   {
-    // CLAUDE.md Hard Rule #4: shared/ never imports from features/ or app/.
-    files: ['src/shared/**/*.{ts,tsx}'],
+    // Steiger owns FSD layer direction; ESLint prevents bypassing slice and
+    // segment Public APIs. Same-slice internals use relative imports.
+    files: [
+      'src/app/**/*.{ts,tsx}',
+      'src/pages/**/*.{ts,tsx}',
+      'src/widgets/**/*.{ts,tsx}',
+      'src/features/**/*.{ts,tsx}',
+      'src/entities/**/*.{ts,tsx}',
+      'src/shared/**/*.{ts,tsx}',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
-              group: ['@/features/**', '@/app/**'],
+              group: [
+                '@/app/*/**',
+                '!@/app/styles/global.css',
+                '@/pages/*/**',
+                '@/widgets/*/**',
+                '@/features/*/**',
+                '@/entities/*/**',
+                '@/shared/api/**',
+                '@/shared/config/**',
+                '@/shared/model/**',
+                '@/shared/routes/**',
+                '@/shared/ui/**',
+                '@/shared/lib/*/**',
+              ],
               message:
-                'shared/ must never import from features/ or app/ (CLAUDE.md Hard Rule #4).',
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    // CLAUDE.md Hard Rule #2: features/ import shared/ but NEVER other features.
-    files: ['src/features/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['@/features/**'],
-              message:
-                'Features never import other features — extract shared logic to shared/ instead (CLAUDE.md Hard Rule #2).',
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    // CLAUDE.md Hard Rule #1: app/ imports ONLY features/[name]/index.ts, never internals.
-    files: ['src/app/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['@/features/*/**'],
-              message:
-                "app/ may only import a feature's public barrel (@/features/[name]) — never its internals (CLAUDE.md Hard Rule #1).",
+                'Consume FSD slices and Shared/App segments through their Public API; use relative imports inside the same slice.',
             },
           ],
         },

@@ -1,0 +1,30 @@
+import { Code, ConnectError, type Interceptor } from '@connectrpc/connect';
+import { createApiClient } from '@packages/api-client';
+import { API_URL } from '@/shared/config';
+import { emitUnauthenticated } from './auth-events';
+import { getAuthToken } from './auth-token';
+
+// Attaches the current session token (if any) to every RPC, and signals
+// `shared/api/auth-events` when the backend rejects it as unauthenticated —
+// the App layer subscribes to that signal to sign out and
+// redirect to /login. This runs for every slice API that uses `apiClient`, so
+// higher layers never have to wire auth handling themselves.
+const authInterceptor: Interceptor = (next) => async (req) => {
+  const token = getAuthToken();
+  if (token) {
+    req.header.set('Authorization', `Bearer ${token}`);
+  }
+  try {
+    return await next(req);
+  } catch (error) {
+    if (error instanceof ConnectError && error.code === Code.Unauthenticated) {
+      emitUnauthenticated();
+    }
+    throw error;
+  }
+};
+
+/** Shared Connect RPC client — every slice API should reuse this client. */
+export const apiClient = createApiClient(API_URL, {
+  interceptors: [authInterceptor],
+});

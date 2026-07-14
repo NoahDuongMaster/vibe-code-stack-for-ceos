@@ -57,7 +57,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build dapp
-        run: pnpm --filter @repo/web build
+        run: pnpm --filter @apps/dapp build
         env:
           NODE_ENV: production
           NEXT_PUBLIC_PROJECT_NAME: ${{ vars.NEXT_PUBLIC_PROJECT_NAME }}
@@ -74,27 +74,27 @@ jobs:
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       - name: Deploy dapp
-        run: pnpm --filter @repo/web exec wrangler deploy --env staging
+        run: pnpm --filter @apps/dapp exec wrangler deploy --env staging
 
       - name: Build admin
-        run: pnpm --filter @repo/admin build
+        run: pnpm --filter @apps/admin build
         env:
           PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
           PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
           PUBLIC_ENABLE_MOCK_AUTH: ${{ vars.PUBLIC_ENABLE_MOCK_AUTH }}
       - name: Deploy admin (Pages)
-        run: pnpm --filter @repo/admin exec wrangler pages deploy dist --project-name ai-first-admin --branch staging
+        run: pnpm --filter @apps/admin exec wrangler pages deploy dist --project-name ai-first-admin --branch staging
 
       - name: Build landing
-        run: pnpm --filter @repo/landing build
+        run: pnpm --filter @apps/landing build
         env:
           PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
           PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
       - name: Deploy landing
-        run: pnpm --filter @repo/landing exec wrangler deploy --env staging
+        run: pnpm --filter @apps/landing exec wrangler deploy --env staging
 
       - name: Deploy gateway
-        run: pnpm --filter @repo/gateway-cf exec wrangler deploy --env staging
+        run: pnpm --filter @services/api-gateway exec wrangler deploy --env staging
 
   deploy-production:
     name: Deploy (production)
@@ -130,7 +130,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build dapp
-        run: pnpm --filter @repo/web build
+        run: pnpm --filter @apps/dapp build
         env:
           NODE_ENV: production
           NEXT_PUBLIC_PROJECT_NAME: ${{ vars.NEXT_PUBLIC_PROJECT_NAME }}
@@ -147,24 +147,24 @@ jobs:
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       - name: Deploy dapp
-        run: pnpm --filter @repo/web exec wrangler deploy --env production
+        run: pnpm --filter @apps/dapp exec wrangler deploy --env production
 
       - name: Build admin
-        run: pnpm --filter @repo/admin build
+        run: pnpm --filter @apps/admin build
         env:
           PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
           PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
           PUBLIC_ENABLE_MOCK_AUTH: ${{ vars.PUBLIC_ENABLE_MOCK_AUTH }}
       - name: Deploy admin (Pages)
-        run: pnpm --filter @repo/admin exec wrangler pages deploy dist --project-name ai-first-admin --branch main
+        run: pnpm --filter @apps/admin exec wrangler pages deploy dist --project-name ai-first-admin --branch main
 
       - name: Build landing
-        run: pnpm --filter @repo/landing build
+        run: pnpm --filter @apps/landing build
         env:
           PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
           PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
       - name: Deploy landing
-        run: pnpm --filter @repo/landing exec wrangler deploy --env production
+        run: pnpm --filter @apps/landing exec wrangler deploy --env production
 
       - name: Deploy gateway
-        run: pnpm --filter @repo/gateway-cf exec wrangler deploy --env production
+        run: pnpm --filter @services/api-gateway exec wrangler deploy --env production

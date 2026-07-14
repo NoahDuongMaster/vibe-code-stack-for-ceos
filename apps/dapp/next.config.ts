@@ -12,8 +12,8 @@ const require = createRequire(import.meta.url);
 // triggers `createEnv()`'s validation as a real build-time gate, and also
 // gives us the validated values to use below instead of raw `process.env`.
 const { env } = await jiti.import<
-  typeof import('./src/shared/config/env.configuration.ts')
->('./src/shared/config/env.configuration.ts');
+  typeof import('./src/shared/config/index.ts')
+>('./src/shared/config/index.ts');
 
 const pkg = require('./package.json') as { version: string };
 

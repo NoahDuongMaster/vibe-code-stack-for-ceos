@@ -21,13 +21,15 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    // CI's playwright.yml already runs `pnpm build` as a separate step before
-    // this — start the production build we just made, not a fresh dev
-    // server, so the tests exercise what would actually ship.
-    command: process.env.CI ? 'pnpm start' : 'pnpm dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: process.env.PLAYWRIGHT_BASE_URL
+    ? undefined
+    : {
+        // CI's playwright.yml already runs `pnpm build` as a separate step
+        // before this — start the production build we just made, not a fresh
+        // dev server, so the tests exercise what would actually ship.
+        command: process.env.CI ? 'pnpm start' : 'pnpm dev',
+        url: 'http://localhost:3000',
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
 });

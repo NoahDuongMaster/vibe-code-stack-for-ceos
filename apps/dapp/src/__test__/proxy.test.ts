@@ -1,12 +1,12 @@
 import { sealData } from 'iron-session';
 import { NextRequest } from 'next/server';
 import { describe, expect, it, vi } from 'vitest';
-import proxy from '@/proxy';
-import { SESSION_COOKIE_NAME } from '@/shared/constants/session.constant';
+import { handleProxy } from '@/_app/proxy';
+import { SESSION_COOKIE_NAME } from '@/entities/session';
 
 const SESSION_SECRET = 'test-session-secret-min-32-chars!!';
 
-vi.mock('@/shared/config/env.configuration', () => ({
+vi.mock('@/shared/config', () => ({
   env: { server: { SESSION_SECRET: 'test-session-secret-min-32-chars!!' } },
 }));
 
@@ -17,15 +17,26 @@ describe('proxy middleware', () => {
   it('should allow unauthenticated requests to public routes', async () => {
     const req = new NextRequest('http://localhost:3000/');
 
-    const res = await proxy(req);
+    const res = await handleProxy(req);
 
     expect(res.status).toBe(200);
+  });
+
+  it('should allow runtime style attributes without weakening inline style elements', async () => {
+    const req = new NextRequest('http://localhost:3000/');
+
+    const res = await handleProxy(req);
+    const policy = res.headers.get('content-security-policy-report-only');
+
+    expect(policy).toContain("style-src 'self' 'nonce-");
+    expect(policy).not.toContain("style-src 'self' 'unsafe-inline'");
+    expect(policy).toContain("style-src-attr 'unsafe-inline'");
   });
 
   it('should redirect unauthenticated requests to /account to /sign-in with a callbackUrl', async () => {
     const req = new NextRequest('http://localhost:3000/account');
 
-    const res = await proxy(req);
+    const res = await handleProxy(req);
 
     expect(res.status).toBe(307);
     const location = new URL(res.headers.get('location') ?? '');
@@ -38,7 +49,7 @@ describe('proxy middleware', () => {
       headers: { cookie: `${SESSION_COOKIE_NAME}=not-a-real-sealed-value` },
     });
 
-    const res = await proxy(req);
+    const res = await handleProxy(req);
 
     expect(res.status).toBe(307);
   });
@@ -49,7 +60,7 @@ describe('proxy middleware', () => {
       headers: { cookie: `${SESSION_COOKIE_NAME}=${sealed}` },
     });
 
-    const res = await proxy(req);
+    const res = await handleProxy(req);
 
     expect(res.status).toBe(307);
   });
@@ -63,7 +74,7 @@ describe('proxy middleware', () => {
       headers: { cookie: `${SESSION_COOKIE_NAME}=${sealed}` },
     });
 
-    const res = await proxy(req);
+    const res = await handleProxy(req);
 
     expect(res.status).toBe(200);
   });

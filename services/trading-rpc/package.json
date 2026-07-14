@@ -1,0 +1,35 @@
+{
+  "name": "@services/trading-rpc",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "NODE_ENV=development tsx watch --env-file-if-exists=.env src/index.ts",
+    "build": "tsup",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "rpc:smoke": "tsx src/rpc.smoke.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome ci .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.12.1",
+    "@connectrpc/connect": "^2.1.2",
+    "@connectrpc/connect-fastify": "2.1.2",
+    "@connectrpc/connect-node": "^2.1.2",
+    "@fastify/cors": "11.2.0",
+    "@fastify/rate-limit": "11.1.0",
+    "@packages/api-core": "workspace:*",
+    "@packages/protocol": "workspace:*",
+    "@sentry/node": "^10.64.0",
+    "fastify": "5.10.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.19.2",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

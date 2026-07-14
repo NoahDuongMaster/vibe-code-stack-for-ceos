@@ -8,9 +8,9 @@ import { z } from 'zod';
 const ZEnv = z.object({
   API_URL: z.string().url(),
   SENTRY_DSN: z.string().url().optional(),
-  // Fail-safe default: false. The proto (@repo/protocol) has no AuthService
-  // yet, so features/auth simulates login — but only when this is explicitly
-  // set to "true" (see features/auth/adapters/auth.adapter.ts). Any deploy
+  // Fail-safe default: false. The proto (@packages/protocol) has no AuthService
+  // yet, so pages/login simulates login — but only when this is explicitly
+  // set to "true" (see pages/login/api/login.api.ts). Any deploy
   // that doesn't set it refuses every login attempt instead of accepting any
   // 6+ char password as valid. Hard-gated to dev builds below regardless of
   // this value — a leaked PUBLIC_ENABLE_MOCK_AUTH=true in a prod env must not
@@ -37,5 +37,5 @@ export const env = ZEnv.parse({
 /** Base URL of the backend serving ApiService (api-node or api-gateway). */
 export const API_URL = env.API_URL;
 
-/** Whether the mock login in features/auth is allowed to authenticate anyone. */
+/** Whether the page-local mock login is allowed to authenticate anyone. */
 export const ENABLE_MOCK_AUTH = env.ENABLE_MOCK_AUTH;

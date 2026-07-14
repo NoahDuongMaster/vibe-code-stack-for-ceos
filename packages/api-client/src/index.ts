@@ -1,6 +1,6 @@
 import { type Client, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
-import { ApiService } from '@repo/protocol';
+import { ApiService, TradingService } from '@packages/protocol';
 
 /**
  * End-to-end type-safe client for the backend API (Connect RPC).
@@ -20,5 +20,21 @@ export const createApiClient = (
 
 export type ApiClient = Client<typeof ApiService>;
 
+/** Typed client for the service-owned TradingService, normally via the gateway. */
+export const createTradingClient = (
+  baseUrl: string,
+  options?: Omit<Parameters<typeof createConnectTransport>[0], 'baseUrl'>,
+): Client<typeof TradingService> =>
+  createClient(TradingService, createConnectTransport({ baseUrl, ...options }));
+
+export type TradingClient = Client<typeof TradingService>;
+
 // Re-export the generated message types for consumers/UI.
-export type { EchoRequest, EchoResponse, HealthResponse } from '@repo/protocol';
+export type {
+  CryptoMarket,
+  EchoRequest,
+  EchoResponse,
+  GetMarketsRequest,
+  GetMarketsResponse,
+  HealthResponse,
+} from '@packages/protocol';

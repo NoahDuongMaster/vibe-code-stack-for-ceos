@@ -1,5 +1,5 @@
 import { createClient, createRouterTransport } from '@connectrpc/connect';
-import { ApiService } from '@repo/protocol';
+import { ApiService } from '@packages/protocol';
 import { describe, expect, it } from 'vitest';
 import { createFetchHandler, createRoutes } from './index';
 
@@ -29,6 +29,12 @@ describe('createRoutes', () => {
 
       expect(res.upper).toBe('');
       expect(res.length).toBe(0);
+    });
+
+    it('should reject a message over the max length (validation boundary)', async () => {
+      await expect(client.echo({ message: 'x'.repeat(1001) })).rejects.toThrow(
+        /1000 characters/,
+      );
     });
   });
 

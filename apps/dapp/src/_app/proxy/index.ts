@@ -1,0 +1,1 @@
+export { handleProxy } from './proxy';

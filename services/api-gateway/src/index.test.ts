@@ -1,23 +1,46 @@
+import { sign } from 'hono/jwt';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import worker from './index';
+import worker, { createGatewayWorker, type RateLimiterDO } from '@/index';
 
 const ECHO_URL = 'http://gateway.test/api.v1.ApiService/Echo';
+const HEALTH_URL = 'http://gateway.test/api.v1.ApiService/Health';
+const MARKETS_URL = 'http://gateway.test/trading.v1.TradingService/GetMarkets';
+const JWT_SECRET = 'test-secret';
+
+/** A Connect-style RPC POST (JSON) helper, optionally bearer-authenticated. */
+function rpcRequest(url: string, body: unknown, token?: string): Request {
+  return new Request(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'connect-protocol-version': '1',
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+/** Mocks the RateLimiterDO binding: namespace.get(idFromName(key)).limit(). */
+function mockRateLimiter(success: boolean) {
+  const limit = vi.fn(async () => ({ success, remaining: success ? 42 : 0 }));
+  const idFromName = vi.fn((name: string) => name);
+  const get = vi.fn(() => ({ limit }));
+  const namespace = {
+    idFromName,
+    get,
+  } as unknown as DurableObjectNamespace<RateLimiterDO>;
+  return { namespace, idFromName, get, limit };
+}
 
 describe('gateway fetch handler', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('should serve a known route locally', async () => {
     const res = await worker.fetch(
-      new Request(ECHO_URL, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'connect-protocol-version': '1',
-        },
-        body: JSON.stringify({ message: 'edge' }),
-      }),
+      rpcRequest(ECHO_URL, { message: 'edge' }),
       {},
     );
 
@@ -37,19 +60,21 @@ describe('gateway fetch handler', () => {
     expect(res.status).not.toBe(429);
   });
 
-  it('should return 429 when RATE_LIMITER reports the client is over budget', async () => {
-    const limit = vi.fn().mockResolvedValue({ success: false });
+  it('should return 429 when the rate limiter reports the client is over budget', async () => {
+    const { namespace, idFromName, limit } = mockRateLimiter(false);
 
     const res = await worker.fetch(new Request(ECHO_URL, { method: 'GET' }), {
-      RATE_LIMITER: { limit },
+      RATE_LIMITER: namespace,
     });
 
-    expect(limit).toHaveBeenCalledWith({ key: 'unknown' });
+    // One Durable Object instance per client key; 'unknown' when no CF IP.
+    expect(idFromName).toHaveBeenCalledWith('unknown');
+    expect(limit).toHaveBeenCalledWith({ limit: 300, periodMs: 60_000 });
     expect(res.status).toBe(429);
   });
 
   it('should key the rate limit on cf-connecting-ip and pass through when under budget', async () => {
-    const limit = vi.fn().mockResolvedValue({ success: true });
+    const { namespace, idFromName } = mockRateLimiter(true);
 
     const res = await worker.fetch(
       new Request(ECHO_URL, {
@@ -61,11 +86,33 @@ describe('gateway fetch handler', () => {
         },
         body: JSON.stringify({ message: 'edge' }),
       }),
-      { RATE_LIMITER: { limit } },
+      { RATE_LIMITER: namespace },
     );
 
-    expect(limit).toHaveBeenCalledWith({ key: '203.0.113.7' });
+    expect(idFromName).toHaveBeenCalledWith('203.0.113.7');
     expect(res.status).toBe(200);
+  });
+
+  it('should fail open (allow the request) when the rate limiter throws', async () => {
+    const warningSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const limit = vi.fn(async () => {
+      throw new Error('rate limiter unavailable');
+    });
+    const namespace = {
+      idFromName: vi.fn((name: string) => name),
+      get: vi.fn(() => ({ limit })),
+    } as unknown as DurableObjectNamespace<RateLimiterDO>;
+
+    const res = await worker.fetch(rpcRequest(ECHO_URL, { message: 'edge' }), {
+      RATE_LIMITER: namespace,
+    });
+
+    expect(res.status).toBe(200);
+    expect(warningSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"event":"rate_limiter_unavailable"'),
+    );
   });
 
   it('should annotate a locally-served response with CORS headers for an allowed origin', async () => {
@@ -83,7 +130,7 @@ describe('gateway fetch handler', () => {
     );
   });
 
-  it('should 404 an unknown route when no UPSTREAM_URL is configured', async () => {
+  it('should 404 an unknown route when TRADING_RPC is unbound', async () => {
     const res = await worker.fetch(
       new Request('http://gateway.test/does-not-exist'),
       {},
@@ -92,55 +139,130 @@ describe('gateway fetch handler', () => {
     expect(res.status).toBe(404);
   });
 
-  it('should proxy an unknown route to UPSTREAM_URL when configured', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url =
-        input instanceof Request
-          ? input.url
-          : (input as string | URL).toString();
-      return new Response('upstream body', {
-        status: 200,
-        headers: { 'x-served-by': url },
+  it('should log invalid runtime configuration without exposing its cause', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    const res = await createGatewayWorker().fetch(
+      new Request('http://gateway.test/crypto'),
+      {
+        ENVIRONMENT: 'development',
+        LOCAL_TRADING_RPC_URL: 'ftp://127.0.0.1:3001',
+      },
+    );
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: { code: 'internal', message: 'Internal Server Error' },
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"service":"api-gateway"'),
+    );
+  });
+
+  it('should proxy an unhandled route to LOCAL_TRADING_RPC_URL in development', async () => {
+    const fetchMock = vi.fn(async function (
+      this: unknown,
+      input: RequestInfo | URL,
+    ) {
+      expect(this).toBe(globalThis);
+      const request = input as Request;
+      return new Response('local trading-rpc', {
+        headers: { 'x-target': request.url },
       });
     });
     vi.stubGlobal('fetch', fetchMock);
 
     const res = await worker.fetch(
-      new Request('http://gateway.test/does-not-exist'),
+      new Request('http://gateway.test/crypto?currency=usd'),
       {
-        UPSTREAM_URL: 'https://api-node.internal',
+        ENVIRONMENT: 'development',
+        LOCAL_TRADING_RPC_URL: 'http://127.0.0.1:3001',
       },
     );
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(res.status).toBe(200);
-    expect(await res.text()).toBe('upstream body');
-    // Path + query are preserved; only the scheme/host swap to the upstream's.
-    expect(res.headers.get('x-served-by')).toBe(
-      'https://api-node.internal/does-not-exist',
+    expect(await res.text()).toBe('local trading-rpc');
+    expect(res.headers.get('x-target')).toBe(
+      'http://127.0.0.1:3001/crypto?currency=usd',
     );
   });
 
-  it("should stamp a proxied response with the gateway's own CORS decision, overriding the upstream's", async () => {
+  it('should not honor LOCAL_TRADING_RPC_URL outside development', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await worker.fetch(new Request('http://gateway.test/crypto'), {
+      ENVIRONMENT: 'production',
+      LOCAL_TRADING_RPC_URL: 'http://127.0.0.1:3001',
+    });
+
+    expect(res.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('should proxy an unknown route through the TRADING_RPC VPC binding', async () => {
+    const fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const request = input as Request;
+      return new Response('trading-rpc body', {
+        status: 200,
+        headers: { 'x-served-by': request.url },
+      });
+    });
+    const tradingRpc = { fetch } as unknown as Fetcher;
+
+    const res = await worker.fetch(
+      new Request('http://gateway.test/crypto?currency=usd'),
+      { TRADING_RPC: tradingRpc },
+    );
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('trading-rpc body');
+    expect(res.headers.get('x-served-by')).toBe(
+      'http://trading-rpc.internal/crypto?currency=usd',
+    );
+  });
+
+  it('should proxy TradingService without handling it at the edge', async () => {
+    const fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const request = input as Request;
+      return new Response('trading-rpc body', {
+        status: 200,
+        headers: { 'x-served-by': request.url },
+      });
+    });
+
+    const res = await worker.fetch(
+      rpcRequest(MARKETS_URL, { coinIds: ['bitcoin'], vsCurrency: 'usd' }),
+      { TRADING_RPC: { fetch } as unknown as Fetcher },
+    );
+
+    expect(res.status).toBe(200);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(res.headers.get('x-served-by')).toBe(
+      'http://trading-rpc.internal/trading.v1.TradingService/GetMarkets',
+    );
+  });
+
+  it("should stamp a VPC response with the gateway's own CORS decision", async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response('upstream body', {
           status: 200,
           headers: {
-            // Simulates api-node answering with a DIFFERENT (or absent)
-            // CORS decision than the gateway's — the gateway must win.
+            // The VPC service's own CORS decision must never reach browsers.
             'access-control-allow-origin': 'https://untrusted.example.com',
           },
         }),
     );
-    vi.stubGlobal('fetch', fetchMock);
 
     const res = await worker.fetch(
       new Request('http://gateway.test/does-not-exist', {
         headers: { origin: 'https://admin.example.com' },
       }),
       {
-        UPSTREAM_URL: 'https://api-node.internal',
+        TRADING_RPC: { fetch: fetchMock } as unknown as Fetcher,
         CORS_ORIGINS: 'https://admin.example.com',
       },
     );
@@ -152,10 +274,9 @@ describe('gateway fetch handler', () => {
     );
   });
 
-  it('should not add CORS headers to a proxied response when the origin is not allowed', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response('upstream body', { status: 200 })),
+  it('should not add CORS headers to a VPC response when the origin is not allowed', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response('upstream body', { status: 200 }),
     );
 
     const res = await worker.fetch(
@@ -163,7 +284,7 @@ describe('gateway fetch handler', () => {
         headers: { origin: 'https://evil.example.com' },
       }),
       {
-        UPSTREAM_URL: 'https://api-node.internal',
+        TRADING_RPC: { fetch: fetchMock } as unknown as Fetcher,
         CORS_ORIGINS: 'https://admin.example.com',
       },
     );
@@ -171,57 +292,94 @@ describe('gateway fetch handler', () => {
     expect(res.headers.get('access-control-allow-origin')).toBeNull();
   });
 
-  it('should return 502 when the upstream fetch fails', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        throw new TypeError('network error');
-      }),
-    );
+  it('should return 502 when the VPC binding fetch fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError('network error');
+    });
 
     const res = await worker.fetch(
       new Request('http://gateway.test/does-not-exist'),
-      { UPSTREAM_URL: 'https://api-node.internal' },
+      { TRADING_RPC: { fetch: fetchMock } as unknown as Fetcher },
     );
 
     expect(res.status).toBe(502);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
+      'bad_gateway',
+    );
   });
 
-  it('should return 504 when the upstream fetch times out', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        const error = new Error('The operation was aborted.');
-        error.name = 'TimeoutError';
-        throw error;
-      }),
-    );
+  it('should return 504 when the VPC binding fetch times out', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const fetchMock = vi.fn(async () => {
+      const error = new Error('The operation was aborted.');
+      error.name = 'TimeoutError';
+      throw error;
+    });
 
     const res = await worker.fetch(
       new Request('http://gateway.test/does-not-exist'),
-      { UPSTREAM_URL: 'https://api-node.internal' },
+      { TRADING_RPC: { fetch: fetchMock } as unknown as Fetcher },
     );
 
     expect(res.status).toBe(504);
   });
 
-  it('should not proxy known/locally-handled routes even when UPSTREAM_URL is configured', async () => {
+  it('should not proxy known/locally-handled routes when TRADING_RPC is bound', async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
 
-    const res = await worker.fetch(
-      new Request(ECHO_URL, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'connect-protocol-version': '1',
-        },
-        body: JSON.stringify({ message: 'edge' }),
-      }),
-      { UPSTREAM_URL: 'https://api-node.internal' },
-    );
+    const res = await worker.fetch(rpcRequest(ECHO_URL, { message: 'edge' }), {
+      TRADING_RPC: { fetch: fetchMock } as unknown as Fetcher,
+    });
 
     expect(res.status).toBe(200);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('should serve a gateway liveness endpoint that bypasses auth', async () => {
+    const res = await worker.fetch(
+      new Request('http://gateway.test/healthz'),
+      { JWT_SECRET }, // auth enabled, but /healthz is public
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: 'ok' });
+  });
+
+  it('should set an X-Request-Id header on every response', async () => {
+    const res = await worker.fetch(
+      new Request('http://gateway.test/healthz'),
+      {},
+    );
+
+    expect(res.headers.get('x-request-id')).toBeTruthy();
+  });
+
+  it('should reject a protected route with 401 when a token is required but missing', async () => {
+    const res = await worker.fetch(rpcRequest(ECHO_URL, { message: 'edge' }), {
+      JWT_SECRET,
+    });
+
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('unauthorized');
+  });
+
+  it('should allow a protected route with a valid bearer token', async () => {
+    const token = await sign({ sub: 'user-1' }, JWT_SECRET);
+
+    const res = await worker.fetch(
+      rpcRequest(ECHO_URL, { message: 'edge' }, token),
+      { JWT_SECRET },
+    );
+
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { upper: string }).upper).toBe('EDGE');
+  });
+
+  it('should keep the Health route public even when auth is enabled', async () => {
+    const res = await worker.fetch(rpcRequest(HEALTH_URL, {}), { JWT_SECRET });
+
+    expect(res.status).toBe(200);
   });
 });

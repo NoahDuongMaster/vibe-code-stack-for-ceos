@@ -24,9 +24,9 @@
 
 <!-- Check all that this PR touches (matches the commit scope). -->
 
-- [ ] `apps/dapp` — @repo/web (Next.js / vinext)
-- [ ] `apps/admin` — @repo/admin (React / Rsbuild)
-- [ ] `apps/landing` — @repo/landing (Astro)
+- [ ] `apps/dapp` — @apps/dapp (Next.js / vinext)
+- [ ] `apps/admin` — @apps/admin (React / Rsbuild)
+- [ ] `apps/landing` — @apps/landing (Astro)
 - [ ] `services/*` — Connect RPC (api-node / api-gateway)
 - [ ] `packages/*` — shared (protocol / api-core / api-client)
 - [ ] Tooling — CI / Docker / config / scripts

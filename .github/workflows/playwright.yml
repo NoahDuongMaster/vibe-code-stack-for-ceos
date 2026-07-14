@@ -48,7 +48,7 @@ jobs:
       - name: Get installed Playwright version
         id: playwright-version
         run: |
-          echo "version=$(pnpm --filter @repo/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+          echo "version=$(pnpm --filter @apps/dapp exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -58,7 +58,7 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
 
       - name: Install Chromium
-        run: pnpm --filter @repo/web exec playwright install chromium --with-deps
+        run: pnpm --filter @apps/dapp exec playwright install chromium --with-deps
         # `--with-deps` also installs OS-level libs Chromium needs — those
         # aren't part of the cached browser binaries, so this still has to
         # run every time; the cache above just skips re-downloading the
@@ -66,7 +66,7 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
 
       - name: Install Chromium's OS dependencies (cache hit)
-        run: pnpm --filter @repo/web exec playwright install-deps chromium
+        run: pnpm --filter @apps/dapp exec playwright install-deps chromium
         if: steps.playwright-cache.outputs.cache-hit == 'true'
 
       - name: Create apps/dapp/.dev.vars for vinext Workers runtime
@@ -81,10 +81,10 @@ jobs:
           EOF
 
       - name: Build
-        run: pnpm --filter @repo/web build
+        run: pnpm --filter @apps/dapp build
 
       - name: Run Playwright tests
-        run: pnpm --filter @repo/web test:e2e
+        run: pnpm --filter @apps/dapp test:e2e
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

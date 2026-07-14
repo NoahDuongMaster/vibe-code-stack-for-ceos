@@ -15,18 +15,20 @@ apps + 2 backend services + 3 shared packages, deployed to Cloudflare.
 
 | Workspace | Package | What it is | Deploys to |
 |-----------|---------|------------|------------|
-| `apps/dapp` | `@repo/web` | Next.js 16 App Router (vinext/Vite) | Cloudflare Workers |
-| `apps/admin` | `@repo/admin` | React 19 SPA (Rsbuild + React Router, no RSC) | Cloudflare Pages |
-| `apps/landing` | `@repo/landing` | Astro static site (zero JS by default) | Cloudflare Workers |
-| `services/api-node` | `@repo/api-node` | Connect-RPC Node server (tsup, Dockerfile) | Docker |
-| `services/api-gateway` | `@repo/gateway-cf` | Edge gateway Worker (CORS, upstream proxy) | Cloudflare Workers |
-| `packages/protocol` | `@repo/protocol` | Protobuf schemas, buf codegen → `src/gen/` | — |
-| `packages/api-core` | `@repo/api-core` | Shared RPC impl + CORS-aware fetch handler | — |
-| `packages/api-client` | `@repo/api-client` | Typed Connect-RPC browser client | — |
+| `apps/dapp` | `@apps/dapp` | Next.js 16 App Router (vinext/Vite) | Cloudflare Workers |
+| `apps/admin` | `@apps/admin` | React 19 SPA (Rsbuild + React Router, no RSC) | Cloudflare Pages |
+| `apps/landing` | `@apps/landing` | Astro static site (zero JS by default) | Cloudflare Workers |
+| `services/trading-rpc` | `@services/trading-rpc` | Connect-RPC server on Fastify/HTTP2 (Connect + gRPC + gRPC-Web; tsup) | Docker |
+| `services/api-gateway` | `@services/api-gateway` | Edge gateway Worker (Hono: request-id, CORS, self-hosted Durable Object rate-limit, opt-in JWT auth, upstream proxy) | Cloudflare Workers |
+| `packages/protocol` | `@packages/protocol` | Protobuf schemas, buf codegen → `src/gen/` | — |
+| `packages/api-core` | `@packages/api-core` | Shared RPC impl + CORS-aware fetch handler | — |
+| `packages/api-client` | `@packages/api-client` | Typed Connect-RPC browser client | — |
 
-Rule scope: Server/Client Component rules apply to `apps/dapp` only. The
-feature-slice architecture applies to `apps/dapp` and `apps/admin`. Everything
-else (naming, testing, git, security) applies repo-wide.
+Rule scope: Server/Client Component rules apply to `apps/dapp` only. Canonical
+Feature-Sliced Design v2.1 applies to all three frontend apps, with
+framework-specific entrypoints documented below. The backend slice architecture
+applies to `packages/api-core` + `services/*` (see Architecture rules).
+Everything else (naming, testing, git, security) applies repo-wide.
 
 ## Tech stack (mind the major versions — APIs differ across generations)
 
@@ -42,6 +44,7 @@ else (naming, testing, git, security) applies repo-wide.
 | Server actions | next-safe-action **8** |
 | Tables | TanStack Table 8 |
 | HTTP | ofetch 1 (via shared `xhr`) · Connect-RPC 2 (`@connectrpc/*`) |
+| API server (Node) | Fastify 5 + `@connectrpc/connect-fastify` (HTTP/2, gRPC) · edge gateway on Hono 4 |
 | Auth | iron-session 8 (encrypted cookies) |
 | Admin | Rsbuild 2 (Rspack) · React Router **7** |
 | Landing | Astro 7 |
@@ -64,8 +67,8 @@ pnpm test                     # Vitest, all workspaces
 pnpm build                    # production builds
 pnpm check                    # Biome auto-fix + format
 
-pnpm --filter @repo/web test                                   # one workspace
-pnpm --filter @repo/web exec vitest run <path-to-test-file>    # one test file
+pnpm --filter @apps/dapp test                                   # one workspace
+pnpm --filter @apps/dapp exec vitest run <path-to-test-file>    # one test file
 pnpm test:e2e                 # Playwright (apps/dapp/e2e/); needs browsers installed
 ```
 
@@ -84,48 +87,216 @@ Deploys are CI-gated only (`.github/workflows/deploy.yml`; `develop` → staging
 
 ## Architecture rules
 
-### Feature-slice layout (`apps/dapp`, `apps/admin`)
+### Dapp architecture — canonical Feature-Sliced Design v2.1
 
+Next.js framework entrypoints stay outside the FSD root. They are thin adapters
+that delegate to the appropriate App or Page public API:
+
+```text
+apps/dapp/
+  app/                         Next pages/layout/Route Handlers only
+  proxy.ts                     Next proxy entrypoint only
+  instrumentation*.ts          Next instrumentation entrypoints only
+  src/
+    _app/                      App-layer segments: routes, providers, metadata,
+                               errors, proxy, instrumentation, styles
+    _pages/{home,sign-in,account,not-found}/
+                               complete screens; api/model/ui + public API
+    features/sign-in/          reusable sign-in interaction; api/model/ui
+    entities/session/          session domain API/model + client/server APIs
+    shared/                    api, config, focused lib/*, routes, ui
+    styled-system/             generated Panda code; never hand-edit
 ```
-src/
-  app/             Routes ONLY — pages, layouts, API route handlers. Zero business logic.
-  features/[name]/
-    _components/   Private UI — MUST NOT be imported outside the feature
-    _hooks/        Private hooks — same restriction
-    adapters/      HTTP layer (see below)
-    schemas/       Zod schemas + derived types
-    services/      Business logic — orchestrates adapters
-    actions/       next-safe-action server actions (dapp only)
-    index.ts       PUBLIC barrel — the ONLY import surface for other layers
-  shared/          Cross-cutting utilities. Zero business logic.
-  server/          Server-only (dapp only) — 'server-only' guarded
+
+Conceptual dependency direction is one-way:
+
+```text
+Next framework entrypoints → _app → _pages → widgets → features → entities → shared
 ```
 
-Dependency direction (one-way): `app/ → features/[name]/index.ts → shared/`;
-`server/lib` may be used by features' server code, never by Client Components.
+Layers are optional. `widgets` is intentionally absent until a reusable,
+self-contained UI block exists. `_app` and `shared` contain segments rather than
+slices. The underscore prefixes prevent collisions with Next's root `app/` and
+legacy Pages Router while preserving the canonical layer roles.
 
-### Hard rules (ESLint-enforced — violations fail `pnpm lint`)
-
-1. `app/` MUST import features only via `@/features/[name]` (or
-   `@/features/[name]/server` for dapp server-only entry points). Never deep
-   paths.
-2. Features MUST NOT import other features. Extract shared logic to `shared/`.
-3. `_components/` and `_hooks/` are private to their feature.
-4. `shared/` MUST NOT import from `features/` or `app/`.
-5. `server/` MUST NOT be imported in Client Components or `shared/`.
-6. Monorepo boundaries: `packages/` → `packages/` only; `services/` →
+1. Imports point downward only. Same-layer slices are isolated and MUST NOT
+   import each other.
+2. Every slice and every `_app`/`shared` segment exposes a Public API. External
+   consumers never deep-import internals; imports inside one slice are relative.
+3. Server-only exports use `index.server.ts`; client-only exports use
+   `index.client.ts`. Never mix a `server-only` module into a client API.
+4. Segments are purpose-named (`api`, `model`, `ui`, `config`), never
+   essence-named (`components`, `hooks`, `types`, `services`, `utils`). Focused
+   Shared libraries live under `shared/lib/[purpose]/index.ts`.
+5. `app/`, root proxy, and root instrumentation files contain only framework
+   contracts, static Next exports, and public-API delegation—zero business logic.
+6. Steiger enforces standard FSD layers/public APIs; ESLint covers the
+   underscored Next compatibility layers and framework entrypoints. Run
+   `pnpm --filter @apps/dapp lint:architecture` after structural changes.
+7. `src/styled-system/**` is generated Panda code and the only top-level FSD
+   exception. Never hand-edit it.
+8. Monorepo boundaries remain: `packages/` → `packages/` only; `services/` →
    `packages/` only; nothing imports from `apps/`.
+
+### Admin architecture — canonical Feature-Sliced Design v2.1
+
+`apps/admin` uses the standard FSD layers and purpose-named segments:
+
+```text
+src/
+  app/                    entrypoint, providers, router, global styles
+  pages/[name]/           complete route screens; api/model/ui + index.ts
+  widgets/app-shell/      reusable protected-route layout
+  features/[action]/      reusable product interactions (currently absent)
+  entities/{session,user}/ domain models, data access, queries + index.ts
+  shared/                 api, config, focused lib/*, model, routes, ui
+```
+
+Dependency direction is strictly downward: `app → pages → widgets → features →
+entities → shared`. Layers are optional: admin currently has no `features/`
+because sign-in, create-user, and service-health are each used by only one page
+and therefore belong to those Page slices. Do not create a layer or slice merely
+to make the folder tree look complete.
+
+1. Slices on the same layer are isolated and MUST NOT import each other.
+2. Every slice and every `app`/`shared` segment exposes a Public API (`index.ts`);
+   external consumers never deep-import internals. Same-slice imports are
+   relative.
+3. Segment names describe purpose (`ui`, `api`, `model`, `config`), never file
+   essence (`components`, `hooks`, `types`, `services`, `utils`). Focused Shared
+   libraries use `shared/lib/[purpose]/index.ts`.
+4. `app/router` only composes Page and Widget Public APIs. Route screens and
+   page-specific data/UI live in `pages/[name]`, not in `app`.
+5. Add an Entity for a business noun reused by higher layers. Add a Feature only
+   for a meaningful interaction reused across pages or independently consumed.
+6. Steiger is the source of truth for FSD direction, slice isolation, segment
+   names, and Public APIs. Run
+   `pnpm --filter @apps/admin lint:architecture` after structural changes.
+7. `src/styled-system/**` is generated Panda code and the only top-level FSD
+   exception. Never hand-edit it.
+
+### Landing architecture — canonical Feature-Sliced Design v2.1
+
+`apps/landing` uses Astro route entrypoints in `astro/pages/` and canonical FSD
+application code in `src/`. Its current layers are `app → pages → widgets →
+shared`; `features` and `entities` are intentionally absent until the product
+has reusable user interactions or domain entities.
+
+1. Imports point downward only. Slices on the same layer never import each other.
+2. Every slice and every `app`/`shared` segment exposes an `index.ts` Public API;
+   external consumers never deep-import internals.
+3. Segment names describe purpose (`ui`, `model`, `config`, `seo`, `styles`),
+   never file essence (`components`, `hooks`, `types`, `data`).
+4. `astro/pages/` contains thin framework entrypoints only. Page composition
+   lives in `src/pages/[name]`; independent page blocks live in `src/widgets`.
+5. A static section describing product features is a widget, not an FSD feature.
+   Add an FSD feature only for a reusable user interaction that provides value.
+6. Run `pnpm --filter @apps/landing lint:architecture` after structural changes.
+
+### Backend architecture — Hexagonal (Ports & Adapters) + Vertical Slice
+
+The backend follows **Hexagonal architecture** (a.k.a. Ports & Adapters). The
+domain is an isolated core that knows nothing about transport or infrastructure;
+the outside world plugs in through adapters. This is NOT the frontend's pattern —
+it's the backend's own standard, adapted to Connect-RPC.
+
+| Hexagon ring | This repo |
+|--------------|-----------|
+| **Contract** (ports) | `packages/protocol` — the proto service/method definitions |
+| **Shared application core** | `packages/api-core` — transport-neutral shared RPC slices |
+| **Service-local core** | `services/*/src/{domain,application}` — tactical DDD models, ports, and use cases |
+| **Driving / inbound adapters** | `services/*` — Node http (`trading-rpc`), CF edge (`api-gateway`) |
+| **Driven / outbound adapters** | `services/*/src/infra` — repositories and runtime/provider adapters behind ports |
+
+**The Dependency Rule** — imports point inward only. Across workspaces:
+`services/* → api-core → protocol`. Inside a service: `index/config →
+adapters/infra → application → domain`; domain imports no outer layer,
+application imports no transport/runtime, and adapters depend on ports rather
+than the reverse. The monorepo boundary (`services/` → `packages/` only)
+enforces the outer half.
+
+**Application core (`packages/api-core`) — vertical slices inside the hexagon:**
+
+```
+packages/api-core/src/
+  features/[domain]/          one slice per RPC domain (echo, health, …)
+    [domain].schema.ts        Zod validation at the RPC trust boundary + types
+    [domain].service.ts       use-case / business logic — transport-agnostic, pure, tested
+    [domain].handler.ts       inbound port: binds the Connect method → service
+    [domain].repository.ts     (add when persistence exists) outbound port — data access behind an interface
+    index.ts                  PUBLIC slice barrel — the ONLY import surface
+  shared/                     cross-cutting: cors, errors, config. Zero business logic.
+  runtime/                    createRoutes (composes slices) + createFetchHandler
+  index.ts                    PUBLIC package barrel — the ONLY surface adapters import
+```
+
+**Driving adapters (`services/*`) — three internal roles, expressed by folder.**
+`index.ts` = composition root; `adapters/` = inbound adapters; `infra/` =
+infrastructure. A very small service MAY keep a role as a single flat file, but
+grow it into the matching folder — never a flat pile of unrelated files.
+
+```
+services/trading-rpc/src/               (Node driving adapter — Fastify / HTTP2)
+  index.ts                COMPOSITION ROOT — validates env, inits Sentry, builds the
+                          server, wires graceful shutdown. The ONLY place env is read.
+  adapters/http.adapter.ts INBOUND ADAPTER — Fastify (HTTP/2) hosting api-core routes via
+                          @connectrpc/connect-fastify (Connect + gRPC + gRPC-Web, streaming);
+                          CORS, rate-limit, body cap, logging are Fastify plugins.
+
+services/api-gateway/src/               (Cloudflare edge driving adapter)
+  index.ts                COMPOSITION ROOT — the only dependency-wiring surface;
+                          exports the Worker and the Durable Object class.
+  domain/                 TACTICAL DDD — policies/value objects/aggregate roots:
+    access-control/       public-route policy.
+    rate-limiting/        ClientIdentifier + RateLimitPolicy value objects,
+                          TokenBucket aggregate, repository port, domain errors.
+    routing/              typed upstream routing errors.
+  application/            INPUT/OUTPUT PORTS + USE CASES — authorize request,
+                          enforce rate limit, route RPC, consume bucket token.
+  adapters/http/          INBOUND ADAPTER — Hono composition, middleware,
+                          handlers, HTTP error mapping; zero business logic.
+  adapters/cloudflare/    Cloudflare binding types at the runtime boundary.
+  infra/                  DRIVEN ADAPTERS — Hono JWT, console logging, api-core,
+                          VPC/local RPC proxy, DO repository + RPC class.
+  config/                 validated runtime config + operational policy values.
+```
+
+Hard rules (convention today — services lint with Biome, which lacks the FE's
+ESLint boundary rules, so these are review-enforced):
+
+1. **Handlers** (inbound ports) hold ZERO business logic — validate input, call
+   the service, map the result to the proto response. Only handlers import
+   Connect/proto types.
+2. **Application use cases** own orchestration, depend only on domain models and
+   ports, contain no Hono/Connect/Cloudflare imports, and are unit-tested
+   (target ≥ 80%).
+3. **Repositories** (outbound ports) isolate data access behind an interface;
+   services depend on the interface, never a concrete client. (No persistence
+   yet — the slot is defined for when it arrives.)
+4. Validate ALL external input with **Zod at the handler boundary** (`Z`-prefixed
+   schema; proto gives structural types, Zod gives semantic ones).
+5. Services throw typed domain errors. Connect handlers map them via
+   `toConnectError`; HTTP adapters map them to safe status/envelopes — never leak
+   internals to the client.
+6. One-way deps inside `api-core`: `runtime/ → features/[domain]/index.ts →
+   shared/`. One-way deps inside service-local cores: `application → domain`.
+   Domain/application MUST NOT import `adapters`, `infra`, Hono, Connect, or
+   Cloudflare runtime modules. Import api-core only via its root barrel.
+7. **Adapters (`services/*`) are THIN** — they translate a runtime (Node http /
+   CF fetch) into api-core calls and back, and MUST NOT contain business logic.
+   Env/secrets are read ONLY in the composition root. Reuse api-core's shared
+   helpers (e.g. `isOriginAllowed`) instead of re-implementing them.
 
 ### HTTP layer
 
-- Components MUST NOT call `fetch()`/axios — data flows component → TanStack
-  Query hook → service → adapter.
-- `apps/dapp` adapters: use `xhr` from `@/shared/lib/xhr` (ofetch,
-  `credentials: 'include'`, no baseURL; same-origin `app/api/**` BFF paths
-  resolve as-is; external APIs: `xhr.create({ baseURL })`).
-- `apps/admin` adapters: use `apiClient` from `@/shared/lib/api-client`
-  (Connect-RPC client with the auth interceptor pre-wired). Never call
-  `createApiClient` directly.
+- Components MUST NOT call `fetch()`/axios.
+- `apps/dapp` data flows UI → model hook → same-slice `api/` → `xhr` from
+  `@/shared/api` (ofetch, `credentials: 'include'`, no baseURL; same-origin
+  `app/api/**` BFF paths resolve as-is; external APIs use
+  `xhr.create({ baseURL })`).
+- `apps/admin` slice `api/` modules use `apiClient` from `@/shared/api`
+  (Connect-RPC client with the auth interceptor pre-wired). Only
+  `shared/api/api-client.ts` may call `createApiClient` directly.
 
 ### Server vs Client Components (`apps/dapp` only)
 
@@ -147,34 +318,36 @@ Dependency direction (one-way): `app/ → features/[name]/index.ts → shared/`;
 | Constant | SCREAMING_SNAKE | `API_ROUTES.GET_USER` |
 | Zustand store | `use` + Name + `Store` | `useUserStore` |
 | Service | camelCase + `Service` | `userService` |
-| Default export | ONLY `page.tsx`, `layout.tsx`, `not-found.tsx` | — |
+| Default export | ONLY `page.tsx`, `layout.tsx`, `not-found.tsx`; framework-native `.astro` component exports are also allowed | — |
 
 ## Code patterns
 
 ```typescript
-// schemas/user.schema.ts — schema first, type derived
-export const ZUser = z.object({ id: z.string().uuid(), name: z.string().min(1) })
-export type TUser = z.infer<typeof ZUser>
+// features/sign-in/model/login.schema.ts — schema first, type derived
+export const ZLoginInput = z.object({
+  email: z.email(),
+  password: z.string().min(1),
+})
+export type TLoginInput = z.infer<typeof ZLoginInput>
 
-// adapters/user.adapter.ts (dapp) — xhr + typed domain errors
-export const getUserAPI = async (id: string): Promise<TUser> => {
-  try { return await xhr<TUser>(API_ROUTES.GET_USER(id)) }
-  catch (error) { throw toUserError(error) }   // never leak FetchError upward
-}
+// features/sign-in/api/login.api.ts — same-slice I/O through Shared
+export const login = (input: TLoginInput): Promise<void> =>
+  xhr(API_ROUTES.AUTH_LOGIN, { method: 'POST', body: input })
 
-// adapters/health.adapter.ts (admin) — shared Connect-RPC client
-export const getHealthAPI = (): Promise<THealthResponse> => apiClient.health({})
+// features/sign-in/model/use-login.ts — model orchestrates its slice API
+export const useLogin = () => useMutation({ mutationFn: login })
 
-// services/user.service.ts — orchestrates adapters, owns business logic
-export const userService = { async getUser(id: string) { return getUserAPI(id) } }
+// features/sign-in/index.ts — minimal client public API
+export { LoginForm } from './ui/login-form'
 
-// index.ts — public barrel, exports only what outsiders need
-export { userService } from './services/user.service'
-export type { TUser } from './schemas/user.schema'
+// features/sign-in/index.server.ts — separate server-only public API
+import 'server-only'
+export { verifyCredentials } from './model/verify-credentials.server'
 ```
 
-Import order: React/Next → external packages → `@/shared/*` → `@/features/*`
-→ `@/server/*` → relative → styles. `import type` last.
+Import order: React/Next → external packages → `@/shared/*` → `@/entities/*` →
+`@/features/*` → `@/widgets/*` → `@/_pages/*` → `@/_app/*` → relative →
+styles. `import type` last.
 
 ## Error handling
 
@@ -191,17 +364,17 @@ Import order: React/Next → external packages → `@/shared/*` → `@/features/
 ## Security
 
 - NEVER read `process.env.X` / `import.meta.env.X` directly — use the validated
-  env module (`apps/dapp/src/shared/config/env.configuration.ts`,
+  env module (`apps/dapp/src/shared/config/env.ts`,
   `apps/admin/src/shared/config/env.ts`). Document new vars in the app's
   `.env.sample`.
 - Validate ALL external input with Zod at trust boundaries (server actions,
   route handlers, RPC handlers).
 - Server modules use `import 'server-only'`.
-- CSP: dapp builds a nonce-based CSP in `src/proxy.ts` — the nonce and CSP MUST
-  be set on the request headers (not only the response). Admin/landing ship
-  static headers via `public/_headers`.
+- CSP: dapp builds a nonce-based CSP in `src/_app/proxy/proxy.ts`, delegated by
+  root `proxy.ts` — the nonce and CSP MUST be set on request headers (not only
+  the response). Admin/landing ship static headers via `public/_headers`.
 - Backend CORS is allowlist-driven via `CORS_ORIGINS` (handled in
-  `packages/api-core` and `services/api-node`).
+  `packages/api-core` and `services/trading-rpc`).
 - NEVER: committed secrets, `eval()`, `new Function()`,
   `dangerouslySetInnerHTML` without DOMPurify.
 
@@ -224,13 +397,15 @@ Import order: React/Next → external packages → `@/shared/*` → `@/features/
 | `apps/admin` unit | `src/__test__/**` (mirrors `src/`) |
 | `services/*`, `packages/*` | colocated `src/*.test.ts` |
 
-- Mock adapters with `vi.mock('@/features/[name]/adapters/[name].adapter')` —
-  NEVER mock services.
+- Dapp and admin tests mirror FSD paths, import the unit under test directly,
+  and mock only the lower-layer I/O boundary when isolation is needed.
+- Any mock of `index.server.ts` MUST use a factory so Vitest does not evaluate
+  the real `server-only` graph first.
 - Mock env config where needed:
-  `vi.mock('@/shared/config/env.configuration', () => ({ env: { ... } }))`.
+  `vi.mock('@/shared/config', () => ({ env: { ... } }))`.
 - Naming: `describe('[ServiceName]')` > `it('should [behavior] when [condition]')`.
 - Test behavior/outcomes, never implementation details. Coverage target ≥ 80%
-  for services and adapters.
+  for feature/entity `api` and `model` logic.
 
 ## Git & PRs
 
@@ -257,6 +432,10 @@ off-format commits/branches are rejected locally.
 
 ## Deployment
 
+- `infras/docker` is the single source of truth for all Dockerfiles and Compose
+  configuration. Workspaces MUST NOT contain their own Dockerfiles. Keep one
+  Dockerfile per deployable image and environment differences in Compose
+  overlays; run `make check-docker` after changes.
 - All deploys are CI-driven via `.github/workflows/deploy.yml`, gated on a
   green CI run: push to `develop` → staging; push to `main` → production
   (behind a required manual approval in the GitHub `production` Environment).
@@ -265,7 +444,7 @@ off-format commits/branches are rejected locally.
   blocks with distinct worker names — deploys MUST pass an explicit
   `--env staging|production`.
 - Rollback: `wrangler rollback --env production` (Workers keep prior versions).
-- `services/api-node` builds a Docker image (`services/api-node/Dockerfile`,
+- `services/trading-rpc` builds a Docker image (`infras/docker/trading-rpc.Dockerfile`,
   multi-stage, non-root, `/healthz` healthcheck) — hosting platform not chosen
   yet, so it is not wired into `deploy.yml`.
 - Secrets are provisioned per environment via GitHub Environment
@@ -282,7 +461,7 @@ off-format commits/branches are rejected locally.
   `build.env` allowlist in `turbo.json`, or it is silently stripped from the
   build AND excluded from the cache key.
 - **Generated code — never hand-edit**: `packages/protocol/src/gen/**`
-  (regenerate with `pnpm --filter @repo/protocol generate`) and
+  (regenerate with `pnpm --filter @packages/protocol generate`) and
   `apps/*/src/styled-system/**` (Panda CSS, regenerated by `prepare`).
 - **`wrangler.jsonc` files are JSONC** — comments are allowed and load-bearing;
   don't "fix" them into plain JSON.
@@ -295,14 +474,14 @@ off-format commits/branches are rejected locally.
 
 | ❌ Never | ✅ Instead |
 |---------|-----------|
-| `fetch()`/axios in a component | TanStack Query hook + service |
-| Raw `fetch()` in adapters | `shared/lib/xhr` (dapp) / `shared/lib/api-client` (admin) |
+| `fetch()`/axios in a component | model hook + same-slice API |
+| Raw `fetch()` in API modules | `@/shared/api` (dapp) / `@/shared/api` client (admin) |
 | `'use client'` on `layout.tsx` | Server Component always |
 | `useState` for form fields | react-hook-form |
-| `console.log` | `logger` from `@/shared/utils/logger.helper` |
-| Hardcoded URLs | `API_ROUTES` / `WEB_ROUTES` from `@/shared/constants/routes.constant` |
-| Deep feature imports in `app/` | the feature's `index.ts` barrel |
-| Cross-feature imports | extract to `shared/` |
+| `console.log` | `logger` from `@/shared/lib/logger` |
+| Hardcoded URLs | `API_ROUTES` / `WEB_ROUTES` from `@/shared/routes` |
+| Deep slice imports from another slice/framework file | the slice Public API |
+| Cross-slice imports on the same layer | compose above or extract downward |
 | `any` / `as any` | `unknown` + type guard |
 | `process.env.X` directly | validated env config module |
 | Default export on non-page files | named exports |

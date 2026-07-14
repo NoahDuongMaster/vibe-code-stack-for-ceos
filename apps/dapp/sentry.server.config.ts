@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
-import { env } from '@/shared/config/env.configuration';
+import { env } from '@/shared/config';
 
 Sentry.init({
   dsn: env.client.NEXT_PUBLIC_SENTRY_DSN ?? undefined,

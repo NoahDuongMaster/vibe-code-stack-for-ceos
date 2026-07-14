@@ -1,12 +1,24 @@
-# api-gateway (Cloudflare Workers) local secrets, loaded by `wrangler dev`.
-# Copy to `.dev.vars` (git-ignored) and fill in as bindings/secrets grow.
+# api-gateway (Cloudflare Workers) local configuration, loaded by Vite/Worker
+# dev. Copy to `.dev.vars` (git-ignored) to test the gateway → trading-rpc hop
+# entirely on this machine, without a Cloudflare Tunnel.
 #
 # In production, set secrets with:  wrangler secret put <NAME>
 # Non-secret config goes in wrangler.jsonc under `vars`.
 #
-# No secrets are required today — the gateway serves the public ApiService.
-# CORS_ORIGINS and UPSTREAM_URL (src/index.ts) are non-secret runtime vars —
-# set them in wrangler.jsonc `vars` per environment, not here.
+# `LOCAL_TRADING_RPC_URL` is only honored when ENVIRONMENT=development. The
+# VPC `TRADING_RPC` binding wins whenever it is present, so this fallback can
+# never replace the deployed private-service route.
+ENVIRONMENT=development
+LOCAL_TRADING_RPC_URL=http://127.0.0.1:3001
 #
-# Example (uncomment when you add an upstream service binding token):
-# API_UPSTREAM_TOKEN=""
+# TRADING_RPC is a Workers VPC Service binding, not a plaintext environment
+# variable. Create it in the Cloudflare account and add the VPC Service ID to
+# each named environment's `vpc_services` list in wrangler.jsonc. Keep
+# `remote: true` on that binding when developing against the private service.
+#
+# JWT_SECRET turns on bearer-token auth at the gateway (opt-in): leave it unset
+# to keep auth disabled in local dev; set it to enforce JWT verification on
+# every non-public route. In production provision it with:
+#   wrangler secret put JWT_SECRET --env production
+# JWT_SECRET=""
+#

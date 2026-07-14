@@ -82,10 +82,10 @@ And because trust is good but gates are better, **nothing ships without passing 
 <td align="center">One <code>AGENTS.md</code>, every agent</td>
 </tr>
 <tr>
-<td><b>Vertical slice architecture</b></td>
+<td><b>Feature-Sliced Design v2.1</b></td>
 <td align="center">-</td>
 <td align="center">Partial</td>
-<td align="center">Strict, ESLint-enforced</td>
+<td align="center">Strict, Steiger + ESLint enforced</td>
 </tr>
 <tr>
 <td><b>Full monorepo (3 apps + RPC backend)</b></td>
@@ -158,27 +158,29 @@ This is what "your AI org follows the handbook" looks like in practice — the r
 
 ### 🏛️ Architecture agents can't break
 
-Every business domain is a vertical slice. Slices never talk to each other. ESLint carries a badge:
+Frontend boundaries are executable, not just conventions. All three frontends
+use canonical Feature-Sliced Design v2.1, checked by Steiger plus ESLint. The
+dapp keeps Next's framework entrypoints thin and places application code under
+the FSD root:
 
 ```
-apps/dapp/src/
-  app/              Routes ONLY — zero business logic
-  features/         Vertical slices — one folder per domain
-    [name]/
-      _components/  Private UI (never imported outside the feature)
-      _hooks/       Private hooks
-      adapters/     HTTP layer (shared xhr / Connect-RPC client)
-      schemas/      Zod schemas + derived types
-      services/     Business logic
-      actions/      next-safe-action server actions
-      index.ts      PUBLIC barrel — the ONLY export surface
-  shared/           Cross-cutting utilities
-  server/           Server-only code (iron-session, 'server-only' guarded)
+apps/dapp/
+  app/              Next pages/layout/Route Handlers — delegation only
+  proxy.ts          Next proxy entrypoint
+  src/
+    _app/           App routes, providers, metadata, errors, proxy, styles
+    _pages/         Complete screens (api/model/ui)
+    features/       Reusable user interactions such as sign-in
+    entities/       Session domain API and model
+    shared/         API client, config, focused libraries, routes, UI kit
 ```
 
-- `app/` imports ONLY from feature barrels — deep imports don't lint
-- Features NEVER import other features — extract to `shared/`
-- Components never call `fetch()` — adapters own HTTP, services own logic
+- Imports point downward only: `_app → _pages → widgets → features → entities → shared`
+- Same-layer slices are isolated; every slice/segment has a Public API
+- Segment names describe purpose (`api`, `model`, `ui`, `config`), not file type
+- Optional layers stay absent until they add value — dapp has no `widgets` yet
+- `_app`/`_pages` avoid collisions with Next's root App and legacy Pages routers
+- Components never call `fetch()`; same-slice API modules use the Shared client
 
 ### 🌍 A real company, not a toy app
 
@@ -187,7 +189,7 @@ apps/dapp/src/
 | 🛍️  | `apps/dapp`            | Next.js 16 App Router on vinext (Vite)                                          | Cloudflare Workers |
 | 🛠️  | `apps/admin`           | React 19 SPA — Rsbuild, route-split, code-split                                 | Cloudflare Pages   |
 | 🪧  | `apps/landing`         | Astro — ships **literally zero JS**                                             | Cloudflare Workers |
-| ⚙️  | `services/api-node`    | Connect-RPC Node server — tsup build, Dockerfile, graceful shutdown, `/healthz` | Docker             |
+| ⚙️  | `services/trading-rpc` | Connect-RPC Node server — tsup build, container image, graceful shutdown, `/healthz` | Docker             |
 | 🌐  | `services/api-gateway` | Edge gateway Worker — CORS allowlist, upstream proxy                            | Cloudflare Workers |
 | 📜  | `packages/protocol`    | Protobuf schemas, buf lint + breaking-change gate in CI                         | —                  |
 | 🧠  | `packages/api-core`    | One RPC implementation, two runtimes (Node + edge)                              | —                  |
@@ -237,11 +239,11 @@ This isn't linting — it's structural understanding of your codebase.
 <tr><td><b>Animations</b></td><td>Motion (Framer Motion v12)</td></tr>
 <tr><td><b>Testing</b></td><td>Vitest v4 + Testing Library + MSW v2 + Playwright</td></tr>
 <tr><td><b>Linting</b></td><td>Biome v2 + ESLint (architectural rules) + buf lint</td></tr>
-<tr><td><b>Monitoring</b></td><td>Sentry — client/server/edge on dapp, DSN-gated on every app + api-node</td></tr>
+<tr><td><b>Monitoring</b></td><td>Sentry — client/server/edge on dapp, DSN-gated on every app + trading-rpc</td></tr>
 <tr><td><b>Monorepo</b></td><td>Turborepo + pnpm workspaces (strict env allowlists, cached gates)</td></tr>
 <tr><td><b>Backend API</b></td><td>Connect RPC (Protobuf/buf) — one core, two runtimes (Workers + Node)</td></tr>
 <tr><td><b>CI/CD</b></td><td>GitHub Actions — Five Gates + CodeQL + Playwright + Dependabot + release-please + CI-gated deploys</td></tr>
-<tr><td><b>Containers</b></td><td>Docker (dev / staging / prod) + api-node Dockerfile (multi-stage, non-root)</td></tr>
+<tr><td><b>Containers</b></td><td>Docker definitions centralized in <code>infras/docker</code> (multi-stage, non-root)</td></tr>
 </table>
 
 ---
@@ -264,41 +266,72 @@ pnpm dev:web        # Next.js app      → http://localhost:3000
 pnpm dev:admin      # React admin SPA
 pnpm dev:landing    # Astro landing
 pnpm dev:api        # Connect-RPC Node backend
+pnpm dev:gateway    # Cloudflare edge gateway → http://127.0.0.1:8787
+pnpm dev:backend    # Gateway + trading-rpc, wired together locally
 ```
+
+### Local gateway → trading-rpc
+
+Run the private-service flow locally without Cloudflare credentials or a Tunnel:
+
+```bash
+cp services/api-gateway/.dev.vars.sample services/api-gateway/.dev.vars
+pnpm dev:backend
+
+# In a second terminal
+curl -sS -X POST http://127.0.0.1:8787/trading.v1.TradingService/GetMarkets \
+  -H 'content-type: application/json' \
+  -H 'connect-protocol-version: 1' \
+  --data '{"coinIds":["bitcoin","ethereum"],"vsCurrency":"usd"}'
+```
+
+`trading-rpc` uses HTTP/1.1 in `pnpm dev`, which lets local workerd reach it at
+`127.0.0.1:3001`; `pnpm start` continues to use HTTP/2 for native gRPC. For a
+reliable CoinGecko quota, add a free Demo key as `COINGECKO_API_KEY` in
+`services/trading-rpc/.env`: the Node service owns the `TradingService` use
+case and its CoinGecko adapter, while the gateway only proxies the Connect
+request. Staging and production never use this URL: they use the `TRADING_RPC`
+Workers VPC Service binding through a Cloudflare Tunnel.
 
 Then point your AI tool of choice at the repo. It reads [`AGENTS.md`](./AGENTS.md) and behaves. That's it — that's the onboarding.
 
 <details>
 <summary><b>🐳 Docker environments</b></summary>
 
-Each tier has its own Dockerfile + compose file under `docker/`. The build context is the repo root; the image builds `apps/dapp` into a vinext standalone Node server.
+`infras/docker` is the single source of truth for container builds. It keeps one
+Dockerfile per deployable image (`dapp` and `trading-rpc`), one shared dapp
+Compose definition, and thin environment overlays. Every build uses the repo
+root as its context.
 
 ```bash
 # Development  → http://localhost:3001
-docker compose -f docker/development/docker-compose.yml up --build
+docker compose -f infras/docker/compose.yml -f infras/docker/development/compose.yml up --build
 
 # Staging      → http://localhost:3002
-docker compose -f docker/staging/docker-compose.yml up --build
+docker compose -f infras/docker/compose.yml -f infras/docker/staging/compose.yml up --build
 
 # Production   → http://localhost:80
-docker compose -f docker/production/docker-compose.yml up --build
+docker compose -f infras/docker/compose.yml -f infras/docker/production/compose.yml up --build
 ```
 
-For real secrets, create `apps/dapp/.env.<environment>.local` (git-ignored) and point the compose `env_file` at it instead of the committed `.env.sample`.
+Use `make start-development|start-staging|start-production` for the same flows
+and `make check-docker` after configuration changes. Staging expects
+`apps/dapp/.env.staging`; production expects
+`apps/dapp/.env.production.local`. Both are git-ignored and required at runtime.
 
 </details>
 
 <details>
 <summary><b>🔑 Environment variables</b></summary>
 
-Declared in `apps/dapp/src/shared/config/env.configuration.ts` with Zod validation. Never use `process.env` directly. Copy `apps/dapp/.env.sample` to get started.
+Declared in `apps/dapp/src/shared/config/env.ts` with Zod validation. Never use `process.env` directly. Copy `apps/dapp/.env.sample` to get started.
 
 | Variable                         | Required                  | Description                                                                                                                                   |
 | -------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_PROJECT_NAME`       | Yes                       | App / project display name                                                                                                                    |
 | `NEXT_PUBLIC_BASE_URL`           | Yes                       | Public base URL (must be a valid URL)                                                                                                         |
 | `SESSION_SECRET`                 | Yes                       | iron-session secret (32+ chars)                                                                                                               |
-| `DEMO_AUTH_EMAIL`                | Yes                       | Login email for the built-in demo auth flow (`src/server/lib/auth.ts`) — the server refuses to boot without it                                |
+| `DEMO_AUTH_EMAIL`                | Yes                       | Login email for the built-in demo auth flow (`src/features/sign-in/model/verify-credentials.server.ts`) — the server refuses to boot without it |
 | `DEMO_AUTH_PASSWORD`             | Yes                       | Login password for the built-in demo auth flow — refuses to boot without it, and refuses to boot in production if left as a known placeholder |
 | `NEXT_PUBLIC_API_ENDPOINT`       | Optional                  | Backend API base URL                                                                                                                          |
 | `NEXT_PUBLIC_CORS_COOKIE`        | Optional                  | Cookie domain for CORS                                                                                                                        |
@@ -316,7 +349,8 @@ Declared in `apps/dapp/src/shared/config/env.configuration.ts` with Zod validati
 | Command (repo root)                                                      | What it does                                           |
 | ------------------------------------------------------------------------ | ------------------------------------------------------ |
 | `pnpm dev`                                                               | Start every app (Turborepo)                            |
-| `pnpm dev:web` / `dev:admin` / `dev:landing` / `dev:api`                 | Start one workspace                                    |
+| `pnpm dev:web` / `dev:admin` / `dev:landing` / `dev:api` / `dev:gateway` | Start one workspace                                    |
+| `pnpm dev:backend`                                                       | Start local gateway + trading-rpc together             |
 | `pnpm build`                                                             | Build every workspace                                  |
 | `pnpm typecheck`                                                         | `tsc --noEmit` across all 8 workspaces                 |
 | `pnpm lint`                                                              | ESLint (apps) · Biome (services) · buf lint (protocol) |
@@ -332,8 +366,8 @@ Declared in `apps/dapp/src/shared/config/env.configuration.ts` with Zod validati
 ```
 .
 ├── apps/
-│   ├── dapp/                     Next.js 16 app (vinext) — vertical-slice architecture
-│   ├── admin/                    React 19 admin SPA (Rsbuild, route-split)
+│   ├── dapp/                     Next.js 16 app (vinext) — canonical FSD v2.1
+│   ├── admin/                    React 19 admin SPA — canonical FSD v2.1
 │   └── landing/                  Astro marketing site (zero JS)
 ├── packages/
 │   ├── protocol/                 Protobuf/Connect contracts (buf codegen → src/gen)
@@ -341,8 +375,8 @@ Declared in `apps/dapp/src/shared/config/env.configuration.ts` with Zod validati
 │   └── api-client/               End-to-end typed Connect RPC client
 ├── services/
 │   ├── api-gateway/              Connect RPC on Cloudflare Workers (edge + upstream proxy)
-│   └── api-node/                 Connect RPC on Node.js (tsup build, Dockerfile, /healthz)
-├── docker/                       Three-tier Docker setup (dev/staging/prod)
+│   └── trading-rpc/              Connect RPC on Node.js (tsup build, /healthz)
+├── infras/docker/                All Dockerfiles + shared Compose/environment overlays
 ├── AGENTS.md                     ★ The company handbook — every AI agent reads this
 ├── CLAUDE.md                     → symlink to AGENTS.md
 ├── turbo.json                    Turborepo task pipeline

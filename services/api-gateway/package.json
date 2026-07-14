@@ -1,5 +1,5 @@
 {
-  "name": "@repo/gateway-cf",
+  "name": "@services/api-gateway",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -8,11 +8,14 @@
     "build": "vite build",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "lint": "biome ci .",
+    "lint": "biome ci . && pnpm lint:architecture",
+    "lint:architecture": "node scripts/check-architecture.mjs",
     "test": "vitest run"
   },
   "dependencies": {
-    "@repo/api-core": "workspace:*"
+    "@packages/api-core": "workspace:*",
+    "hono": "4.12.28",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.42.1",

@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package trading.v1;
+
+// A batched current-market-data lookup. Coin IDs are CoinGecko API IDs, for
+// example "bitcoin" or "ethereum"; vs_currency is a CoinGecko quote currency.
+message GetMarketsRequest {
+  repeated string coin_ids = 1;
+  string vs_currency = 2;
+}
+
+message CryptoMarket {
+  string id = 1;
+  string symbol = 2;
+  string name = 3;
+  optional string image_url = 4;
+  optional double current_price = 5;
+  optional double market_cap = 6;
+  optional int32 market_cap_rank = 7;
+  optional double price_change_24h = 8;
+  optional double price_change_percentage_24h = 9;
+  optional double total_volume = 10;
+  optional string last_updated = 11;
+}
+
+message GetMarketsResponse {
+  repeated CryptoMarket markets = 1;
+  string vs_currency = 2;
+}
+
+// Contract owned by the trading microservice. Its implementation runs only in
+// services/trading-rpc; callers use it through the edge gateway.
+service TradingService {
+  rpc GetMarkets(GetMarketsRequest) returns (GetMarketsResponse) {}
+}

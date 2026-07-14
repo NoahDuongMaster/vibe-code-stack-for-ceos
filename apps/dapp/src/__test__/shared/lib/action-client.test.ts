@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ActionError, actionClient } from '@/shared/lib/action-client';
+import { ActionError, actionClient } from '@/shared/api/index.server';
 
 describe('actionClient', () => {
   it('should surface an ActionError message verbatim', async () => {

@@ -33,6 +33,7 @@ const integrations = [
 // Workers static assets (see wrangler.jsonc). Add an adapter later only
 // if you introduce on-demand rendering / server islands.
 export default defineConfig({
+  srcDir: './astro',
   // No real production domain is documented anywhere in this repo yet.
   // Set PUBLIC_SITE_URL as a build-time env var once the domain is known;
   // until then this falls back to the Workers *.workers.dev default so

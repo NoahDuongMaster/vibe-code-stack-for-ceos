@@ -1,0 +1,7 @@
+name: vibe-code-stack
+
+services:
+  dapp:
+    build:
+      context: ../..
+      dockerfile: infras/docker/dapp.Dockerfile

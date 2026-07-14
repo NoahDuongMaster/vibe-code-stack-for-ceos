@@ -27,35 +27,30 @@ export default defineConfig({
       // matched by `include`/`exclude`, tested or not.
       all: true,
       include: ['src/**/*.{ts,tsx}'],
-      // Stale boilerplate previously excluded 'src/adapters/**' etc. — paths
-      // that don't exist in this app's actual features/[name]/ layout, so
-      // the exclusion was a silent no-op and adapters/services were being
-      // measured (or not) by accident. Exclude only generated/non-logic code.
+      // Exclude generated code plus framework composition/UI boundaries. The
+      // feature/entity thresholds below cover application logic explicitly.
       exclude: [
         'src/styled-system/**',
         'src/**/*.d.ts',
         'src/**/index.ts',
-        'src/app/**/layout.tsx',
-        'src/app/**/page.tsx',
-        'src/app/**/error.tsx',
-        'src/app/**/not-found.tsx',
-        'src/app/**/loading.tsx',
-        'src/app/global-error.tsx',
-        'src/app/manifest.ts',
-        'src/app/robots.ts',
-        'src/app/sitemap.ts',
+        'src/_app/**/index*.ts',
+        'src/_app/errors/**',
+        'src/_app/metadata/**',
+        'src/_app/providers/**',
+        'src/_pages/**/ui/**',
+        'src/shared/ui/**',
         'src/__test__/**',
         '**/*.config.*',
       ],
-      // CLAUDE.md's coverage mandate: >=80% for services and adapters.
+      // AGENTS.md's coverage mandate: >=80% for feature/entity logic.
       thresholds: {
-        'src/features/*/services/**': {
+        'src/features/*/{api,model}/**': {
           statements: 80,
           branches: 80,
           functions: 80,
           lines: 80,
         },
-        'src/features/*/adapters/**': {
+        'src/entities/*/{api,model}/**': {
           statements: 80,
           branches: 80,
           functions: 80,

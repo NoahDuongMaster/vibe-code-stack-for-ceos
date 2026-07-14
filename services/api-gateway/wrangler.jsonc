@@ -1,69 +1,80 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "ai-first-gateway",
+  "name": "ai-gateway",
   "main": "./src/index.ts",
   "compatibility_date": "2026-06-21",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true
   },
+  // Self-hosted rate limiter (src/infra/rate-limiting/rate-limiter.do.ts) — a
+  // token-bucket Durable Object, NOT Cloudflare's native Rate Limiting binding.
+  // One DO instance per client IP gives exact, strongly-consistent counts.
+  // Migrations are global (top-level only); the binding is repeated per named
+  // environment below because bindings are not inherited by environments.
+  "durable_objects": {
+    "bindings": [{ "name": "RATE_LIMITER", "class_name": "RateLimiterDO" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RateLimiterDO"] }],
   // Pin CI/CD to `--env staging` / `--env production` explicitly. Rollback:
-  // `wrangler rollback --env production`. UPSTREAM_URL / CORS_ORIGINS are
-  // runtime vars read by src/index.ts — set real values per environment
-  // (or via `wrangler secret put` if they should not be plaintext).
+  // `wrangler rollback --env production`. CORS_ORIGINS is a runtime var read
+  // by src/index.ts — set real values per environment.
   // CORS_ORIGINS here is the single CORS authority for browser clients: it
-  // governs both locally-served routes and anything proxied to api-node —
-  // src/index.ts re-stamps every proxied response with this gateway's own
-  // CORS decision, overriding whatever api-node's (separately-configured)
+  // governs both locally-served routes and anything proxied to trading-rpc —
+  // the Hono inbound adapter re-stamps every proxied response with this
+  // gateway's own CORS decision, overriding the upstream service's
   // CORS_ORIGINS sends. Keep only this one in sync with real frontend origins.
+  //
+  // JWT_SECRET is a SECRET, not a var — do NOT add it below. Set it per
+  // environment with `wrangler secret put JWT_SECRET --env <env>`. When present,
+  // the gateway enforces bearer-JWT auth on every non-public route; when absent,
+  // auth is disabled. PUBLIC_PATHS (/healthz, Health) always bypass it (see
+  // config/gateway-options.ts).
+  //
+  // TRADING_RPC is a Workers VPC Service binding, not a Worker Service Binding
+  // or a public URL. After creating the Cloudflare Tunnel and VPC Service for
+  // the private Docker service, add its returned service ID to BOTH named envs:
+  // "vpc_services": [{
+  //   "binding": "TRADING_RPC",
+  //   "service_id": "<VPC Service ID>",
+  //   "remote": true
+  // }]
+  // VPC bindings are not inherited by named environments. Do not add an
+  // invented ID here: it makes `wrangler.jsonc` invalid for deployment.
+  //
+  // For fully offline local development, copy `.dev.vars.sample` to
+  // `.dev.vars`. It supplies ENVIRONMENT=development and
+  // LOCAL_TRADING_RPC_URL=http://127.0.0.1:3001. The Worker honors that URL
+  // only in development and only if TRADING_RPC is absent; deployed
+  // environments remain VPC-only.
   "env": {
     "staging": {
-      "name": "ai-first-gateway-staging",
+      "name": "ai-gateway-staging",
       "vars": {
         "ENVIRONMENT": "staging",
         // TODO: set to the real staging admin/dapp origin(s) once the Pages
         // project's staging branch URL is known, e.g.
         // "https://staging.ai-first-admin.pages.dev,https://ai-first-dapp-staging.<subdomain>.workers.dev"
-        "CORS_ORIGINS": "",
-        // TODO: point at the staging api-node deployment once it has one
-        // (services/api-node/Dockerfile exists but isn't wired into deploy.yml
-        // yet — no hosting platform has been chosen for it). Until set, the
-        // gateway safely 404s any route it doesn't handle locally instead of
-        // proxying anywhere.
-        "UPSTREAM_URL": ""
+        "CORS_ORIGINS": ""
       },
-      // TODO: replace with a real namespace_id — create one with
-      // `wrangler ratelimit namespace create` (or via the dashboard) once
-      // this environment has its own Cloudflare account/zone. Until then,
-      // this binding does not exist in this environment and src/index.ts's
-      // rate-limit check no-ops (see the `env.RATE_LIMITER` guard).
-      "ratelimits": [
-        {
-          "name": "RATE_LIMITER",
-          "namespace_id": "1001",
-          "simple": { "limit": 300, "period": 60 }
-        }
-      ]
+      // Rate limiter binding (repeated per env — bindings aren't inherited).
+      // The bucket policy lives in code (src/config/gateway-options.ts), not here.
+      "durable_objects": {
+        "bindings": [{ "name": "RATE_LIMITER", "class_name": "RateLimiterDO" }]
+      }
     },
     "production": {
-      "name": "ai-first-gateway",
+      "name": "api-gateway-production",
       "vars": {
         "ENVIRONMENT": "production",
         // TODO: set to the real production admin/dapp origin(s).
-        "CORS_ORIGINS": "",
-        // TODO: point at the production api-node deployment.
-        "UPSTREAM_URL": ""
+        "CORS_ORIGINS": ""
       },
-      // TODO: replace with a real namespace_id (see the staging comment above).
-      "ratelimits": [
-        {
-          "name": "RATE_LIMITER",
-          "namespace_id": "1002",
-          "simple": { "limit": 300, "period": 60 }
-        }
-      ]
+      // Rate limiter binding (repeated per env — bindings aren't inherited).
+      "durable_objects": {
+        "bindings": [{ "name": "RATE_LIMITER", "class_name": "RateLimiterDO" }]
+      }
     }
   }
-  // Add bindings as services grow: KV, D1, R2, Queues,
-  // and `services` bindings to call api-node / other workers directly.
+  // Add bindings as services grow: KV, D1, R2, Queues, and Workers VPC.
 }

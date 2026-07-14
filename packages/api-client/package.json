@@ -1,5 +1,5 @@
 {
-  "name": "@repo/api-client",
+  "name": "@packages/api-client",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
   "dependencies": {
     "@connectrpc/connect": "^2.1.2",
     "@connectrpc/connect-web": "^2.1.2",
-    "@repo/protocol": "workspace:*"
+    "@packages/protocol": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

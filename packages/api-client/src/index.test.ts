@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApiClient } from './index';
+import { createApiClient, createTradingClient } from './index';
 
 const ECHO_URL = 'http://localhost:3001/api.v1.ApiService/Echo';
 const HEALTH_URL = 'http://localhost:3001/api.v1.ApiService/Health';
+const MARKETS_URL =
+  'http://localhost:8787/trading.v1.TradingService/GetMarkets';
 
 describe('createApiClient', () => {
   afterEach(() => {
@@ -14,6 +16,43 @@ describe('createApiClient', () => {
 
     expect(client.echo).toBeTypeOf('function');
     expect(client.health).toBeTypeOf('function');
+  });
+
+  it('should build a client exposing TradingService methods independently', () => {
+    const client = createTradingClient('http://localhost:8787');
+
+    expect(client.getMarkets).toBeTypeOf('function');
+  });
+
+  it('should POST market requests to the gateway', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      expect(input.toString()).toBe(MARKETS_URL);
+      return new Response(
+        JSON.stringify({
+          markets: [
+            {
+              id: 'bitcoin',
+              symbol: 'btc',
+              name: 'Bitcoin',
+              currentPrice: 70_000,
+            },
+          ],
+          vsCurrency: 'usd',
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await createTradingClient('http://localhost:8787').getMarkets({
+      coinIds: ['bitcoin'],
+      vsCurrency: 'usd',
+    });
+
+    expect(res).toMatchObject({
+      markets: [{ id: 'bitcoin', currentPrice: 70_000 }],
+      vsCurrency: 'usd',
+    });
   });
 
   it('should POST echo requests to the configured baseUrl and return the typed response', async () => {

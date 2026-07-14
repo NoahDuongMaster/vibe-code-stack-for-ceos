@@ -9,8 +9,6 @@
 **/*.tsbuildinfo
 .git
 
-docker
-
 # AI/IDE configs
 .ai
 .claude

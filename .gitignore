@@ -113,3 +113,4 @@ pids/
 # Generated audit/report artifacts — never committed
 *-report.html
 production-readiness-report.html
+.omx

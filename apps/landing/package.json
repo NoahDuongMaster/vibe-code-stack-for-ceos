@@ -1,5 +1,5 @@
 {
-  "name": "@repo/landing",
+  "name": "@apps/landing",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,8 @@
     "preview": "astro preview",
     "deploy": "wrangler deploy",
     "typecheck": "astro check",
-    "lint": "eslint src"
+    "lint": "eslint astro src && pnpm lint:architecture",
+    "lint:architecture": "steiger ./src --fail-on-warnings"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.3",
@@ -19,9 +20,11 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
     "@eslint/js": "^9.39.4",
+    "@feature-sliced/steiger-plugin": "0.6.0",
     "eslint": "catalog:",
     "eslint-plugin-astro": "^1.7.0",
     "globals": "^16.4.0",
+    "steiger": "0.5.13",
     "typescript": "catalog:",
     "typescript-eslint": "^8.63.0",
     "wrangler": "4.103.0"
