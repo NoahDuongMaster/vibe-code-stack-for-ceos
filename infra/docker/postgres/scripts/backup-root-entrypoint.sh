@@ -9,7 +9,7 @@ gosu_bin=${GOSU_BIN:-/usr/local/bin/gosu}
 
 install_runtime_dir() {
   if [ "$(id -u)" -eq 0 ]; then
-    install -d -o "$runtime_uid" -g "$runtime_gid" -m 0700 "$runtime_secret_dir"
+    install -d -o 0 -g 0 -m 0700 "$runtime_secret_dir"
   else
     [ "$(id -u)" = "$runtime_uid" ] && [ "$(id -g)" = "$runtime_gid" ] || {
       printf 'PostgreSQL backup secret bootstrap must run as root\n' >&2
@@ -62,6 +62,9 @@ if [ "${POSTGRES_BACKUP_MODE:-disabled}" = enabled ]; then
   copy_runtime_secret \
     PGBACKREST_CIPHER_PASSPHRASE_SOURCE_FILE \
     PGBACKREST_CIPHER_PASSPHRASE_FILE pgbackrest-cipher-passphrase
+  if [ "$(id -u)" -eq 0 ]; then
+    chown "$runtime_uid:$runtime_gid" "$runtime_secret_dir"
+  fi
 fi
 
 exec "$gosu_bin" "$runtime_user" "$@"
