@@ -10,7 +10,8 @@ RUN apk add --no-cache \
       util-linux=2.42.1-r0 \
   && install -d -o postgres -g postgres -m 0700 \
       /run/postgres-backup /var/lib/pgbackrest /var/log/pgbackrest \
-      /var/spool/pgbackrest /var/lib/postgres-backup/state
+      /var/spool/pgbackrest /var/lib/postgres-backup/state \
+      /var/lib/postgres-backup/stage
 
 COPY --chmod=0755 infra/docker/postgres/scripts/ /usr/local/bin/postgres-backup/
 COPY --chmod=0644 infra/docker/postgres/config/backup-schedule.cron \

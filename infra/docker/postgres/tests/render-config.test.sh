@@ -17,6 +17,7 @@ for package in \
 done
 assert_file_contains "$dockerfile" \
   'ENTRYPOINT ["/usr/local/bin/postgres-backup/postgres-entrypoint.sh"]'
+assert_file_contains "$dockerfile" '/var/lib/postgres-backup/stage'
 printf 'ok - pinned image contract\n'
 
 tmp=$(mktemp -d)

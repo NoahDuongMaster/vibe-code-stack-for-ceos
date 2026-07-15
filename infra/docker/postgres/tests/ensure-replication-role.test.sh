@@ -12,6 +12,7 @@ printf 'replication-pass\n' >"$tmp/password"
 cat >"$tmp/bin/psql" <<'EOF'
 #!/usr/bin/env sh
 printf '%s\n' "$*" >>"$PSQL_ARGUMENTS"
+cat "$PSQLRC" >"$PSQLRC_INPUT"
 cat >>"$PSQL_INPUT"
 case " $* " in
   *' --quiet '*) ;;
@@ -23,15 +24,22 @@ chmod +x "$tmp/bin/psql"
 
 PATH="$tmp/bin:$PATH" \
   PSQL_ARGUMENTS="$tmp/arguments" PSQL_INPUT="$tmp/input" \
+  PSQLRC_INPUT="$tmp/psqlrc" \
   POSTGRES_REPLICATION_PASSWORD_FILE="$tmp/password" \
   "$ROOT/infra/docker/postgres/scripts/ensure-replication-role.sh" \
   >"$tmp/output"
 
 assert_file_contains "$tmp/arguments" '-v role=postgres_backup'
-assert_file_contains "$tmp/arguments" '-v password=replication-pass'
+if grep -Fq 'replication-pass' "$tmp/arguments"; then
+  fail 'replication password leaked to psql argv'
+fi
 assert_file_contains "$tmp/input" "CREATE ROLE %I WITH LOGIN REPLICATION PASSWORD %L"
 assert_file_contains "$tmp/input" "ALTER ROLE %I WITH LOGIN REPLICATION PASSWORD %L"
 assert_file_contains "$tmp/input" "rolreplication"
+assert_file_contains "$tmp/psqlrc" '\set password `cat '
+if grep -Fq 'replication-pass' "$tmp/psqlrc"; then
+  fail 'replication password leaked into PSQLRC'
+fi
 if grep -Fq 'replication-pass' "$tmp/output"; then
   fail 'replication password leaked to stdout'
 fi
