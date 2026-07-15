@@ -523,15 +523,19 @@ git commit -m "feat(infra): wire PostgreSQL PITR topology"
 - Create: `infra/docker/postgres/scripts/run-backup-job.sh`
 - Create: `infra/docker/postgres/scripts/reconcile-backups.sh`
 - Create: `infra/docker/postgres/scripts/backup-health.sh`
+- Create: `infra/docker/postgres/scripts/render-backup-crontab.sh`
 - Create: `infra/docker/postgres/tests/job-health.test.sh`
+- Create: `infra/docker/postgres/tests/backup-crond.test.sh`
+- Create: `infra/docker/postgres/tests/runtime-crontab.test.sh`
 - Modify: `infra/docker/postgres/config/backup-schedule.cron`
+- Modify: `infra/docker/postgres/scripts/backup-root-entrypoint.sh`
 - Modify: `infra/docker/compose.yaml`
 
 **Interfaces:**
 - Consumes: rendered pgBackRest config, shared socket, state directory, and `pg_stat_archiver`.
 - Produces: atomic `health.json`, per-job `last-success.json`/`last-failure.json`, and Docker health exit status.
 
-- [ ] **Step 1: Write failing lock and health-threshold tests**
+- [x] **Step 1: Write failing lock and health-threshold tests**
 
 Use a temporary state directory and fake `pgbackrest`/`psql` executables. Assert:
 
@@ -559,7 +563,7 @@ incremental lock, and assert the full job waits and then executes successfully.
 Repeat the waiting assertion for differential, monthly, check, verify,
 PITR-drill, and monthly-drill job names.
 
-- [ ] **Step 2: Implement `run-backup-job.sh`**
+- [x] **Step 2: Implement `run-backup-job.sh`**
 
 The command contract is:
 
@@ -580,24 +584,36 @@ eligible for startup reconciliation; it is never silently skipped. Record
 Preserve the command's nonzero exit code and never put command arguments into
 JSON logs.
 
-- [ ] **Step 3: Install the exact UTC schedule**
+Run every command in a new session/process group, forward `TERM`, `INT`, and
+`HUP` to that group, wait for it to terminate, and publish an `interrupted`
+terminal outcome before releasing the lock. Keep `JOB.running.json` until the
+terminal outcome has been written atomically so a crash remains recoverable by
+startup reconciliation.
+
+- [x] **Step 3: Install the exact UTC schedule**
 
 Create the postgres crontab:
 
 ```cron
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-0 * * * * /usr/local/bin/postgres-backup/run-backup-job.sh incremental pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc --type=incr backup
+5 * * * * /usr/local/bin/postgres-backup/run-backup-job.sh incremental pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc --type=incr backup
 0 2 * * 1-6 /usr/local/bin/postgres-backup/run-backup-job.sh differential pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc --type=diff backup
 0 2 * * 0 /usr/local/bin/postgres-backup/run-backup-job.sh full pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc --type=full backup
 15 */6 * * * /usr/local/bin/postgres-backup/run-backup-job.sh check pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc check
 30 3 * * 0 /usr/local/bin/postgres-backup/run-backup-job.sh verify pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc verify
 0 4 1 * * /usr/local/bin/postgres-backup/run-backup-job.sh monthly /usr/local/bin/postgres-backup/backup-monthly.sh
 0 6 * * 0 /usr/local/bin/postgres-backup/run-backup-job.sh pitr-drill /usr/local/bin/postgres-backup/restore-pitr.sh --latest --drill
-0 6 2 * * /usr/local/bin/postgres-backup/run-backup-job.sh monthly-drill /usr/local/bin/postgres-backup/restore-monthly.sh --latest --drill
+30 6 2 * * /usr/local/bin/postgres-backup/run-backup-job.sh monthly-drill /usr/local/bin/postgres-backup/restore-monthly.sh --latest --drill
 ```
 
-- [ ] **Step 4: Implement startup reconciliation and entrypoint**
+Render these defaults at container start so operators may override an entire
+five-field expression without rebuilding the image. Validate cron grammar,
+field ranges, lists, ranges, and positive steps before atomically replacing the
+last-good crontab. Reject exact timestamp collisions across the supported UTC
+schedule horizon.
+
+- [x] **Step 4: Implement startup reconciliation and entrypoint**
 
 `reconcile-backups.sh` reads the last-success state and runs at most one overdue job in this priority: full, differential, incremental, check. It treats missing state as overdue, but first calls `pgbackrest stanza-create` and `pgbackrest check`.
 
@@ -608,11 +624,17 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 3. run `ensure-replication-role.sh`;
 4. create/check the stanza;
 5. reconcile overdue jobs;
-6. install the checked-in crontab for the `postgres` user;
-7. execute `crond -f -c /etc/postgres-backup/crontabs` as the already configured
-   non-root `postgres` container user.
+6. render and validate the runtime crontab;
+7. return successfully when invoked with `--prepare-only`.
 
-- [ ] **Step 5: Implement health evaluation**
+The root bootstrap owns the runtime crontab directory/file as
+`root:postgres` with modes `0750`/`0640`, runs the preparation phase as
+`postgres`, then permanently drops to UID/GID 70 with `setpriv`,
+`no-new-privileges`, and only `CAP_SETGID` retained for BusyBox cron job setup.
+The long-lived scheduler must not be able to read root-owned source secrets or
+regain UID 0.
+
+- [x] **Step 5: Implement health evaluation**
 
 `backup-health.sh` constructs `health.json` and exits nonzero when any invariant
 fails. Use these exact maximum ages: latest successful physical backup of any
@@ -624,25 +646,28 @@ failures. Fail when a `pg_wal/archive_status/*.ready` file remains pending for
 more than 300 seconds or when `pg_stat_archiver.failed_count` increases from the
 stored healthy baseline. Do not declare an idle database unhealthy merely
 because `last_archived_time` is old. Fail at
-`BACKUP_DISK_HIGH_WATER_PERCENT`, default `85`.
+`BACKUP_DISK_HIGH_WATER_PERCENT`, default `85`, and reject configured values
+outside `1..100`. When `pg_stat_archiver.failed_count` increases, fail two
+consecutive health probes (matching Compose `retries: 2`) before advancing the
+stored baseline on the following healthy acknowledgement probe.
 
 Configure the Compose healthcheck:
 
 ```yaml
 healthcheck:
-  test: [CMD, /usr/local/bin/postgres-backup/backup-health.sh]
+  test: [CMD, /usr/local/bin/gosu, postgres, /usr/local/bin/postgres-backup/backup-health.sh]
   interval: 60s
   timeout: 15s
   retries: 2
   start_period: 10m
 ```
 
-- [ ] **Step 6: Run focused tests and commit**
+- [x] **Step 6: Run focused tests and commit**
 
 ```bash
 make test-postgres-backup-scripts
 docker compose -f infra/docker/compose.yaml -f infra/docker/compose.prod.yaml \
-  --profile backup config --quiet
+  --profile backup config --no-env-resolution --quiet
 git add infra/docker/postgres infra/docker/compose.yaml
 git commit -m "feat(infra): schedule and monitor PostgreSQL backups"
 ```
