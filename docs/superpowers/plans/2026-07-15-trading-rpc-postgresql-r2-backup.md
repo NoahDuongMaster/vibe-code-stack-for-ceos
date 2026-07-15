@@ -270,6 +270,10 @@ git commit -m "feat(infra): add PostgreSQL backup toolchain"
 **Files:**
 - Create: `infra/docker/postgres/scripts/ensure-replication-role.sh`
 - Create: `infra/docker/postgres/scripts/sync-production-secrets.sh`
+- Create: `infra/docker/postgres/scripts/backup-root-entrypoint.sh`
+- Create: `infra/docker/postgres/tests/development-reachability.smoke.sh`
+- Create: `infra/docker/trading-rpc-entrypoint.sh`
+- Create: `infra/docker/tests/trading-rpc-entrypoint.test.sh`
 - Modify: `infra/docker/compose.yaml`
 - Modify: `infra/docker/compose.dev.yaml`
 - Modify: `infra/docker/compose.prod.yaml`
@@ -281,8 +285,8 @@ git commit -m "feat(infra): add PostgreSQL backup toolchain"
 - Modify: `services/trading-rpc/src/index.ts`
 
 **Interfaces:**
-- Consumes: AWS Secrets Manager JSON at `POSTGRES_BACKUP_RUNTIME_SECRET_ID` and an EC2 instance profile.
-- Produces: root-only files under `POSTGRES_BACKUP_SECRET_DIR`, Compose services `postgres` and `postgres-backup`, volumes `postgres-socket`, `pgbackrest-spool`, `postgres-backup-state`, `postgres-backup-stage`, and network `postgres-backup-egress`.
+- Consumes: AWS Secrets Manager JSON at `POSTGRES_BACKUP_RUNTIME_SECRET_ID`, explicit `AWS_REGION`, and an EC2 instance profile.
+- Produces: an atomically switched secret generation under `POSTGRES_BACKUP_SECRET_DIR/current`, service-private tmpfs copies readable only by the runtime UID, Compose services `postgres` and `postgres-backup`, volumes `postgres-socket`, `pgbackrest-spool`, `postgres-backup-state`, `postgres-backup-stage`, and network `postgres-backup-egress`.
 
 - [ ] **Step 1: Add failing Compose assertions to `check-docker`**
 
@@ -317,10 +321,16 @@ volumes:
   - pgbackrest-spool:/var/spool/pgbackrest
 ```
 
-Declare `postgres-backup` with profile `backup`, `user: '70:70'` (the pinned image's `postgres` user), no published ports, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, and:
+Declare `postgres-backup` with profile `backup`, no published ports,
+`cap_drop: [ALL]`, only `CHOWN`, `SETUID`, and `SETGID` added back, and
+`security_opt: [no-new-privileges:true]`. It starts through a root bootstrap
+entrypoint, copies mounted root-owned secrets into its private tmpfs, then uses
+`gosu` to execute the scheduler as the pinned image's `postgres` UID/GID 70.
+Use:
 
 ```yaml
-entrypoint: [/usr/local/bin/postgres-backup/backup-entrypoint.sh]
+entrypoint: [/usr/local/bin/postgres-backup/backup-root-entrypoint.sh]
+command: [/usr/local/bin/postgres-backup/backup-entrypoint.sh]
 volumes:
   - postgres-data:/var/lib/postgresql:ro
   - postgres-socket:/var/run/postgresql
@@ -330,6 +340,9 @@ volumes:
 networks:
   - trading-rpc-data
   - postgres-backup-egress
+tmpfs:
+  - /run/postgres-backup:mode=0700,uid=70,gid=70
+  - /run/postgres-backup-secrets:mode=0700
 ```
 
 Add the four named volumes and `postgres-backup-egress`. Keep `trading-rpc-data` separate from public-facing services.
@@ -368,21 +381,42 @@ services:
 
 Keep development and staging explicitly `POSTGRES_BACKUP_MODE=disabled`. Do not publish PostgreSQL in production.
 
+Keep `trading-rpc-data` internal in every environment. In development only,
+attach PostgreSQL to a dedicated non-internal `postgres-development-host`
+bridge so Docker can publish `127.0.0.1:${POSTGRES_HOST_PORT}:5432` without
+making the production data network externally routable.
+
 - [ ] **Step 4: Fetch production secrets into host tmpfs**
 
-Implement `sync-production-secrets.sh` to call:
+Implement `sync-production-secrets.sh` with bounded retry for transient AWS
+errors and fail-fast handling for authentication/authorization errors. Require
+`AWS_REGION` and call:
 
 ```bash
 aws secretsmanager get-secret-value \
   --secret-id "$POSTGRES_BACKUP_RUNTIME_SECRET_ID" \
+  --region "$AWS_REGION" \
   --query SecretString --output text
 ```
 
-Validate these exact JSON keys with `jq -er`: `POSTGRES_PASSWORD`, `POSTGRES_REPLICATION_PASSWORD`, `R2_PITR_ACCESS_KEY_ID`, `R2_PITR_SECRET_ACCESS_KEY`, `R2_ARCHIVE_ACCESS_KEY_ID`, `R2_ARCHIVE_SECRET_ACCESS_KEY`, and `PGBACKREST_CIPHER_PASSPHRASE`. Write each through `mktemp`, mode `0600`, then atomic rename under `/run/vibe-code-stack/secrets`; never print values.
+Validate these exact JSON keys with `jq -er`: `POSTGRES_PASSWORD`,
+`POSTGRES_REPLICATION_PASSWORD`, `R2_PITR_ACCESS_KEY_ID`,
+`R2_PITR_SECRET_ACCESS_KEY`, `R2_ARCHIVE_ACCESS_KEY_ID`,
+`R2_ARCHIVE_SECRET_ACCESS_KEY`, and `PGBACKREST_CIPHER_PASSPHRASE`.
+Stage every file inside one mode-`0700` generation directory, write files mode
+`0600`, then atomically switch the `current` symlink only after the complete
+generation validates. Preserve the previous generation on failure and never
+print values.
 
-Declare Compose secrets pointing to those absolute paths. Use `POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password` rather than a production password environment variable.
+Declare Compose secrets pointing through the absolute `current` symlink. Docker
+mounts remain root-owned; the root bootstrap entrypoints copy required values
+into service-private tmpfs paths before dropping privileges. Use the private
+tmpfs `POSTGRES_PASSWORD_FILE` rather than a production password environment
+variable. Store the credential-bearing pgBackRest configuration on tmpfs too.
 
-Implement `ensure-replication-role.sh` using psql variables, never string concatenation:
+Implement `ensure-replication-role.sh` using psql variables loaded through a
+mode-`0600` temporary PSQLRC, never password-bearing command arguments, stdout,
+or string concatenation:
 
 ```sql
 SELECT format('CREATE ROLE %I WITH LOGIN REPLICATION PASSWORD %L', :'role', :'password')
@@ -422,8 +456,11 @@ object is accepted by `parseRuntimeConfig`. In `index.ts`, inject Node's
 `parseRuntimeConfig`.
 
 Have `sync-production-secrets.sh` URL-encode the database password and write
-`trading-rpc-database-url`. Mount it into `trading-rpc`, set
-`DATABASE_URL_FILE=/run/secrets/trading-rpc-database-url`, and override
+`trading-rpc-database-url`. Mount it root-only at
+`/run/secrets/trading-rpc-database-url`; the image entrypoint copies it into
+`/run/trading-rpc/secrets/database-url` on tmpfs, changes ownership of both the
+private parent and child to UID/GID 1001, and only then drops privileges with
+`gosu`. Set `DATABASE_URL_FILE` to the copied tmpfs path and override
 `DATABASE_URL` to an empty string so a legacy value from
 `.env.production.local` is not retained in the container environment.
 
@@ -441,7 +478,10 @@ sync-production-backup-secrets:
 	@infra/docker/postgres/scripts/sync-production-secrets.sh
 ```
 
-Make `build-production`, `start-production`, and `stop-production` use `$(DOCKER_PROD_PROFILES)`; make `start-production` depend on `sync-production-backup-secrets`. Do not call any deploy command.
+Make `build-production`, `start-production`, and `stop-production` use
+`$(DOCKER_PROD_PROFILES)`; make `start-production` depend on
+`sync-production-backup-secrets` and use `up -d --force-recreate` so Compose
+rebinds the newly published secret generation. Do not call any deploy command.
 
 - [ ] **Step 7: Validate and commit Compose topology**
 
@@ -449,6 +489,7 @@ Run:
 
 ```bash
 make check-docker
+infra/docker/postgres/tests/development-reachability.smoke.sh
 docker compose -f infra/docker/compose.yaml -f infra/docker/compose.prod.yaml \
   --profile vpc --profile backup config --format json > /tmp/compose-prod.json
 jq -e '.services.postgres.ports == null and .services["postgres-backup"].ports == null' \
@@ -464,6 +505,10 @@ git add Makefile infra/docker/compose.yaml infra/docker/compose.dev.yaml \
   infra/docker/compose.prod.yaml infra/docker/compose.staging.yaml \
   infra/docker/postgres/scripts/ensure-replication-role.sh \
   infra/docker/postgres/scripts/sync-production-secrets.sh \
+  infra/docker/postgres/scripts/backup-root-entrypoint.sh \
+  infra/docker/postgres/tests/development-reachability.smoke.sh \
+  infra/docker/trading-rpc-entrypoint.sh \
+  infra/docker/tests/trading-rpc-entrypoint.test.sh \
   infra/docker/secrets/.gitignore \
   services/trading-rpc/src/config/runtime-environment.ts \
   services/trading-rpc/src/config/runtime-environment.test.ts \
