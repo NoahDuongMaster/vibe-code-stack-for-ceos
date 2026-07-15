@@ -1,0 +1,10 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+0 * * * * /usr/local/bin/postgres-backup/run-backup-job.sh incremental pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc --type=incr backup
+0 2 * * 1-6 /usr/local/bin/postgres-backup/run-backup-job.sh differential pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc --type=diff backup
+0 2 * * 0 /usr/local/bin/postgres-backup/run-backup-job.sh full pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc --type=full backup
+15 */6 * * * /usr/local/bin/postgres-backup/run-backup-job.sh check pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc check
+30 3 * * 0 /usr/local/bin/postgres-backup/run-backup-job.sh verify pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc verify
+0 4 1 * * /usr/local/bin/postgres-backup/run-backup-job.sh monthly /usr/local/bin/postgres-backup/backup-monthly.sh
+0 6 * * 0 /usr/local/bin/postgres-backup/run-backup-job.sh pitr-drill /usr/local/bin/postgres-backup/restore-pitr.sh --latest --drill
+0 6 2 * * /usr/local/bin/postgres-backup/run-backup-job.sh monthly-drill /usr/local/bin/postgres-backup/restore-monthly.sh --latest --drill

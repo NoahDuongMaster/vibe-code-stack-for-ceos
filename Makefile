@@ -2,6 +2,10 @@ DOCKER_DIR := infras/docker
 DOCKER_COMPOSE := docker compose -f $(DOCKER_DIR)/compose.yml
 DOCKER_ENVIRONMENTS := development staging production
 
+.PHONY: test-postgres-backup-scripts
+test-postgres-backup-scripts:
+	@set -eu; for test_file in infra/docker/postgres/tests/*.test.sh; do bash "$$test_file"; done
+
 .PHONY: build-development
 build-development: ## Build the development docker image.
 	$(DOCKER_COMPOSE) -f $(DOCKER_DIR)/development/compose.yml build

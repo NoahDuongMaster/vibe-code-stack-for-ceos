@@ -25,6 +25,7 @@ graphify-out
 **/e2e-results
 *.md
 !README.md
+!infra/docker/postgres/**
 
 # Env — keep only the committed sample; real values are injected at run time.
 **/.env
