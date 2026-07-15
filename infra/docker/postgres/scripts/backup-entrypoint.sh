@@ -22,6 +22,7 @@ pg_isready_bin=${BACKUP_PG_ISREADY_BIN:-pg_isready}
 ensure_role_bin=${BACKUP_ENSURE_REPLICATION_ROLE_BIN:-$SCRIPT_DIR/ensure-replication-role.sh}
 pgbackrest_bin=${BACKUP_PGBACKREST_BIN:-pgbackrest}
 reconcile_bin=${BACKUP_RECONCILE_BIN:-$SCRIPT_DIR/reconcile-backups.sh}
+monthly_cleanup_bin=${BACKUP_MONTHLY_ORPHAN_CLEANUP_BIN:-$SCRIPT_DIR/cleanup-monthly-orphans.sh}
 ready_wait_seconds=${POSTGRES_READY_WAIT_SECONDS:-300}
 ready_poll_seconds=${POSTGRES_READY_POLL_SECONDS:-1}
 
@@ -35,6 +36,8 @@ if ! printf '%s\n' "$ready_poll_seconds" | grep -Eq '^[0-9]+([.][0-9]+)?$'; then
   printf 'POSTGRES_READY_POLL_SECONDS must be a non-negative number\n' >&2
   exit 64
 fi
+
+"$monthly_cleanup_bin"
 
 install -d -m 0700 "$(dirname -- "$config_path")"
 render_pgbackrest_config "$config_path"

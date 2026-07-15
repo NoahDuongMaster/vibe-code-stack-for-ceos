@@ -75,6 +75,16 @@ printf 'command failed\n' >&2
 exit 41
 EOF
 
+cat >"$tmp/bin/categorized-failure" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+temporary_path="${POSTGRES_BACKUP_ERROR_CATEGORY_FILE}.tmp"
+jq -n --arg errorCategory "$1" '{errorCategory:$errorCategory}' >"$temporary_path"
+chmod 0600 "$temporary_path"
+mv -f -- "$temporary_path" "$POSTGRES_BACKUP_ERROR_CATEGORY_FILE"
+exit 43
+EOF
+
 cat >"$tmp/bin/crash-command" <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
@@ -165,6 +175,11 @@ cat >"$tmp/bin/lifecycle-reconcile" <<'EOF'
 printf 'reconcile:%s\n' "$*" >>"$LIFECYCLE_LOG"
 EOF
 
+cat >"$tmp/bin/lifecycle-monthly-cleanup" <<'EOF'
+#!/usr/bin/env bash
+printf 'monthly-cleanup\n' >>"$LIFECYCLE_LOG"
+EOF
+
 cat >"$tmp/bin/crond" <<'EOF'
 #!/usr/bin/env bash
 printf 'crond:%s\n' "$*" >>"$LIFECYCLE_LOG"
@@ -216,6 +231,18 @@ assert_eq "$status" 42
 assert_json_status "$tmp/state/verify.last-failure.json" verify failure
 assert_eq "$(jq -r '.errorCategory' "$tmp/state/verify.last-failure.json")" command_failed
 printf 'ok - command failure exit code is preserved\n'
+
+set +e
+"$RUN_JOB" monthly "$tmp/bin/categorized-failure" r2_preflight_failed \
+  >/dev/null 2>&1
+categorized_status=$?
+set -e
+assert_eq "$categorized_status" 43
+assert_eq "$(jq -r '.errorCategory' "$tmp/state/monthly.last-failure.json")" \
+  r2_preflight_failed
+[ ! -e "$tmp/state/monthly.command-error-category.json" ] || \
+  fail 'scheduled wrapper retained the child error-category handoff file'
+printf 'ok - scheduled jobs preserve stable child failure categories\n'
 
 secret='do-not-log-this-secret'
 set +e
@@ -697,17 +724,19 @@ export POSTGRES_BACKUP_CONFIG_PATH="$tmp/pgbackrest.conf"
 export BACKUP_PG_ISREADY_BIN="$tmp/bin/pg-isready"
 export BACKUP_ENSURE_REPLICATION_ROLE_BIN="$tmp/bin/ensure-role"
 export BACKUP_PGBACKREST_BIN="$tmp/bin/lifecycle-pgbackrest"
+export BACKUP_MONTHLY_ORPHAN_CLEANUP_BIN="$tmp/bin/lifecycle-monthly-cleanup"
 export BACKUP_RECONCILE_BIN="$tmp/bin/lifecycle-reconcile"
 export BACKUP_CROND_BIN="$tmp/bin/crond"
 export POSTGRES_READY_POLL_SECONDS=0
 : >"$LIFECYCLE_LOG"
 "$ENTRYPOINT" --prepare-only
 assert_eq "$(paste -sd, "$LIFECYCLE_LOG")" \
-  'pg_isready,pg_isready,ensure-role,pgbackrest:stanza-create,pgbackrest:check,reconcile:--preflight-complete'
+  'monthly-cleanup,pg_isready,pg_isready,ensure-role,pgbackrest:stanza-create,pgbackrest:check,reconcile:--preflight-complete'
 [ -s "$tmp/pgbackrest.conf" ] || fail 'backup entrypoint did not render pgBackRest config'
 printf 'ok - backup entrypoint lifecycle\n'
 
 set +e
+: >"$LIFECYCLE_LOG"
 started_wait_ns=$(date +%s%N)
 POSTGRES_READY_WAIT_SECONDS=1 POSTGRES_READY_POLL_SECONDS=2 \
 BACKUP_PG_ISREADY_BIN="$tmp/bin/pg-isready-never" \
@@ -716,6 +745,7 @@ ready_status=$?
 finished_wait_ns=$(date +%s%N)
 set -e
 [ "$ready_status" -ne 0 ] || fail 'backup entrypoint must fail after its readiness deadline'
+assert_eq "$(head -n 1 "$LIFECYCLE_LOG")" monthly-cleanup
 elapsed_wait_ns=$((finished_wait_ns - started_wait_ns))
 [ "$elapsed_wait_ns" -le 1500000000 ] || \
   fail 'readiness timeout was calculated from loop count instead of elapsed seconds'

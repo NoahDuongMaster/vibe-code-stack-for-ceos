@@ -7,6 +7,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 readonly EX_TEMPFAIL=75
 state_dir=${POSTGRES_BACKUP_STATE_DIR:-/var/lib/postgres-backup/state}
 lock_path=${POSTGRES_BACKUP_LOCK_PATH:-$state_dir/backup-job.lock}
+monthly_cleanup_bin=${BACKUP_MONTHLY_ORPHAN_CLEANUP_BIN:-$SCRIPT_DIR/cleanup-monthly-orphans.sh}
 flock_bin=${BACKUP_FLOCK_BIN:-flock}
 sleep_bin=${BACKUP_SLEEP_BIN:-sleep}
 date_bin=${BACKUP_DATE_BIN:-date}
@@ -67,6 +68,7 @@ fi
 started_epoch=$("$date_bin" +%s)
 started_at=$("$date_bin" -u '+%Y-%m-%dT%H:%M:%SZ')
 running_path="$state_dir/$job.running.json"
+command_error_category_path="$state_dir/$job.command-error-category.json"
 lock_acquired=false
 terminal_outcome_published=false
 command_pid=''
@@ -76,6 +78,7 @@ cleanup() {
   if [ "$lock_acquired" = true ] && \
     [ "$terminal_outcome_published" = true ]; then
     rm -f -- "$running_path"
+    rm -f -- "$command_error_category_path"
   fi
 }
 trap cleanup EXIT
@@ -143,7 +146,8 @@ forward_signal() {
   fi
 }
 
-exec {lock_fd}>"$lock_path"
+lock_fd=9
+exec 9>"$lock_path"
 if [ "$lock_policy" = nonblocking ]; then
   if ! "$flock_bin" -n "$lock_fd"; then
     record_outcome skipped lock_contended
@@ -158,6 +162,14 @@ fi
 lock_acquired=true
 lock_acquired_epoch=$("$date_bin" +%s)
 
+if [ "$job" = monthly ] && ! "$monthly_cleanup_bin" --lock-held-fd "$lock_fd"; then
+  record_outcome failure monthly_cleanup_failed
+  "$flock_bin" -u "$lock_fd"
+  exec 9>&-
+  lock_acquired=false
+  exit "$EX_TEMPFAIL"
+fi
+
 atomic_write_json "$running_path" -n \
   --arg job "$job" \
   --arg status running \
@@ -167,13 +179,16 @@ atomic_write_json "$running_path" -n \
   '{job:$job,status:$status,startedAt:$startedAt,
     startedEpochSeconds:$startedEpochSeconds,
     lockAcquiredEpochSeconds:$lockAcquiredEpochSeconds}'
+rm -f -- "$command_error_category_path"
 
 trap 'forward_signal TERM' TERM
 trap 'forward_signal INT' INT
 trap 'forward_signal HUP' HUP
 
 set +e
-"$setsid_bin" -- "$env_bin" --default-signal=HUP,INT,TERM "$@" \
+"$setsid_bin" -- "$env_bin" --default-signal=HUP,INT,TERM \
+  POSTGRES_BACKUP_ERROR_CATEGORY_FILE="$command_error_category_path" \
+  POSTGRES_BACKUP_LOCK_FD="$lock_fd" "$@" \
   >/dev/null 2>&1 &
 command_pid=$!
 wait "$command_pid"
@@ -186,7 +201,17 @@ set -e
 command_pid=''
 trap - TERM INT HUP
 
-if [ -n "$received_signal" ]; then
+monthly_cleanup_failed=false
+if [ "$job" = monthly ] && \
+  ! "$monthly_cleanup_bin" --lock-held-fd "$lock_fd"; then
+  monthly_cleanup_failed=true
+  command_status=$EX_TEMPFAIL
+fi
+
+if [ "$monthly_cleanup_failed" = true ]; then
+  "$before_outcome_hook"
+  record_outcome failure monthly_cleanup_failed
+elif [ -n "$received_signal" ]; then
   case "$received_signal" in
     HUP) command_status=129 ;;
     INT) command_status=130 ;;
@@ -198,11 +223,20 @@ elif [ "$command_status" -eq 0 ]; then
   "$before_outcome_hook"
   record_outcome success none
 else
+  command_error_category=command_failed
+  if [ -r "$command_error_category_path" ]; then
+    reported_error_category=$(jq -er \
+      '.errorCategory | strings | select(test("^[a-z0-9_]{1,64}$"))' \
+      "$command_error_category_path" 2>/dev/null || true)
+    [ -z "$reported_error_category" ] || \
+      command_error_category=$reported_error_category
+  fi
   "$before_outcome_hook"
-  record_outcome failure command_failed
+  record_outcome failure "$command_error_category"
 fi
+rm -f -- "$command_error_category_path"
 rm -f -- "$running_path"
 "$flock_bin" -u "$lock_fd"
-exec {lock_fd}>&-
+exec 9>&-
 lock_acquired=false
 exit "$command_status"
