@@ -21,6 +21,7 @@ pg_controldata_bin=${PG_CONTROLDATA_BIN:-pg_controldata}
 pgbackrest_bin=${PGBACKREST_BIN:-pgbackrest}
 age_bin=${AGE_BIN:-age}
 rclone_bin=${RCLONE_BIN:-rclone}
+aws_bin=${AWS_BIN:-aws}
 df_bin=${DF_BIN:-df}
 date_bin=${BACKUP_DATE_BIN:-date}
 sha256_bin=${SHA256SUM_BIN:-sha256sum}
@@ -42,8 +43,10 @@ success_file=''
 success_readback=''
 pending_marker=''
 published_marker=''
+signed_claim_file=''
 failure_category=validation_failed
 error_category_file=${POSTGRES_BACKUP_ERROR_CATEGORY_FILE:-}
+reconciled_pending_publication=false
 
 cleanup() {
   local status=$?
@@ -54,7 +57,7 @@ cleanup() {
   fi
   rm -f -- "$rclone_config" "$rclone_config_temporary" "$pgpass_file" \
     "$age_probe_file" "$r2_preflight_file" "$r2_preflight_readback" \
-    "$success_readback"
+    "$success_readback" "$signed_claim_file"
   if [ "$status" -ne 0 ]; then
     if [ -n "$error_category_file" ]; then
       install -d -m 0700 "$(dirname -- "$error_category_file")" || true
@@ -107,6 +110,27 @@ require_postgres_identifier() {
     return 1
   }
   printf '%s' "$value"
+}
+
+require_kms_key_arn() {
+  local name=$1
+  local value=$2
+
+  [[ "$value" =~ ^arn:aws(-[a-z]+)?:kms:[a-z0-9-]+:[0-9]{12}:key/[A-Za-z0-9-]{1,128}$ ]] || {
+    printf '%s must be an immutable AWS KMS key ARN\n' "$name" >&2
+    return 1
+  }
+  printf '%s' "$value"
+}
+
+kms_key_is_trusted() {
+  local candidate=$1
+  local trusted_key
+
+  for trusted_key in "${trusted_kms_key_ids[@]}"; do
+    [ "$candidate" != "$trusted_key" ] || return 0
+  done
+  return 1
 }
 
 file_size_bytes() {
@@ -164,6 +188,7 @@ reconcile_pending_publications() {
   local year
   local month
   local monthly_remote
+  local latest_remote
   local verified_marker
   local lock_fd=${POSTGRES_BACKUP_LOCK_FD:-}
 
@@ -176,7 +201,7 @@ reconcile_pending_publications() {
     [ -f "$pending_path" ] && [ ! -L "$pending_path" ] || continue
 
     marker_metadata=$(jq -er --arg backupId "$backup_id" \
-      'select(.schemaVersion == 1 and .backupId == $backupId) |
+      'select((.schemaVersion == 1 or .schemaVersion == 2) and .backupId == $backupId) |
        select(.artifactBytes | type == "number" and floor == . and . > 0) |
        select(.publishedAt | type == "string") |
        [.artifactBytes, .publishedAt] | @tsv' \
@@ -203,6 +228,7 @@ reconcile_pending_publications() {
     year=${backup_id:0:4}
     month=${backup_id:4:2}
     monthly_remote="r2:$r2_bucket/monthly/$year/$month/$backup_id"
+    latest_remote="r2:$r2_bucket/monthly/$year/$month/_LATEST.json"
     if retry_rclone cat "$monthly_remote/_SUCCESS.json" \
       >"$success_readback" 2>/dev/null; then
       cmp -s -- "$pending_success" "$success_readback" || {
@@ -216,6 +242,20 @@ reconcile_pending_publications() {
       retry_rclone cat "$monthly_remote/_SUCCESS.json" >"$success_readback"
       cmp -s -- "$pending_success" "$success_readback" || {
         printf 'reconciled monthly success document did not match\n' >&2
+        return 66
+      }
+    fi
+    if retry_rclone cat "$latest_remote" >"$success_readback" 2>/dev/null; then
+      cmp -s -- "$pending_success" "$success_readback" || {
+        printf 'remote monthly latest pointer conflicts with pending state\n' >&2
+        return 66
+      }
+    else
+      retry_rclone copyto "$pending_success" "$latest_remote" \
+        --immutable >/dev/null
+      retry_rclone cat "$latest_remote" >"$success_readback"
+      cmp -s -- "$pending_success" "$success_readback" || {
+        printf 'reconciled monthly latest pointer did not match\n' >&2
         return 66
       }
     fi
@@ -234,6 +274,7 @@ reconcile_pending_publications() {
         artifactBytes:$artifactBytes,publishedAt:$publishedAt,
         remoteSuccessSha256:$remoteSuccessSha256}'
     "$monthly_cleanup_bin" --lock-held-fd "$lock_fd"
+    reconciled_pending_publication=true
   done
 }
 
@@ -266,6 +307,28 @@ age_recipient=$(require_scalar_value POSTGRES_ARCHIVE_AGE_RECIPIENT \
   "${POSTGRES_ARCHIVE_AGE_RECIPIENT:-}")
 [[ "$age_recipient" =~ ^age1[0-9a-z]+$ ]] || {
   printf 'POSTGRES_ARCHIVE_AGE_RECIPIENT must be a native age recipient\n' >&2
+  exit 64
+}
+kms_key_id=$(require_scalar_value POSTGRES_BACKUP_KMS_KEY_ID \
+  "${POSTGRES_BACKUP_KMS_KEY_ID:-}")
+[[ "$kms_key_id" =~ ^[A-Za-z0-9:/_.-]+$ ]] && \
+  [ "${#kms_key_id}" -le 2048 ] || {
+  printf 'POSTGRES_BACKUP_KMS_KEY_ID is invalid\n' >&2
+  exit 64
+}
+trusted_kms_key_ids_value=$(require_scalar_value \
+  POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS \
+  "${POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS:-}")
+IFS=',' read -r -a trusted_kms_key_ids <<<"$trusted_kms_key_ids_value"
+[ "${#trusted_kms_key_ids[@]}" -gt 0 ] || exit 64
+for trusted_kms_key_index in "${!trusted_kms_key_ids[@]}"; do
+  trusted_kms_key_ids[$trusted_kms_key_index]=$(require_kms_key_arn \
+    POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS \
+    "${trusted_kms_key_ids[$trusted_kms_key_index]}") || exit 64
+done
+aws_region=$(require_scalar_value AWS_REGION "${AWS_REGION:-}")
+[[ "$aws_region" =~ ^[a-z]{2}(-gov)?-[a-z0-9-]+-[0-9]+$ ]] || {
+  printf 'AWS_REGION is invalid\n' >&2
   exit 64
 }
 minimum_free_bytes=$(require_positive_integer POSTGRES_MONTHLY_MIN_FREE_BYTES \
@@ -315,6 +378,11 @@ r2_preflight_readback=''
 
 failure_category=publication_reconciliation_failed
 reconcile_pending_publications
+if [ "$reconciled_pending_publication" = true ]; then
+  json_log info monthly_backup_reconciled_existing_publication \
+    'no duplicate monthly archive was created'
+  exit 0
+fi
 
 failure_category=capacity_preflight_failed
 previous_size_path="$state_dir/monthly.last-size.json"
@@ -428,6 +496,14 @@ for artifact_path in "${backup_artifacts[@]}"; do
     --argjson sizeBytes "$artifact_size" \
     '$current + [{name:$name,sizeBytes:$sizeBytes,sha256:$sha256}]')
 done
+expanded_bytes=$(jq -er '
+  select(."PostgreSQL-Backup-Manifest-Version" == 2) |
+  [.Files[]?.Size | select(type == "number" and floor == . and . >= 0)] |
+  add | select(. > 0)
+' "$plain_dir/backup_manifest") || {
+  printf 'PostgreSQL backup manifest has no valid expanded size\n' >&2
+  exit 70
+}
 
 postgres_major_version=$((server_version_num / 10000))
 pg_basebackup_version=$($pg_basebackup_bin --version | head -n 1)
@@ -440,6 +516,7 @@ atomic_write_json "$recovery_manifest" -n \
   --arg systemIdentifier "$system_identifier" \
   --argjson timeline "$timeline_id" \
   --argjson postgresqlMajorVersion "$postgres_major_version" \
+  --argjson expandedBytes "$expanded_bytes" \
   --arg startedAt "$started_at" \
   --arg finishedAt "$finished_at" \
   --arg pgBasebackupVersion "$pg_basebackup_version" \
@@ -448,6 +525,7 @@ atomic_write_json "$recovery_manifest" -n \
   '{schemaVersion:1,backupId:$backupId,serviceName:$serviceName,
     environment:$environment,systemIdentifier:$systemIdentifier,
     timeline:$timeline,postgresqlMajorVersion:$postgresqlMajorVersion,
+    expandedBytes:$expandedBytes,
     startedAt:$startedAt,finishedAt:$finishedAt,
     pgBasebackupVersion:$pgBasebackupVersion,
     pgBackRestVersion:$pgBackRestVersion,artifacts:$artifacts}'
@@ -523,17 +601,61 @@ published_at=$($date_bin -u '+%Y-%m-%dT%H:%M:%SZ')
 upload_manifest_hash=$(sha256_file "$upload_manifest")
 pending_marker="$backup_dir/.remote-success-pending.json"
 success_file="$pending_marker"
-atomic_write_json "$success_file" -n \
+signed_claim_file=$(mktemp "$runtime_dir/monthly-publication-claim.XXXXXX")
+jq -cS -n \
   --arg backupId "$backup_id" \
   --arg publishedAt "$published_at" \
   --arg uploadManifestSha256 "$upload_manifest_hash" \
   --argjson artifactCount "${#ciphertext_files[@]}" \
   --argjson ciphertextBytes "$ciphertext_bytes" \
   --argjson artifactBytes "$artifact_bytes" \
-  '{schemaVersion:1,backupId:$backupId,publishedAt:$publishedAt,
+  --argjson expandedBytes "$expanded_bytes" \
+  '{artifactBytes:$artifactBytes,artifactCount:$artifactCount,backupId:$backupId,
+    ciphertextBytes:$ciphertextBytes,expandedBytes:$expandedBytes,
+    publishedAt:$publishedAt,
+    uploadManifestSha256:$uploadManifestSha256}' >"$signed_claim_file"
+chmod 0600 "$signed_claim_file"
+failure_category=monthly_authentication_failed
+publication_mac_response=$("$aws_bin" kms generate-mac \
+  --region "$aws_region" --key-id "$kms_key_id" \
+  --mac-algorithm HMAC_SHA_256 \
+  --message "fileb://$signed_claim_file" --output json)
+publication_key_id=$(jq -er \
+  '.KeyId | strings' <<<"$publication_mac_response")
+publication_key_id=$(require_kms_key_arn 'KMS GenerateMac KeyId' \
+  "$publication_key_id") || exit 70
+kms_key_is_trusted "$publication_key_id" || {
+  printf 'KMS GenerateMac used a key outside the trusted recovery key ring\n' >&2
+  exit 70
+}
+publication_mac=$(jq -er \
+  'select(.MacAlgorithm == "HMAC_SHA_256") | .Mac | strings' \
+  <<<"$publication_mac_response")
+[[ "$publication_mac" =~ ^[A-Za-z0-9+/]+={0,2}$ ]] || {
+  printf 'KMS returned an invalid monthly publication MAC\n' >&2
+  exit 70
+}
+signed_payload_base64=$(base64 <"$signed_claim_file" | tr -d '\n')
+atomic_write_json "$success_file" -n \
+  --arg backupId "$backup_id" \
+  --arg publishedAt "$published_at" \
+  --arg uploadManifestSha256 "$upload_manifest_hash" \
+  --arg signedPayloadBase64 "$signed_payload_base64" \
+  --arg authenticationKeyId "$publication_key_id" \
+  --arg authenticationMac "$publication_mac" \
+  --argjson artifactCount "${#ciphertext_files[@]}" \
+  --argjson ciphertextBytes "$ciphertext_bytes" \
+  --argjson artifactBytes "$artifact_bytes" \
+  --argjson expandedBytes "$expanded_bytes" \
+  '{schemaVersion:2,backupId:$backupId,publishedAt:$publishedAt,
     uploadManifestSha256:$uploadManifestSha256,
     artifactCount:$artifactCount,ciphertextBytes:$ciphertextBytes,
-    artifactBytes:$artifactBytes}'
+    artifactBytes:$artifactBytes,expandedBytes:$expandedBytes,
+    signedPayloadBase64:$signedPayloadBase64,
+    authentication:{scheme:"aws-kms-hmac-sha256",keyId:$authenticationKeyId,
+      macBase64:$authenticationMac}}'
+rm -f -- "$signed_claim_file"
+signed_claim_file=''
 success_file_hash=$(sha256_file "$success_file")
 
 failure_category=success_marker_failed
@@ -542,6 +664,14 @@ retry_rclone copyto "$success_file" "$monthly_remote/_SUCCESS.json" \
 retry_rclone cat "$monthly_remote/_SUCCESS.json" >"$success_readback"
 cmp -s -- "$success_file" "$success_readback" || {
   printf 'published monthly success marker verification failed\n' >&2
+  exit 70
+}
+latest_remote="r2:$r2_bucket/monthly/$year/$month/_LATEST.json"
+retry_rclone copyto "$success_file" "$latest_remote" \
+  --immutable >/dev/null
+retry_rclone cat "$latest_remote" >"$success_readback"
+cmp -s -- "$success_file" "$success_readback" || {
+  printf 'published monthly latest pointer verification failed\n' >&2
   exit 70
 }
 "$before_verified_marker_hook"

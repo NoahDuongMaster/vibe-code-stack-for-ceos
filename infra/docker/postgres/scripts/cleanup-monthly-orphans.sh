@@ -7,8 +7,13 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 readonly EX_TEMPFAIL=75
 stage_root=${POSTGRES_BACKUP_STAGE_DIR:-/var/lib/postgres-backup/stage}
 state_dir=${POSTGRES_BACKUP_STATE_DIR:-/var/lib/postgres-backup/state}
+runtime_dir=${POSTGRES_BACKUP_RUNTIME_DIR:-/run/postgres-backup}
+restore_root=${POSTGRES_RESTORE_ROOT:-/var/lib/postgres-backup/restores}
+restore_orphan_min_age=${POSTGRES_RESTORE_ORPHAN_MIN_AGE_SECONDS:-0}
 lock_path=${POSTGRES_BACKUP_LOCK_PATH:-$state_dir/backup-job.lock}
 flock_bin=${BACKUP_FLOCK_BIN:-flock}
+date_bin=${BACKUP_DATE_BIN:-date}
+stat_bin=${BACKUP_STAT_BIN:-stat}
 lock_fd=9
 owns_lock=false
 
@@ -28,6 +33,17 @@ case "$#" in
 esac
 
 install -d -m 0700 "$stage_root" "$state_dir"
+case "$restore_orphan_min_age" in
+  '' | *[!0-9]*)
+    printf 'POSTGRES_RESTORE_ORPHAN_MIN_AGE_SECONDS must be a non-negative integer\n' >&2
+    exit 64
+    ;;
+esac
+[ ! -L "$restore_root" ] || {
+  printf 'POSTGRES_RESTORE_ROOT must not be a symbolic link\n' >&2
+  exit 64
+}
+install -d -m 0700 "$restore_root"
 umask 077
 if [ "$#" -eq 0 ]; then
   exec 9>"$lock_path"
@@ -41,6 +57,21 @@ if ! "$flock_bin" -n "$lock_fd"; then
   exit "$EX_TEMPFAIL"
 fi
 
+if [ -d "$runtime_dir" ] && [ ! -L "$runtime_dir" ]; then
+  shopt -s nullglob
+  for runtime_orphan in \
+    "$runtime_dir"/monthly-age-identity.* \
+    "$runtime_dir"/monthly-restore-rclone.* \
+    "$runtime_dir"/monthly-recovery-manifest.* \
+    "$runtime_dir"/monthly-signed-claim.* \
+    "$runtime_dir"/monthly-success-candidate.*; do
+    [ -f "$runtime_orphan" ] || [ -L "$runtime_orphan" ] || continue
+    rm -f -- "$runtime_orphan"
+    json_log warn monthly_restore_runtime_orphan_removed \
+      "$(basename -- "$runtime_orphan")"
+  done
+fi
+
 publish_size_state_from_marker() {
   local backup_id=$1
   local marker=$2
@@ -51,7 +82,7 @@ publish_size_state_from_marker() {
   local size_state="$state_dir/monthly.last-size.json"
 
   metadata=$(jq -er --arg backupId "$backup_id" \
-    'select(.schemaVersion == 1 and .backupId == $backupId) |
+    'select((.schemaVersion == 1 or .schemaVersion == 2) and .backupId == $backupId) |
      select(.artifactBytes | type == "number" and floor == . and . > 0) |
      select(.publishedAt | type == "string") |
      [.artifactBytes, .publishedAt] | @tsv' "$marker" 2>/dev/null) || return 1
@@ -118,6 +149,49 @@ for candidate in "$stage_root"/*; do
     rmdir -- "$candidate" 2>/dev/null || true
     json_log warn monthly_published_ciphertext_orphan_removed "$backup_id"
   fi
+done
+
+restore_now_epoch=$("$date_bin" +%s)
+[[ "$restore_now_epoch" =~ ^[0-9]+$ ]] || {
+  printf 'unable to determine restore orphan cleanup time\n' >&2
+  exit 70
+}
+for restore_candidate in "$restore_root"/*; do
+  [ -d "$restore_candidate" ] && [ ! -L "$restore_candidate" ] || continue
+  restore_orphan_name=$(basename -- "$restore_candidate")
+  [[ "$restore_orphan_name" =~ ^(pitr-drill|monthly-drill)-[0-9]{8}T[0-9]{6}Z-[0-9]+(\.tablespaces)?$ ]] || \
+    continue
+  drill_name=${BASH_REMATCH[1]}
+  if [[ "$restore_orphan_name" == *.tablespaces ]] && \
+    [ "$drill_name" != pitr-drill ]; then
+    continue
+  fi
+  restore_orphan_mtime=$("$stat_bin" -c '%Y' "$restore_candidate" 2>/dev/null || \
+    "$stat_bin" -f '%m' "$restore_candidate")
+  [[ "$restore_orphan_mtime" =~ ^[0-9]+$ ]] || {
+    printf 'unable to determine restore orphan age\n' >&2
+    exit 70
+  }
+  if [ "$restore_now_epoch" -ge "$restore_orphan_mtime" ]; then
+    restore_orphan_age=$((restore_now_epoch - restore_orphan_mtime))
+  else
+    restore_orphan_age=0
+  fi
+  [ "$restore_orphan_age" -ge "$restore_orphan_min_age" ] || continue
+
+  reclaimed_at=$("$date_bin" -u '+%Y-%m-%dT%H:%M:%SZ')
+  evidence_path="$state_dir/$drill_name.last-result.json"
+  atomic_write_json "$evidence_path" -n \
+    --arg orphanName "$restore_orphan_name" \
+    --arg reclaimedAt "$reclaimed_at" \
+    --argjson orphanAgeSeconds "$restore_orphan_age" \
+    '{schemaVersion:1,backupId:"unknown",targetTime:"latest",
+      durationSeconds:0,status:"failure",
+      errorCategory:"restore_orphan_reclaimed",checks:{},
+      orphanName:$orphanName,orphanAgeSeconds:$orphanAgeSeconds,
+      reclaimedAt:$reclaimedAt}'
+  rm -rf -- "$restore_candidate"
+  json_log warn restore_drill_orphan_reclaimed "$restore_orphan_name"
 done
 
 if [ "$owns_lock" = true ]; then

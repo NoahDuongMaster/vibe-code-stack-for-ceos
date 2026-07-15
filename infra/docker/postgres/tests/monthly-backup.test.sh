@@ -9,6 +9,8 @@ monthly_script="$ROOT/infra/docker/postgres/scripts/backup-monthly.sh"
 cleanup_script="$ROOT/infra/docker/postgres/scripts/cleanup-monthly-orphans.sh"
 [ -x "$cleanup_script" ] || fail 'monthly plaintext cleanup script is missing'
 run_job_script="$ROOT/infra/docker/postgres/scripts/run-backup-job.sh"
+old_kms_key_arn='arn:aws:kms:ap-southeast-1:111122223333:key/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+new_kms_key_arn='arn:aws:kms:ap-southeast-1:111122223333:key/ffffffff-1111-2222-3333-444444444444'
 
 if ! command -v flock >/dev/null 2>&1; then
   [ "${POSTGRES_MONTHLY_TEST_CONTAINER:-}" != 1 ] || \
@@ -77,7 +79,7 @@ printf 'pg_basebackup\n' >>"$OPERATIONS_LOG"
 mkdir -p "$target"
 printf 'compressed-base\n' >"$target/base.tar.zst"
 printf 'streamed-wal-is-not-zstd\n' >"$target/pg_wal.tar"
-printf '{"PostgreSQL-Backup-Manifest-Version":2}\n' >"$target/backup_manifest"
+printf '{"PostgreSQL-Backup-Manifest-Version":2,"Files":[{"Path":"base/1","Size":8192}]}\n' >"$target/backup_manifest"
 if [ "${PG_BASEBACKUP_KILL_PARENT:-false}" = true ]; then
   kill -KILL "$PPID"
 fi
@@ -103,6 +105,18 @@ done
 [ -n "$output" ] && [ -e "$input" ] || exit 64
 printf 'encrypt %s\n' "$(basename "$input")" >>"$OPERATIONS_LOG"
 { printf 'age-encrypted\n'; cat "$input"; } >"$output"
+EOF
+
+cat >"$bin_dir/aws" <<'EOF'
+#!/usr/bin/env sh
+printf 'aws:%s\n' "$*" >>"$OPERATIONS_LOG"
+case " $* " in
+  *' kms generate-mac '*)
+    printf '{"KeyId":"%s","Mac":"ZmFrZS1rbXMtbWFj","MacAlgorithm":"HMAC_SHA_256"}\n' \
+      "$FAKE_KMS_KEY_ARN"
+    ;;
+  *) exit 64 ;;
+esac
 EOF
 
   cat >"$bin_dir/rclone" <<'EOF'
@@ -187,6 +201,8 @@ case "$command" in
       printf 'copy staging monthly\n' >>"$OPERATIONS_LOG"
     elif [[ "$2" == *'/staging/_preflight/'* ]]; then
       printf 'write R2 preflight\n' >>"$OPERATIONS_LOG"
+    elif [[ "$2" == *'/_LATEST.json' ]]; then
+      printf 'write _LATEST.json\n' >>"$OPERATIONS_LOG"
     elif [[ "$2" == *'/_SUCCESS.json' ]]; then
       printf 'write _SUCCESS.json\n' >>"$OPERATIONS_LOG"
     fi
@@ -197,6 +213,8 @@ case "$command" in
     source=$(remote_path "$1")
     if [[ "$1" == *'/staging/_preflight/'* ]]; then
       printf 'check R2 preflight\n' >>"$OPERATIONS_LOG"
+    elif [[ "$1" == *'/_LATEST.json' ]]; then
+      printf 'check _LATEST.json\n' >>"$OPERATIONS_LOG"
     else
       printf 'check _SUCCESS.json\n' >>"$OPERATIONS_LOG"
     fi
@@ -257,6 +275,10 @@ run_monthly() {
     R2_ARCHIVE_SECRET_ACCESS_KEY_FILE="$case_dir/archive-secret" \
     POSTGRES_REPLICATION_PASSWORD_FILE="$case_dir/replication-password" \
     POSTGRES_ARCHIVE_AGE_RECIPIENT=age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq \
+    POSTGRES_BACKUP_KMS_KEY_ID=alias/vibe-postgres-monthly-auth \
+    POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS="$old_kms_key_arn,$new_kms_key_arn" \
+    FAKE_KMS_KEY_ARN="$old_kms_key_arn" \
+    AWS_REGION=ap-southeast-1 \
     "$@" \
     "$monthly_script" >"$case_dir/stdout" 2>"$case_dir/stderr"
 }
@@ -282,6 +304,10 @@ run_scheduled_monthly() {
     R2_ARCHIVE_SECRET_ACCESS_KEY_FILE="$case_dir/archive-secret" \
     POSTGRES_REPLICATION_PASSWORD_FILE="$case_dir/replication-password" \
     POSTGRES_ARCHIVE_AGE_RECIPIENT=age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq \
+    POSTGRES_BACKUP_KMS_KEY_ID=alias/vibe-postgres-monthly-auth \
+    POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS="$old_kms_key_arn,$new_kms_key_arn" \
+    FAKE_KMS_KEY_ARN="$old_kms_key_arn" \
+    AWS_REGION=ap-southeast-1 \
     BACKUP_JITTER_MAX_SECONDS=0 \
     "$@" \
     "$run_job_script" monthly "$monthly_script" \
@@ -295,6 +321,8 @@ if run_monthly "$failure_case" RCLONE_CHECK_MODE=always; then
 fi
 [ ! -f "$failure_case/remote/monthly/2026/07/"*/_SUCCESS.json ] || \
   fail 'failed verification published a success marker'
+[ ! -f "$failure_case/remote/monthly/2026/07/_LATEST.json" ] || \
+  fail 'failed verification published a latest pointer'
 if grep -Fq 'write _SUCCESS.json' "$failure_case/operations.log"; then
   fail 'failed verification attempted to publish a success marker'
 fi
@@ -327,6 +355,21 @@ monthly_dir=$(dirname "$success_marker")
 [ -f "$monthly_dir/upload-manifest.json" ] || fail 'upload manifest is missing'
 assert_eq "$(jq -r '.backupId' "$success_marker")" \
   '20260715T120000Z-7555555555555555555'
+assert_eq "$(jq -r '.authentication.scheme' "$success_marker")" \
+  aws-kms-hmac-sha256
+assert_eq "$(jq -r '.authentication.keyId' "$success_marker")" \
+  "$old_kms_key_arn"
+latest_pointer="$success_case/remote/monthly/2026/07/_LATEST.json"
+[ -f "$latest_pointer" ] || fail 'successful monthly backup has no latest pointer'
+cmp -s "$success_marker" "$latest_pointer" || \
+  fail 'monthly latest pointer does not match the authenticated success marker'
+signed_claim="$success_case/signed-claim.json"
+jq -er '.signedPayloadBase64 | @base64d | fromjson' "$success_marker" \
+  >"$signed_claim"
+assert_eq "$(jq -r '.backupId' "$signed_claim")" \
+  '20260715T120000Z-7555555555555555555'
+assert_eq "$(jq -r '.expandedBytes' "$signed_claim")" 8192
+assert_file_contains "$success_case/operations.log" 'aws:kms generate-mac'
 assert_eq "$(jq -r '.artifactBytes > 0' "$success_case/state/monthly.last-size.json")" true
 if find "$success_case/stage" -mindepth 1 -print | grep -q .; then
   fail 'successful monthly backup retained local staging data'
@@ -359,13 +402,17 @@ copy_line=$(grep -n -m1 '^copy staging monthly$' "$success_case/operations.log" 
 monthly_check_line=$(grep -n -m1 '^check-download monthly$' "$success_case/operations.log" | cut -d: -f1)
 success_write_line=$(grep -n -m1 '^write _SUCCESS.json$' "$success_case/operations.log" | cut -d: -f1)
 success_check_line=$(grep -n -m1 '^check _SUCCESS.json$' "$success_case/operations.log" | cut -d: -f1)
+latest_write_line=$(grep -n -m1 '^write _LATEST.json$' "$success_case/operations.log" | cut -d: -f1)
+latest_check_line=$(grep -n -m1 '^check _LATEST.json$' "$success_case/operations.log" | cut -d: -f1)
 delete_line=$(grep -n -m1 '^delete remote staging$' "$success_case/operations.log" | cut -d: -f1)
 [ "$upload_line" -lt "$staging_check_line" ] && \
   [ "$staging_check_line" -lt "$copy_line" ] && \
   [ "$copy_line" -lt "$monthly_check_line" ] && \
   [ "$monthly_check_line" -lt "$success_write_line" ] && \
   [ "$success_write_line" -lt "$success_check_line" ] && \
-  [ "$success_check_line" -lt "$delete_line" ] || \
+  [ "$success_check_line" -lt "$latest_write_line" ] && \
+  [ "$latest_write_line" -lt "$latest_check_line" ] && \
+  [ "$latest_check_line" -lt "$delete_line" ] || \
   fail 'monthly archive publish order is unsafe'
 if tail -n "+$((success_write_line + 1))" "$success_case/operations.log" | \
   grep -Fq 'copy staging monthly'; then
@@ -450,8 +497,12 @@ printf 'plaintext\n' >"$crash_backup_dir/plain/base.tar.zst"
 printf 'preserve-ciphertext\n' >"$crash_backup_dir/cipher/sentinel.age"
 mkdir -p "$crash_case/stage/not-a-backup/plain"
 printf 'do-not-touch\n' >"$crash_case/stage/not-a-backup/plain/sentinel"
+printf 'AGE-SECRET-KEY-1ORPHAN\n' \
+  >"$crash_case/run/monthly-age-identity.hard-crash"
+printf 'preserve\n' >"$crash_case/run/not-a-restore-secret"
 POSTGRES_BACKUP_STAGE_DIR="$crash_case/stage" \
 POSTGRES_BACKUP_STATE_DIR="$crash_case/state" \
+POSTGRES_BACKUP_RUNTIME_DIR="$crash_case/run" \
   "$cleanup_script" >/dev/null
 [ ! -e "$crash_backup_dir/plain" ] || \
   fail 'startup cleanup retained plaintext from a hard-crashed monthly backup'
@@ -459,6 +510,59 @@ POSTGRES_BACKUP_STATE_DIR="$crash_case/state" \
   fail 'startup cleanup removed preserved ciphertext'
 [ -f "$crash_case/stage/not-a-backup/plain/sentinel" ] || \
   fail 'startup cleanup escaped the exact monthly backup-id namespace'
+[ ! -e "$crash_case/run/monthly-age-identity.hard-crash" ] || \
+  fail 'startup cleanup retained a hard-crashed monthly recovery identity'
+[ -f "$crash_case/run/not-a-restore-secret" ] || \
+  fail 'startup cleanup removed an unrelated runtime file'
+
+restore_root="$crash_case/restores"
+pitr_restore_orphan="$restore_root/pitr-drill-20260715T120000Z-101"
+pitr_tablespace_orphan="$pitr_restore_orphan.tablespaces"
+monthly_restore_orphan="$restore_root/monthly-drill-20260715T120000Z-102"
+manual_restore="$restore_root/manual-pitr-keep"
+mkdir -p "$pitr_restore_orphan" "$pitr_tablespace_orphan" \
+  "$monthly_restore_orphan" "$manual_restore"
+POSTGRES_BACKUP_STAGE_DIR="$crash_case/stage" \
+POSTGRES_BACKUP_STATE_DIR="$crash_case/state" \
+POSTGRES_BACKUP_RUNTIME_DIR="$crash_case/run" \
+POSTGRES_RESTORE_ROOT="$restore_root" \
+POSTGRES_RESTORE_ORPHAN_MIN_AGE_SECONDS=3600 \
+  "$cleanup_script" >/dev/null
+[ -d "$pitr_restore_orphan" ] || \
+  fail 'restore cleanup removed a drill younger than its age guard'
+touch -d '2 hours ago' "$pitr_restore_orphan" "$pitr_tablespace_orphan" \
+  "$monthly_restore_orphan"
+POSTGRES_BACKUP_STAGE_DIR="$crash_case/stage" \
+POSTGRES_BACKUP_STATE_DIR="$crash_case/state" \
+POSTGRES_BACKUP_RUNTIME_DIR="$crash_case/run" \
+POSTGRES_RESTORE_ROOT="$restore_root" \
+POSTGRES_RESTORE_ORPHAN_MIN_AGE_SECONDS=3600 \
+  "$cleanup_script" >/dev/null
+[ ! -e "$pitr_restore_orphan" ] && [ ! -e "$pitr_tablespace_orphan" ] && \
+  [ ! -e "$monthly_restore_orphan" ] || \
+  fail 'restore cleanup retained hard-killed drill directories'
+[ -d "$manual_restore" ] || \
+  fail 'restore cleanup escaped the exact drill directory namespace'
+for drill_name in pitr-drill monthly-drill; do
+  drill_evidence="$crash_case/state/$drill_name.last-result.json"
+  jq -e '.status == "failure" and
+    .errorCategory == "restore_orphan_reclaimed" and
+    (.orphanAgeSeconds >= 3600) and (.reclaimedAt | type == "string")' \
+    "$drill_evidence" >/dev/null || \
+    fail "restore cleanup did not persist durable $drill_name failure evidence"
+done
+wrapped_pitr_orphan="$restore_root/pitr-drill-20260715T130000Z-103"
+mkdir -p "$wrapped_pitr_orphan"
+env \
+  POSTGRES_BACKUP_STAGE_DIR="$crash_case/stage" \
+  POSTGRES_BACKUP_STATE_DIR="$crash_case/state" \
+  POSTGRES_BACKUP_RUNTIME_DIR="$crash_case/run" \
+  POSTGRES_RESTORE_ROOT="$restore_root" \
+  POSTGRES_RESTORE_ORPHAN_MIN_AGE_SECONDS=0 \
+  BACKUP_JITTER_MAX_SECONDS=0 \
+  "$run_job_script" pitr-drill true >/dev/null
+[ ! -e "$wrapped_pitr_orphan" ] || \
+  fail 'scheduled PITR wrapper did not reconcile its hard-kill orphan'
 
 published_crash_case="$tmp/published-crash"
 make_fakes "$published_crash_case"
@@ -493,6 +597,8 @@ find "$ambiguous_backup_dir/cipher" -type f | grep -q . || \
 assert_eq "$(jq -r '.artifactBytes > 0' \
   "$ambiguous_crash_case/state/monthly.last-size.json")" true
 
+basebackup_count_before_reconcile=$(grep -c '^pg_basebackup$' \
+  "$ambiguous_crash_case/operations.log")
 run_scheduled_monthly "$ambiguous_crash_case" \
   FAKE_BACKUP_TIMESTAMP=20260715T120100Z
 [ ! -e "$ambiguous_backup_dir" ] || \
@@ -502,7 +608,9 @@ if find "$ambiguous_crash_case/stage" -mindepth 1 -print | grep -q .; then
 fi
 assert_eq "$(jq -r '.backupId' \
   "$ambiguous_crash_case/state/monthly.last-size.json")" \
-  '20260715T120100Z-7555555555555555555'
+  '20260715T120000Z-7555555555555555555'
+assert_eq "$(grep -c '^pg_basebackup$' \
+  "$ambiguous_crash_case/operations.log")" "$basebackup_count_before_reconcile"
 
 locked_backup="$crash_case/stage/20260715T130000Z-7555555555555555555"
 mkdir -p "$locked_backup/plain"
@@ -540,6 +648,20 @@ wrong_lock_status=$?
 set -e
 assert_eq "$wrong_lock_status" 64
 printf 'ok - automatic cleanup removes crash orphans under the global lock\n'
+
+untrusted_kms_case="$tmp/untrusted-kms"
+make_fakes "$untrusted_kms_case"
+if run_monthly "$untrusted_kms_case" \
+  FAKE_KMS_KEY_ARN=arn:aws:kms:ap-southeast-1:111122223333:key/99999999-8888-7777-6666-555555555555; then
+  fail 'monthly backup accepted a GenerateMac key outside the recovery key ring'
+fi
+if find "$untrusted_kms_case/remote/monthly" -name _SUCCESS.json -type f | \
+  grep -q .; then
+  fail 'untrusted GenerateMac key published a monthly success marker'
+fi
+grep -Fq monthly_authentication_failed "$untrusted_kms_case/stderr" || \
+  fail 'untrusted GenerateMac key did not publish an authentication failure'
+printf 'ok - monthly backup rejects KMS keys outside the trusted recovery ring\n'
 
 recipient_case="$tmp/recipient"
 make_fakes "$recipient_case"

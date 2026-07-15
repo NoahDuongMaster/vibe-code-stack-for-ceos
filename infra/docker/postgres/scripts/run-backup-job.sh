@@ -162,7 +162,8 @@ fi
 lock_acquired=true
 lock_acquired_epoch=$("$date_bin" +%s)
 
-if [ "$job" = monthly ] && ! "$monthly_cleanup_bin" --lock-held-fd "$lock_fd"; then
+if [[ "$job" =~ ^(monthly(-drill)?|pitr-drill)$ ]] && \
+  ! "$monthly_cleanup_bin" --lock-held-fd "$lock_fd"; then
   record_outcome failure monthly_cleanup_failed
   "$flock_bin" -u "$lock_fd"
   exec 9>&-
@@ -202,7 +203,7 @@ command_pid=''
 trap - TERM INT HUP
 
 monthly_cleanup_failed=false
-if [ "$job" = monthly ] && \
+if [[ "$job" =~ ^(monthly(-drill)?|pitr-drill)$ ]] && \
   ! "$monthly_cleanup_bin" --lock-held-fd "$lock_fd"; then
   monthly_cleanup_failed=true
   command_status=$EX_TEMPFAIL
