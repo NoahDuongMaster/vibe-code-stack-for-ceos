@@ -1,0 +1,103 @@
+services:
+  postgres:
+    image: vibe-postgres:backup-test
+    environment:
+      POSTGRES_DB: trading_rpc
+      POSTGRES_USER: trading_rpc
+      POSTGRES_PASSWORD: integration-password
+      POSTGRES_BACKUP_MODE: enabled
+      POSTGRES_BACKUP_REPOSITORY_TYPE: posix
+      PGBACKREST_CONFIG: /run/postgres-backup/pgbackrest.conf
+      POSTGRES_INITDB_ARGS: --data-checksums
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_timeout=240s
+      - -c
+      - archive_command=test ! -f /var/lib/pgbackrest/repo/archive/trading-rpc/archive.info || pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc archive-push %p
+    ports: !reset []
+    volumes: !override
+      - postgres-backup-test-data:/var/lib/postgresql/18/docker
+      - postgres-backup-test-socket:/var/run/postgresql
+      - postgres-backup-test-spool:/var/spool/pgbackrest
+      - pgbackrest-test-repo:/var/lib/pgbackrest
+    networks:
+      - postgres-backup-test-data
+    tmpfs:
+      - /run/postgres-backup:mode=0700,uid=70,gid=70
+
+  postgres-backup:
+    image: vibe-postgres:backup-test
+    environment:
+      POSTGRES_DB: trading_rpc
+      POSTGRES_USER: trading_rpc
+      POSTGRES_REPLICATION_ROLE: postgres_backup
+      POSTGRES_BACKUP_MODE: enabled
+      POSTGRES_BACKUP_REPOSITORY_TYPE: posix
+      POSTGRES_BACKUP_ENVIRONMENT: integration
+      POSTGRES_BACKUP_SERVICE_NAME: trading-rpc
+      POSTGRES_RESTORE_ROOT: /var/lib/postgres-backup/stage/restores
+      POSTGRES_RESTORE_MIN_FREE_BYTES: '1'
+      POSTGRES_MONTHLY_MIN_FREE_BYTES: '1'
+      POSTGRES_ARCHIVE_AGE_RECIPIENT: ${POSTGRES_BACKUP_TEST_AGE_RECIPIENT:-age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq}
+      POSTGRES_BACKUP_RECOVERY_SECRET_ID: local-age-identity
+      POSTGRES_BACKUP_KMS_KEY_ID: arn:aws:kms:us-east-1:123456789012:key/00000000-0000-4000-8000-000000000001
+      POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS: arn:aws:kms:us-east-1:123456789012:key/00000000-0000-4000-8000-000000000001
+      AWS_REGION: us-east-1
+      R2_ACCOUNT_ID: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      R2_ARCHIVE_BUCKET: postgres-backup-test-archive
+      RCLONE_BIN: /test-runtime/bin/rclone-local
+      AWS_BIN: /test-runtime/bin/aws-local
+      BACKUP_JITTER_MAX_SECONDS: '0'
+      POSTGRES_REPLICATION_PASSWORD_SOURCE_FILE: /test-runtime/secrets/postgres-replication-password
+      R2_PITR_ACCESS_KEY_ID_SOURCE_FILE: /test-runtime/secrets/r2-pitr-access-key-id
+      R2_PITR_SECRET_ACCESS_KEY_SOURCE_FILE: /test-runtime/secrets/r2-pitr-secret-access-key
+      R2_ARCHIVE_ACCESS_KEY_ID_SOURCE_FILE: /test-runtime/secrets/r2-archive-access-key-id
+      R2_ARCHIVE_SECRET_ACCESS_KEY_SOURCE_FILE: /test-runtime/secrets/r2-archive-secret-access-key
+      PGBACKREST_CIPHER_PASSPHRASE_SOURCE_FILE: /test-runtime/secrets/pgbackrest-cipher-passphrase
+    ports: !reset []
+    volumes: !override
+      - postgres-backup-test-data:/var/lib/postgresql/18/docker:ro
+      - postgres-backup-test-socket:/var/run/postgresql
+      - postgres-backup-test-spool:/var/spool/pgbackrest
+      - pgbackrest-test-repo:/var/lib/pgbackrest
+      - postgres-backup-test-state:/var/lib/postgres-backup/state
+      - postgres-backup-test-stage:/var/lib/postgres-backup/stage
+      - postgres-backup-test-archive:/var/lib/postgres-backup-test-archive
+      - ${POSTGRES_BACKUP_TEST_RUNTIME_DIR:?Set POSTGRES_BACKUP_TEST_RUNTIME_DIR}:/test-runtime:ro
+    networks:
+      - postgres-backup-test-data
+    tmpfs:
+      - /run/postgres-backup:mode=0700,uid=70,gid=70
+      - /run/postgres-backup-secrets:mode=0700
+      - /run/postgres-backup-cron:mode=0700
+
+  trading-rpc:
+    image: vibe-trading-rpc:backup-test
+    env_file:
+      - ../../services/trading-rpc/.env.sample
+    environment:
+      NODE_ENV: test
+      SERVICE_NAME: trading-rpc
+      DATABASE_URL: postgresql://trading_rpc:integration-password@postgres:5432/trading_rpc
+    ports: !reset []
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - postgres-backup-test-data
+
+networks:
+  postgres-backup-test-data:
+    internal: true
+
+volumes:
+  postgres-backup-test-data:
+  postgres-backup-test-socket:
+  postgres-backup-test-spool:
+  postgres-backup-test-state:
+  postgres-backup-test-stage:
+  postgres-backup-test-archive:
+  pgbackrest-test-repo:
