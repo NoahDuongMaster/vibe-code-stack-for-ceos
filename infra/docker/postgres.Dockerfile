@@ -11,12 +11,15 @@ RUN apk add --no-cache \
   && install -d -o postgres -g postgres -m 0700 \
       /run/postgres-backup /var/lib/pgbackrest /var/log/pgbackrest \
       /var/spool/pgbackrest /var/lib/postgres-backup/state \
-      /var/lib/postgres-backup/stage
+      /var/lib/postgres-backup/stage \
+  && install -d -o root -g root -m 0755 \
+      /etc/postgres-backup /etc/postgres-backup/crontabs
 
 COPY --chmod=0755 infra/docker/postgres/scripts/ /usr/local/bin/postgres-backup/
 COPY --chmod=0644 infra/docker/postgres/config/backup-schedule.cron \
   /etc/postgres-backup/crontabs/postgres
-RUN chown -R postgres:postgres /etc/postgres-backup/crontabs
+RUN chown postgres:postgres /etc/postgres-backup/crontabs/postgres \
+  && chmod 0755 /etc/postgres-backup /etc/postgres-backup/crontabs
 
 ENTRYPOINT ["/usr/local/bin/postgres-backup/postgres-entrypoint.sh"]
 CMD ["postgres"]

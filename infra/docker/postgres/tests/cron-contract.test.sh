@@ -6,13 +6,13 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../../../.." && pwd)
 
 schedule="$ROOT/infra/docker/postgres/config/backup-schedule.cron"
 assert_file_contains "$schedule" \
-  '5 * * * * /usr/local/bin/postgres-backup/run-backup-job.sh incremental '
+  '5 * * * * env POSTGRES_BACKUP_SCHEDULED_RUN=true /usr/local/bin/postgres-backup/run-backup-job.sh incremental '
 assert_file_contains "$schedule" \
-  '0 2 * * 1-6 /usr/local/bin/postgres-backup/run-backup-job.sh differential '
+  '0 2 * * 1-6 env POSTGRES_BACKUP_SCHEDULED_RUN=true /usr/local/bin/postgres-backup/run-backup-job.sh differential '
 assert_file_contains "$schedule" \
-  '0 2 * * 0 /usr/local/bin/postgres-backup/run-backup-job.sh full '
+  '0 2 * * 0 env POSTGRES_BACKUP_SCHEDULED_RUN=true /usr/local/bin/postgres-backup/run-backup-job.sh full '
 assert_file_contains "$schedule" \
-  '30 6 2 * * /usr/local/bin/postgres-backup/run-backup-job.sh monthly-drill '
+  '30 6 2 * * env POSTGRES_BACKUP_SCHEDULED_RUN=true /usr/local/bin/postgres-backup/run-backup-job.sh monthly-drill '
 
 node - "$schedule" <<'NODE'
 const fs = require('node:fs');
