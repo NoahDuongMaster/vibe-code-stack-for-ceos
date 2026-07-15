@@ -6,6 +6,11 @@ runtime_uid=${POSTGRES_RUNTIME_UID:-70}
 runtime_gid=${POSTGRES_RUNTIME_GID:-70}
 runtime_secret_dir=${POSTGRES_BACKUP_RUNTIME_SECRET_DIR:-/run/postgres-backup-secrets}
 gosu_bin=${GOSU_BIN:-/usr/local/bin/gosu}
+backup_entrypoint=${POSTGRES_BACKUP_ENTRYPOINT:-/usr/local/bin/postgres-backup/backup-entrypoint.sh}
+render_crontab_bin=${BACKUP_RENDER_CRONTAB_BIN:-/usr/local/bin/postgres-backup/render-backup-crontab.sh}
+crontab_dir=${POSTGRES_BACKUP_CRONTAB_DIR:-/run/postgres-backup-cron}
+crontab_file=${POSTGRES_BACKUP_CRONTAB_FILE:-postgres}
+crond_bin=${BACKUP_CROND_BIN:-crond}
 
 install_runtime_dir() {
   if [ "$(id -u)" -eq 0 ]; then
@@ -65,6 +70,25 @@ if [ "${POSTGRES_BACKUP_MODE:-disabled}" = enabled ]; then
   if [ "$(id -u)" -eq 0 ]; then
     chown "$runtime_uid:$runtime_gid" "$runtime_secret_dir"
   fi
+fi
+
+if [ "${POSTGRES_BACKUP_MODE:-disabled}" = enabled ] && \
+  [ "${1:-}" = "$backup_entrypoint" ]; then
+  [ "$#" -eq 1 ] || {
+    printf 'PostgreSQL backup scheduler accepts no command arguments\n' >&2
+    exit 64
+  }
+  [ "$(id -u)" -eq 0 ] || {
+    printf 'PostgreSQL backup scheduler bootstrap must run as root\n' >&2
+    exit 1
+  }
+  install -d -o 0 -g 0 -m 0700 "$crontab_dir"
+  "$render_crontab_bin" "$crontab_dir/$crontab_file"
+  chown 0:0 "$crontab_dir/$crontab_file"
+  chmod 0600 "$crontab_dir/$crontab_file"
+  "$gosu_bin" "$runtime_user" "$backup_entrypoint" --prepare-only
+  export TZ=UTC
+  exec "$crond_bin" -f -c "$crontab_dir"
 fi
 
 exec "$gosu_bin" "$runtime_user" "$@"

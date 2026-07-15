@@ -9,6 +9,8 @@ state_dir=${POSTGRES_BACKUP_STATE_DIR:-/var/lib/postgres-backup/state}
 lock_path=${POSTGRES_BACKUP_LOCK_PATH:-$state_dir/backup-job.lock}
 flock_bin=${BACKUP_FLOCK_BIN:-flock}
 sleep_bin=${BACKUP_SLEEP_BIN:-sleep}
+date_bin=${BACKUP_DATE_BIN:-date}
+outcome_publish_hook=${BACKUP_AFTER_OUTCOME_HOOK:-true}
 priority_lock_wait=${BACKUP_PRIORITY_LOCK_WAIT_SECONDS:-21600}
 
 job=${1:-}
@@ -59,14 +61,12 @@ if [ "$jitter_max" -gt 0 ]; then
   "$sleep_bin" "$jitter_seconds"
 fi
 
-started_epoch=$(date +%s)
-started_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+started_epoch=$("$date_bin" +%s)
+started_at=$("$date_bin" -u '+%Y-%m-%dT%H:%M:%SZ')
 running_path="$state_dir/$job.running.json"
-command_output=$(mktemp "$state_dir/$job.command-output.tmp.XXXXXX")
 lock_acquired=false
 
 cleanup() {
-  rm -f -- "$command_output"
   if [ "$lock_acquired" = true ]; then
     rm -f -- "$running_path"
   fi
@@ -80,12 +80,30 @@ record_outcome() {
   local finished_at
   local duration
   local output_path
+  local outcome_path
   local log_level
 
-  finished_epoch=$(date +%s)
-  finished_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+  finished_epoch=$("$date_bin" +%s)
+  finished_at=$("$date_bin" -u '+%Y-%m-%dT%H:%M:%SZ')
   duration=$((finished_epoch - started_epoch))
   output_path="$state_dir/$job.last-$status.json"
+  outcome_path="$state_dir/$job.last-outcome.json"
+  if [ "$status" != skipped ]; then
+    atomic_write_json "$outcome_path" -n \
+      --arg job "$job" \
+      --arg status "$status" \
+      --arg startedAt "$started_at" \
+      --arg finishedAt "$finished_at" \
+      --arg errorCategory "$error_category" \
+      --argjson startedEpochSeconds "$started_epoch" \
+      --argjson finishedEpochSeconds "$finished_epoch" \
+      --argjson durationSeconds "$duration" \
+      '{job:$job,status:$status,startedAt:$startedAt,finishedAt:$finishedAt,
+        startedEpochSeconds:$startedEpochSeconds,
+        finishedEpochSeconds:$finishedEpochSeconds,
+        durationSeconds:$durationSeconds,errorCategory:$errorCategory}'
+    "$outcome_publish_hook"
+  fi
   atomic_write_json "$output_path" -n \
     --arg job "$job" \
     --arg status "$status" \
@@ -120,7 +138,7 @@ else
   fi
 fi
 lock_acquired=true
-lock_acquired_epoch=$(date +%s)
+lock_acquired_epoch=$("$date_bin" +%s)
 
 atomic_write_json "$running_path" -n \
   --arg job "$job" \
@@ -133,7 +151,7 @@ atomic_write_json "$running_path" -n \
     lockAcquiredEpochSeconds:$lockAcquiredEpochSeconds}'
 
 set +e
-"$@" >"$command_output" 2>&1
+"$@" >/dev/null 2>&1
 command_status=$?
 set -e
 

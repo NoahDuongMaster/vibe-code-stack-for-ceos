@@ -11,6 +11,7 @@ backup_spool_dir=${POSTGRES_BACKUP_SPOOL_DIR:-/var/spool/pgbackrest}
 backup_stage_dir=${POSTGRES_BACKUP_STAGE_DIR:-/var/lib/postgres-backup/stage}
 psql_bin=${BACKUP_PSQL_BIN:-psql}
 df_bin=${BACKUP_DF_BIN:-df}
+stat_bin=${BACKUP_STAT_BIN:-stat}
 priority_lock_wait=${BACKUP_PRIORITY_LOCK_WAIT_SECONDS:-21600}
 disk_high_water=${BACKUP_DISK_HIGH_WATER_PERCENT:-85}
 
@@ -113,7 +114,11 @@ is_stale "$monthly_drill_epoch" "$MONTHLY_DRILL_MAX_AGE_SECONDS" || \
 for job in incremental differential full monthly check verify pitr-drill monthly-drill; do
   success=$(success_epoch "$job")
   failure=$(state_number "$state_dir/$job.last-failure.json" '.finishedEpochSeconds')
-  if [ "$failure" -gt "$success" ]; then
+  outcome_status=$(jq -er '.status | select(. == "success" or . == "failure")' \
+    "$state_dir/$job.last-outcome.json" 2>/dev/null || true)
+  if [ "$outcome_status" = failure ] || {
+    [ -z "$outcome_status" ] && [ "$failure" -gt 0 ] && [ "$failure" -ge "$success" ];
+  }; then
     add_reason "${job//-/_}_last_attempt_failed"
   fi
 done
@@ -122,7 +127,14 @@ oldest_ready_age=0
 if [ -d "$wal_status_dir" ]; then
   while IFS= read -r ready_path; do
     [ -n "$ready_path" ] || continue
-    ready_mtime=$(stat -c '%Y' "$ready_path" 2>/dev/null || stat -f '%m' "$ready_path")
+    if ! ready_mtime=$(
+      "$stat_bin" -c '%Y' "$ready_path" 2>/dev/null ||
+        "$stat_bin" -f '%m' "$ready_path" 2>/dev/null
+    ); then
+      [ ! -e "$ready_path" ] && continue
+      add_reason wal_archive_stat_failed
+      continue
+    fi
     ready_age=$((now - ready_mtime))
     [ "$ready_age" -le "$oldest_ready_age" ] || oldest_ready_age=$ready_age
     [ "$ready_age" -le "$WAL_READY_MAX_AGE_SECONDS" ] || add_reason wal_archive_stalled
@@ -177,14 +189,6 @@ done
 if [ "${#reasons[@]}" -eq 0 ]; then
   health_status=healthy
   reasons_json='[]'
-  if [ "$archiver_failed_count" -ge 0 ]; then
-    atomic_write_json "$baseline_path" -n \
-      --argjson failedCount "$archiver_failed_count" \
-      --arg recordedAt "$checked_at" \
-      --argjson recordedEpochSeconds "$now" \
-      '{failedCount:$failedCount,recordedAt:$recordedAt,
-        recordedEpochSeconds:$recordedEpochSeconds}'
-  fi
 else
   health_status=unhealthy
   reasons_json=$(printf '%s\n' "${reasons[@]}" | jq -R . | jq -s .)
@@ -203,6 +207,15 @@ atomic_write_json "$state_dir/health.json" -n \
     metrics:{archiverFailedCount:$archiverFailedCount,
       oldestReadyAgeSeconds:$oldestReadyAgeSeconds,
       maximumDiskPercent:$maximumDiskPercent}}'
+
+if [ "$archiver_failed_count" -ge 0 ]; then
+  atomic_write_json "$baseline_path" -n \
+    --argjson failedCount "$archiver_failed_count" \
+    --arg recordedAt "$checked_at" \
+    --argjson recordedEpochSeconds "$now" \
+    '{failedCount:$failedCount,recordedAt:$recordedAt,
+      recordedEpochSeconds:$recordedEpochSeconds}'
+fi
 
 if [ "$health_status" = healthy ]; then
   json_log info backup_health_evaluated "$health_status"

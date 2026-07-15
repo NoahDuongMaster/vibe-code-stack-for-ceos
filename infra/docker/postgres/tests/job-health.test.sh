@@ -12,6 +12,7 @@ ENTRYPOINT="$ROOT/infra/docker/postgres/scripts/backup-entrypoint.sh"
 for script in "$RUN_JOB" "$HEALTH" "$RECONCILE" "$ENTRYPOINT"; do
   [ -x "$script" ] || fail "required executable is missing: $script"
 done
+assert_file_contains "$ENTRYPOINT" "date '+%s%N'"
 
 # macOS does not ship flock. Re-run this behavior test in the pinned image so
 # the same util-linux implementation used in production owns the lock checks.
@@ -74,9 +75,26 @@ printf 'command failed\n' >&2
 exit 41
 EOF
 
+cat >"$tmp/bin/crash-command" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf '%s\n' "$$" >"$1"
+printf '%s\n' "$2"
+exec sleep 60
+EOF
+
 cat >"$tmp/bin/fake-sleep" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$1" >>"$JITTER_LOG"
+EOF
+
+cat >"$tmp/bin/fixed-date" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+  '+%s') printf '%s\n' "$FIXED_EPOCH_SECONDS" ;;
+  '-u +%Y-%m-%dT%H:%M:%SZ') printf '2026-07-15T00:00:00Z\n' ;;
+  *) exec date "$@" ;;
+esac
 EOF
 
 cat >"$tmp/bin/psql" <<'EOF'
@@ -91,6 +109,13 @@ cat <<OUTPUT
 Filesystem 1024-blocks Used Available Capacity Mounted on
 fake 100 10 90 ${FAKE_DISK_PERCENT:-10}% $path
 OUTPUT
+EOF
+
+cat >"$tmp/bin/disappearing-stat" <<'EOF'
+#!/usr/bin/env bash
+target=${*: -1}
+rm -f -- "$target"
+exit 1
 EOF
 
 cat >"$tmp/bin/pgbackrest" <<'EOF'
@@ -168,6 +193,9 @@ assert_json_status() {
 
 "$RUN_JOB" incremental true
 assert_json_status "$tmp/state/incremental.last-success.json" incremental success
+jq -e '.job == "incremental" and .status == "success"' \
+  "$tmp/state/incremental.last-outcome.json" >/dev/null || \
+  fail 'successful job did not publish the current health outcome'
 printf 'ok - successful job state is structured and atomic\n'
 
 set +e
@@ -193,6 +221,22 @@ printf '%s\n' "$output" | jq -e \
   'select(.event == "backup_job_finished") | .level == "error"' >/dev/null || \
   fail 'failed backup job did not emit a structured error log'
 printf 'ok - command arguments are excluded from logs and state\n'
+
+rm -f "$tmp/state/check.last-failure.json" "$tmp/state/check.last-outcome.json"
+set +e
+BACKUP_AFTER_OUTCOME_HOOK=/bin/false \
+  "$RUN_JOB" check "$tmp/bin/fail-command" >/dev/null 2>&1
+publication_status=$?
+set -e
+[ "$publication_status" -ne 0 ] || fail 'simulated mid-publication interruption must stop'
+jq -e '.status == "failure"' "$tmp/state/check.last-outcome.json" >/dev/null || \
+  fail 'failure outcome was not crash-safe before derived state publication'
+[ ! -e "$tmp/state/check.last-failure.json" ] || \
+  fail 'simulated interruption happened after the derived failure state'
+"$RUN_JOB" check true >/dev/null
+jq -e '.status == "success"' "$tmp/state/check.last-outcome.json" >/dev/null || \
+  fail 'later success did not replace the crash-safe failure outcome'
+printf 'ok - current outcome is published before derived status state\n'
 
 unset BACKUP_JITTER_MAX_SECONDS
 export POSTGRES_BACKUP_SCHEDULED_RUN=true
@@ -351,10 +395,17 @@ export FAKE_ARCHIVER_FAILED_COUNT=1
 if "$HEALTH" >/dev/null; then fail 'increased pg_stat_archiver failed_count must be unhealthy'; fi
 jq -e '.reasons | index("archiver_failed_count_increased")' "$tmp/state/health.json" >/dev/null || \
   fail 'archiver failure-count reason missing'
+"$HEALTH"
+assert_eq "$(jq -r '.failedCount' "$tmp/state/archiver-failed-count.baseline.json")" 1
 export FAKE_ARCHIVER_FAILED_COUNT=0
-rm -f "$tmp/state/archiver-failed-count.baseline.json"
 "$HEALTH"
 printf 'ok - archiver baseline detects increases without checking idle archive time\n'
+
+touch -d '10 minutes ago' "$tmp/wal/000000010000000000000002.ready"
+BACKUP_STAT_BIN="$tmp/bin/disappearing-stat" "$HEALTH"
+jq -e '.status == "healthy"' "$tmp/state/health.json" >/dev/null || \
+  fail 'a disappearing WAL ready file prevented atomic healthy state output'
+printf 'ok - disappearing WAL ready file is an expected race\n'
 
 export FAKE_DISK_PERCENT=85
 if "$HEALTH" >/dev/null; then fail 'disk usage at the high-water mark must be unhealthy'; fi
@@ -382,6 +433,121 @@ write_job_state monthly-drill success 60
 printf 'ok - exact backup and drill age thresholds\n'
 
 export OPERATIONS_LOG="$tmp/operations.log"
+
+write_fresh_health_state
+export FIXED_EPOCH_SECONDS="$now"
+BACKUP_DATE_BIN="$tmp/bin/fixed-date" "$RUN_JOB" full true >/dev/null
+same_second_started="$tmp/same-second-holder-started"
+same_second_release="$tmp/same-second-holder-release"
+BACKUP_DATE_BIN="$tmp/bin/fixed-date" "$RUN_JOB" incremental \
+  "$tmp/bin/wait-command" "$same_second_started" "$same_second_release" &
+same_second_holder_pid=$!
+children+=("$same_second_holder_pid")
+wait_for_file "$same_second_started"
+set +e
+BACKUP_DATE_BIN="$tmp/bin/fixed-date" BACKUP_PRIORITY_LOCK_WAIT_SECONDS=1 \
+  "$RUN_JOB" full true >/dev/null 2>&1
+same_second_timeout_status=$?
+set -e
+assert_eq "$same_second_timeout_status" 75
+assert_eq \
+  "$(jq -r '.finishedEpochSeconds' "$tmp/state/full.last-success.json")" \
+  "$(jq -r '.finishedEpochSeconds' "$tmp/state/full.last-failure.json")"
+if "$HEALTH" >/dev/null; then
+  fail 'same-second priority timeout was incorrectly considered healthy'
+fi
+jq -e '.status == "failure"' "$tmp/state/full.last-outcome.json" >/dev/null || \
+  fail 'same-second failure did not replace the current outcome'
+touch "$same_second_release"
+wait "$same_second_holder_pid"
+children=()
+: >"$OPERATIONS_LOG"
+"$RECONCILE"
+grep -Fq '<--type=full>' "$OPERATIONS_LOG" || \
+  fail 'same-second priority timeout was not startup-reconciliable'
+jq -e '.status == "success"' "$tmp/state/full.last-outcome.json" >/dev/null || \
+  fail 'later success did not clear the current failure outcome'
+"$HEALTH"
+
+set +e
+BACKUP_DATE_BIN="$tmp/bin/fixed-date" "$RUN_JOB" incremental \
+  "$tmp/bin/fail-command" >/dev/null 2>&1
+set -e
+skip_holder_started="$tmp/skip-holder-started"
+skip_holder_release="$tmp/skip-holder-release"
+"$RUN_JOB" full "$tmp/bin/wait-command" "$skip_holder_started" "$skip_holder_release" &
+skip_holder_pid=$!
+children+=("$skip_holder_pid")
+wait_for_file "$skip_holder_started"
+set +e
+BACKUP_DATE_BIN="$tmp/bin/fixed-date" "$RUN_JOB" incremental true >/dev/null 2>&1
+skip_status=$?
+set -e
+assert_eq "$skip_status" 75
+jq -e '.status == "failure"' "$tmp/state/incremental.last-outcome.json" >/dev/null || \
+  fail 'skipped incremental erased a current failure outcome'
+touch "$skip_holder_release"
+wait "$skip_holder_pid"
+children=()
+BACKUP_DATE_BIN="$tmp/bin/fixed-date" "$RUN_JOB" incremental true >/dev/null
+skip_holder_started="$tmp/skip-success-holder-started"
+skip_holder_release="$tmp/skip-success-holder-release"
+"$RUN_JOB" full "$tmp/bin/wait-command" "$skip_holder_started" "$skip_holder_release" &
+skip_holder_pid=$!
+children+=("$skip_holder_pid")
+wait_for_file "$skip_holder_started"
+set +e
+BACKUP_DATE_BIN="$tmp/bin/fixed-date" "$RUN_JOB" incremental true >/dev/null 2>&1
+skip_status=$?
+set -e
+assert_eq "$skip_status" 75
+jq -e '.status == "success"' "$tmp/state/incremental.last-outcome.json" >/dev/null || \
+  fail 'skipped incremental erased a current success outcome'
+touch "$skip_holder_release"
+wait "$skip_holder_pid"
+children=()
+printf 'ok - same-second ordering and skipped outcome semantics\n'
+
+write_fresh_health_state
+live_started="$tmp/live-holder-started"
+live_release="$tmp/live-holder-release"
+"$RUN_JOB" full "$tmp/bin/wait-command" "$live_started" "$live_release" &
+live_runner_pid=$!
+children+=("$live_runner_pid")
+wait_for_file "$live_started"
+set +e
+BACKUP_RUN_JOB_BIN=/bin/false "$RECONCILE" >/dev/null 2>&1
+set -e
+[ -e "$tmp/state/full.running.json" ] || \
+  fail 'startup reconciliation removed a running state while its lock was live'
+touch "$live_release"
+wait "$live_runner_pid"
+children=()
+
+write_fresh_health_state
+crash_pid_file="$tmp/crash-child-pid"
+crash_secret='crash-output-must-not-persist'
+"$RUN_JOB" full "$tmp/bin/crash-command" "$crash_pid_file" "$crash_secret" &
+crashed_runner_pid=$!
+children+=("$crashed_runner_pid")
+wait_for_file "$crash_pid_file"
+crashed_child_pid=$(cat "$crash_pid_file")
+kill -9 "$crashed_child_pid" "$crashed_runner_pid" 2>/dev/null || true
+wait "$crashed_runner_pid" 2>/dev/null || true
+children=()
+printf '%s\n' "$crash_secret" >"$tmp/state/full.command-output.tmp.legacy"
+set +e
+BACKUP_RUN_JOB_BIN=/bin/false "$RECONCILE" >/dev/null 2>&1
+set -e
+[ ! -e "$tmp/state/full.running.json" ] || \
+  fail 'startup reconciliation did not remove an orphaned running state'
+jq -e '.status == "failure" and .errorCategory == "interrupted"' \
+  "$tmp/state/full.last-outcome.json" >/dev/null || \
+  fail 'orphaned running state was not converted to an interrupted outcome'
+if grep -R -Fq "$crash_secret" "$tmp/state"; then
+  fail 'hard-crashed or legacy command output persisted secrets on the state volume'
+fi
+printf 'ok - orphan cleanup requires an unheld global lock and persists no raw output\n'
 
 write_fresh_health_state
 actual_timeout_started="$tmp/actual-timeout-holder-started"
@@ -447,8 +613,6 @@ export POSTGRES_BACKUP_MODE=enabled
 export POSTGRES_BACKUP_REPOSITORY_TYPE=posix
 export POSTGRES_USER=trading_rpc POSTGRES_DB=trading_rpc
 export POSTGRES_BACKUP_CONFIG_PATH="$tmp/pgbackrest.conf"
-export POSTGRES_BACKUP_CRONTAB_DIR="$ROOT/infra/docker/postgres/config"
-export POSTGRES_BACKUP_CRONTAB_FILE=backup-schedule.cron
 export BACKUP_PG_ISREADY_BIN="$tmp/bin/pg-isready"
 export BACKUP_ENSURE_REPLICATION_ROLE_BIN="$tmp/bin/ensure-role"
 export BACKUP_PGBACKREST_BIN="$tmp/bin/lifecycle-pgbackrest"
@@ -456,26 +620,27 @@ export BACKUP_RECONCILE_BIN="$tmp/bin/lifecycle-reconcile"
 export BACKUP_CROND_BIN="$tmp/bin/crond"
 export POSTGRES_READY_POLL_SECONDS=0
 : >"$LIFECYCLE_LOG"
-"$ENTRYPOINT"
+"$ENTRYPOINT" --prepare-only
 assert_eq "$(paste -sd, "$LIFECYCLE_LOG")" \
-  'pg_isready,pg_isready,ensure-role,pgbackrest:stanza-create,pgbackrest:check,reconcile:--preflight-complete,crond:-f -c /workspace/infra/docker/postgres/config'
+  'pg_isready,pg_isready,ensure-role,pgbackrest:stanza-create,pgbackrest:check,reconcile:--preflight-complete'
 [ -s "$tmp/pgbackrest.conf" ] || fail 'backup entrypoint did not render pgBackRest config'
 printf 'ok - backup entrypoint lifecycle\n'
 
 set +e
-started_wait=$(date +%s)
+started_wait_ns=$(date +%s%N)
 POSTGRES_READY_WAIT_SECONDS=1 POSTGRES_READY_POLL_SECONDS=2 \
 BACKUP_PG_ISREADY_BIN="$tmp/bin/pg-isready-never" \
-  "$ENTRYPOINT" >/dev/null 2>&1
+  "$ENTRYPOINT" --prepare-only >/dev/null 2>&1
 ready_status=$?
-finished_wait=$(date +%s)
+finished_wait_ns=$(date +%s%N)
 set -e
 [ "$ready_status" -ne 0 ] || fail 'backup entrypoint must fail after its readiness deadline'
-[ $((finished_wait - started_wait)) -lt 2 ] || \
+elapsed_wait_ns=$((finished_wait_ns - started_wait_ns))
+[ "$elapsed_wait_ns" -le 1500000000 ] || \
   fail 'readiness timeout was calculated from loop count instead of elapsed seconds'
 
 set +e
-invalid_poll_output=$(POSTGRES_READY_POLL_SECONDS=invalid "$ENTRYPOINT" 2>&1)
+invalid_poll_output=$(POSTGRES_READY_POLL_SECONDS=invalid "$ENTRYPOINT" --prepare-only 2>&1)
 invalid_poll_status=$?
 set -e
 [ "$invalid_poll_status" -ne 0 ] || fail 'invalid readiness poll seconds must fail'

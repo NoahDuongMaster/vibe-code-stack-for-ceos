@@ -34,10 +34,10 @@ R2_ARCHIVE_SECRET_ACCESS_KEY_SOURCE_FILE="$tmp/source/archive-secret" \
 PGBACKREST_CIPHER_PASSPHRASE_SOURCE_FILE="$tmp/source/cipher" \
 GOSU_ARGUMENTS="$tmp/gosu-arguments" GOSU_ENVIRONMENT="$tmp/gosu-environment" \
   "$ROOT/infra/docker/postgres/scripts/backup-root-entrypoint.sh" \
-  /usr/local/bin/postgres-backup/backup-entrypoint.sh
+  /bin/true
 
 assert_eq "$(cat "$tmp/gosu-arguments")" \
-  'postgres /usr/local/bin/postgres-backup/backup-entrypoint.sh'
+  'postgres /bin/true'
 assert_file_mode "$tmp/runtime" 700
 assert_file_mode "$tmp/runtime/postgres-replication-password" 600
 assert_file_contains "$tmp/gosu-environment" \
