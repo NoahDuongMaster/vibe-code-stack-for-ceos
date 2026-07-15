@@ -1,21 +1,44 @@
+import 'reflect-metadata';
 import { cors as connectCors } from '@connectrpc/connect';
 import { fastifyConnectPlugin } from '@connectrpc/connect-fastify';
 import fastifyCors from '@fastify/cors';
 import fastifyRateLimit from '@fastify/rate-limit';
+import { NestFactory } from '@nestjs/core';
+import { type MicroserviceOptions, Transport } from '@nestjs/microservices';
+import {
+  FastifyAdapter,
+  type NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 import { createRoutes, isOriginAllowed } from '@packages/api-core';
-import { fastify } from 'fastify';
+import type { FastifyServerOptions } from 'fastify';
 import {
   createTradingServiceRoutes,
-  type GetCryptoMarkets,
-} from '../features/get-crypto-markets/index.js';
+  GET_MARKETS,
+  type GetMarkets,
+  type MarketDataProvider,
+  type MarketSnapshotRepository,
+} from '@/features/market-data';
+import { resolveGrpcProtoPaths } from '@/infra/grpc-protocol';
+import { createRequestChildLoggerFactory } from '@/platform/fastify/request-log-bindings';
+import { TradingRpcModule } from '@/platform/nest/trading-rpc.module';
 
 export interface TServerOptions {
-  /** Application input port, assembled by the Node composition root. */
-  getCryptoMarkets: GetCryptoMarkets;
+  /** Validated runtime identity used by health and telemetry adapters. */
+  serviceName: string;
+  /** Outbound domain port; Nest creates and injects the application use case. */
+  marketDataProvider: MarketDataProvider;
+  /** Outbound persistence port managed through Nest lifecycle hooks. */
+  marketSnapshotRepository: MarketSnapshotRepository;
   /** Allowed CORS origins for browser clients. '*' allows any origin. Defaults to none. */
   corsOrigins?: string[];
-  /** Enables native gRPC over HTTP/2. Defaults to true. */
+  /** Enables HTTP/2 on the Connect listener. Defaults to true. */
   http2?: boolean;
+  /** Native Nest gRPC bind address. Defaults to 0.0.0.0:50051. */
+  grpcUrl?: string;
+  /** Disable only for focused tests that do not exercise native gRPC. */
+  enableGrpc?: boolean;
+  /** Disable only in tests to avoid installing process signal listeners. */
+  enableShutdownHooks?: boolean;
   /** Rejects request bodies larger than this many bytes. Defaults to 5 MB. */
   maxBodyBytes?: number;
   /** Per-request idle timeout in ms. Defaults to 30s. */
@@ -24,78 +47,90 @@ export interface TServerOptions {
   rateLimit?: number;
   /** Rate limit window in ms. Defaults to 60s. */
   rateLimitWindowMs?: number;
-  /** Pino logger — disable in tests. Defaults to true. */
-  logger?: boolean;
+  /** Fastify/Pino logger configuration. `false` also disables Nest logs. */
+  logger?: FastifyServerOptions['logger'];
 }
 
 /**
- * INBOUND ADAPTER — a Fastify (HTTP/2) server hosting shared ApiService routes
- * plus this microservice's TradingService routes via the official Connect
- * plugin. It serves Connect + gRPC + gRPC-Web with all streaming types (gRPC
- * needs HTTP/2 + trailers, which Fastify's http2 server provides). Cross-cutting
- * runtime concerns are Fastify plugins: CORS, rate limiting, body-size cap,
- * structured logging, and a fast `/healthz`. It translates Fastify ⇄ Connect;
- * its application use case. Async factory — builds and readies the app but
- * does NOT call `.listen()`.
+ * Creates the Nest host without opening a listener. Nest owns modules, DI,
+ * controllers, interceptors, lifecycle, and native gRPC. The official Connect
+ * plugin is mounted on Nest's underlying Fastify instance so Cloudflare's VPC
+ * Fetcher can continue forwarding standard Request/Response traffic.
  */
-export async function createServer(options: TServerOptions) {
+export async function createServer(
+  options: TServerOptions,
+): Promise<NestFastifyApplication> {
   const allowedOrigins = options.corsOrigins ?? [];
   const maxBodyBytes = options.maxBodyBytes ?? 5 * 1024 * 1024;
-
   const fastifyOptions = {
     bodyLimit: maxBodyBytes,
+    childLoggerFactory: createRequestChildLoggerFactory(options.serviceName),
+    requestIdHeader: 'x-request-id',
     requestTimeout: options.requestTimeoutMs ?? 30_000,
     logger: options.logger ?? true,
   };
-  // Fastify's overloads require the literal `http2: true`, not a dynamic
-  // boolean. Keep each typed server branch intact while registering the same
-  // Fastify plugins, rather than creating an uncallable HTTP/1.1 | HTTP/2 union.
-  const rateLimitOptions = {
-    max: options.rateLimit ?? 300,
-    timeWindow: options.rateLimitWindowMs ?? 60_000,
-  };
-  const connectOptions = {
-    routes: (router: Parameters<ReturnType<typeof createRoutes>>[0]) => {
-      createRoutes({ serviceName: 'api-node', runtime: 'node' })(router);
-      createTradingServiceRoutes(options.getCryptoMarkets)(router);
-    },
-    // The real body-size enforcement point for streaming/chunked requests; the
-    // Fastify bodyLimit above is a fast-fail for requests with a Content-Length.
-    readMaxBytes: maxBodyBytes,
-    writeMaxBytes: maxBodyBytes,
-  };
+  const adapter =
+    options.http2 === false
+      ? new FastifyAdapter(fastifyOptions)
+      : new FastifyAdapter({ ...fastifyOptions, http2: true });
+  const app = await NestFactory.create<NestFastifyApplication>(
+    TradingRpcModule.register({
+      serviceName: options.serviceName,
+      marketDataProvider: options.marketDataProvider,
+      marketSnapshotRepository: options.marketSnapshotRepository,
+    }),
+    adapter,
+    { logger: options.logger === false ? false : undefined },
+  );
 
-  if (options.http2 === false) {
-    const app = fastify(fastifyOptions);
-    await app.register(fastifyCors, {
-      origin: (origin, cb) => cb(null, isOriginAllowed(origin, allowedOrigins)),
-      methods: [...connectCors.allowedMethods],
-      allowedHeaders: [...connectCors.allowedHeaders],
-      exposedHeaders: [...connectCors.exposedHeaders],
-      maxAge: 86400,
-    });
-    await app.register(fastifyRateLimit, rateLimitOptions);
-    app.get('/healthz', { config: { rateLimit: false } }, () => ({
-      status: 'ok',
-    }));
-    await app.register(fastifyConnectPlugin, connectOptions);
-    await app.ready();
-    return app;
-  }
-
-  const app = fastify({ ...fastifyOptions, http2: true });
-  await app.register(fastifyCors, {
-    origin: (origin, cb) => cb(null, isOriginAllowed(origin, allowedOrigins)),
+  const fastifyInstance = app.getHttpAdapter().getInstance();
+  await fastifyInstance.register(fastifyCors, {
+    origin: (origin, callback) =>
+      callback(null, isOriginAllowed(origin, allowedOrigins)),
     methods: [...connectCors.allowedMethods],
     allowedHeaders: [...connectCors.allowedHeaders],
     exposedHeaders: [...connectCors.exposedHeaders],
     maxAge: 86400,
   });
-  await app.register(fastifyRateLimit, rateLimitOptions);
-  app.get('/healthz', { config: { rateLimit: false } }, () => ({
-    status: 'ok',
-  }));
-  await app.register(fastifyConnectPlugin, connectOptions);
-  await app.ready();
+  await fastifyInstance.register(fastifyRateLimit, {
+    max: options.rateLimit ?? 300,
+    timeWindow: options.rateLimitWindowMs ?? 60_000,
+  });
+
+  const getMarkets = app.get<GetMarkets>(GET_MARKETS);
+  await fastifyInstance.register(fastifyConnectPlugin, {
+    routes: (router) => {
+      createRoutes({ serviceName: options.serviceName, runtime: 'node' })(
+        router,
+      );
+      createTradingServiceRoutes(getMarkets)(router);
+    },
+    readMaxBytes: maxBodyBytes,
+    writeMaxBytes: maxBodyBytes,
+  });
+
+  if (options.enableGrpc !== false) {
+    app.connectMicroservice<MicroserviceOptions>(
+      {
+        transport: Transport.GRPC,
+        options: {
+          url: options.grpcUrl ?? '0.0.0.0:50051',
+          package: ['api.v1', 'trading.v1'],
+          protoPath: resolveGrpcProtoPaths(),
+          gracefulShutdown: true,
+          loader: {
+            arrays: true,
+            defaults: true,
+            keepCase: false,
+            objects: true,
+            oneofs: true,
+          },
+        },
+      },
+      { inheritAppConfig: true },
+    );
+  }
+
+  if (options.enableShutdownHooks !== false) app.enableShutdownHooks();
   return app;
 }

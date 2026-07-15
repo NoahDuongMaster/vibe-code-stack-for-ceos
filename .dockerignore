@@ -31,6 +31,11 @@ graphify-out
 **/.env
 **/.env.*
 !**/.env.sample
+**/.dev.vars
+**/.dev.vars.*
+!**/.dev.vars.sample
+infra/docker/secrets/*
+!infra/docker/secrets/.gitignore
 
 # Misc
 npm-debug.log

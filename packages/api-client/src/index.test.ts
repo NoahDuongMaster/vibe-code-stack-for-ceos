@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApiClient, createTradingClient } from './index';
 
-const ECHO_URL = 'http://localhost:3001/api.v1.ApiService/Echo';
 const HEALTH_URL = 'http://localhost:3001/api.v1.ApiService/Health';
 const MARKETS_URL =
   'http://localhost:8787/trading.v1.TradingService/GetMarkets';
@@ -14,7 +13,7 @@ describe('createApiClient', () => {
   it('should build a client exposing every ApiService method', () => {
     const client = createApiClient('http://localhost:3001');
 
-    expect(client.echo).toBeTypeOf('function');
+    expect(client).not.toHaveProperty('echo');
     expect(client.health).toBeTypeOf('function');
   });
 
@@ -55,28 +54,6 @@ describe('createApiClient', () => {
     });
   });
 
-  it('should POST echo requests to the configured baseUrl and return the typed response', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      expect(input.toString()).toBe(ECHO_URL);
-      return new Response(
-        JSON.stringify({
-          message: 'hi',
-          upper: 'HI',
-          length: 2,
-          runtime: 'test',
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    const client = createApiClient('http://localhost:3001');
-    const res = await client.echo({ message: 'hi' });
-
-    expect(res).toMatchObject({ upper: 'HI', length: 2, runtime: 'test' });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
   it('should POST health requests and return the typed response', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       expect(input.toString()).toBe(HEALTH_URL);
@@ -109,7 +86,7 @@ describe('createApiClient', () => {
 
     const client = createApiClient('http://localhost:3001');
 
-    await expect(client.echo({ message: 'hi' })).rejects.toThrow();
+    await expect(client.health({})).rejects.toThrow();
   });
 
   it('should forward extra transport options (e.g. custom headers via interceptors)', async () => {
@@ -119,9 +96,8 @@ describe('createApiClient', () => {
         seenHeaders = new Headers(init?.headers);
         return new Response(
           JSON.stringify({
-            message: 'hi',
-            upper: 'HI',
-            length: 2,
+            status: 'ok',
+            service: 'api-node',
             runtime: 'test',
           }),
           { status: 200, headers: { 'content-type': 'application/json' } },
@@ -138,7 +114,7 @@ describe('createApiClient', () => {
         },
       ],
     });
-    await client.echo({ message: 'hi' });
+    await client.health({});
 
     expect(seenHeaders?.get('x-custom')).toBe('yes');
   });

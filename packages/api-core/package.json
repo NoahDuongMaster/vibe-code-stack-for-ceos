@@ -8,7 +8,10 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "lint": "biome ci . && pnpm lint:architecture",
+    "lint:architecture": "node scripts/check-architecture.mjs",
+    "test": "vitest run && pnpm test:architecture",
+    "test:architecture": "node --test scripts/check-architecture.test.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {

@@ -1,6 +1,6 @@
 # Trading RPC PostgreSQL R2 Backup Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add tested PostgreSQL PITR and immutable monthly backup/restore workflows for the EC2 Docker deployment, using pgBackRest and private Cloudflare R2 storage.
 
@@ -84,7 +84,7 @@
 - Consumes: secret files named by `R2_PITR_ACCESS_KEY_ID_FILE`, `R2_PITR_SECRET_ACCESS_KEY_FILE`, and `PGBACKREST_CIPHER_PASSPHRASE_FILE`.
 - Produces: `render_pgbackrest_config OUTPUT_PATH`, `require_scalar_file NAME PATH`, `json_log LEVEL EVENT MESSAGE`, `retry_with_backoff COMMAND [ARGUMENT ...]`, and `/run/postgres-backup/pgbackrest.conf` mode `0600`.
 
-- [ ] **Step 1: Write the failing render and image contract test**
+- [x] **Step 1: Write the failing render and image contract test**
 
 Create `infra/docker/postgres/tests/test-lib.sh`:
 
@@ -132,7 +132,7 @@ assert_file_contains "$tmp/pgbackrest.conf" 'pg1-path=/var/lib/postgresql/18/doc
 printf 'ok - render config\n'
 ```
 
-- [ ] **Step 2: Run the test and verify the missing renderer fails**
+- [x] **Step 2: Run the test and verify the missing renderer fails**
 
 Run:
 
@@ -142,7 +142,7 @@ bash infra/docker/postgres/tests/render-config.test.sh
 
 Expected: nonzero exit with `render-pgbackrest-config.sh: No such file or directory`.
 
-- [ ] **Step 3: Implement the pinned image and configuration renderer**
+- [x] **Step 3: Implement the pinned image and configuration renderer**
 
 Create `infra/docker/postgres.Dockerfile` with the verified official image digest and Alpine 3.24 package versions:
 
@@ -236,7 +236,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 Add `!infra/docker/postgres/**` after the Markdown exclusions in `.dockerignore` so the new build assets remain in context.
 
-- [ ] **Step 4: Add a focused Make target and run the tests**
+- [x] **Step 4: Add a focused Make target and run the tests**
 
 Add:
 
@@ -258,7 +258,7 @@ docker run --rm --entrypoint sh vibe-postgres:backup-test -ec \
 
 Expected: render test passes and versions begin with PostgreSQL `18.4`, pgBackRest `2.58.0`, age `1.3.1`, rclone `1.74.1`, and AWS CLI `2.34.63`.
 
-- [ ] **Step 5: Commit the toolchain slice**
+- [x] **Step 5: Commit the toolchain slice**
 
 ```bash
 git add .dockerignore Makefile infra/docker/postgres.Dockerfile infra/docker/postgres
@@ -288,7 +288,7 @@ git commit -m "feat(infra): add PostgreSQL backup toolchain"
 - Consumes: AWS Secrets Manager JSON at `POSTGRES_BACKUP_RUNTIME_SECRET_ID`, explicit `AWS_REGION`, and an EC2 instance profile.
 - Produces: an atomically switched secret generation under `POSTGRES_BACKUP_SECRET_DIR/current`, service-private tmpfs copies readable only by the runtime UID, Compose services `postgres` and `postgres-backup`, volumes `postgres-socket`, `pgbackrest-spool`, `postgres-backup-state`, `postgres-backup-stage`, and network `postgres-backup-egress`.
 
-- [ ] **Step 1: Add failing Compose assertions to `check-docker`**
+- [x] **Step 1: Add failing Compose assertions to `check-docker`**
 
 Extend the existing JSON assertion to require:
 
@@ -310,7 +310,7 @@ for (const name of ['postgres-socket', 'pgbackrest-spool', 'postgres-backup-stat
 
 Run `make check-docker`. Expected: FAIL because the custom image and scheduler service do not exist.
 
-- [ ] **Step 2: Define the shared base topology**
+- [x] **Step 2: Define the shared base topology**
 
 Change `postgres` to build `infra/docker/postgres.Dockerfile`, use image `vibe-postgres:${POSTGRES_IMAGE_TAG:-development}`, and profiles `[dev, vpc]`. Preserve `/var/lib/postgresql` and add:
 
@@ -347,7 +347,7 @@ tmpfs:
 
 Add the four named volumes and `postgres-backup-egress`. Keep `trading-rpc-data` separate from public-facing services.
 
-- [ ] **Step 3: Enable production archiving without affecting development**
+- [x] **Step 3: Enable production archiving without affecting development**
 
 In `compose.prod.yaml`, set both PostgreSQL services to production image tags and configure:
 
@@ -386,7 +386,7 @@ attach PostgreSQL to a dedicated non-internal `postgres-development-host`
 bridge so Docker can publish `127.0.0.1:${POSTGRES_HOST_PORT}:5432` without
 making the production data network externally routable.
 
-- [ ] **Step 4: Fetch production secrets into host tmpfs**
+- [x] **Step 4: Fetch production secrets into host tmpfs**
 
 Implement `sync-production-secrets.sh` with bounded retry for transient AWS
 errors and fail-fast handling for authentication/authorization errors. Require
@@ -429,7 +429,7 @@ socket and the official image's local replication rule, so the read-only
 sidecar never edits `pg_hba.conf` and PostgreSQL never exposes replication on a
 host port.
 
-- [ ] **Step 5: Resolve the trading-rpc database URL from a mounted file**
+- [x] **Step 5: Resolve the trading-rpc database URL from a mounted file**
 
 Create `runtime-environment.ts` with this deterministic interface:
 
@@ -464,7 +464,7 @@ private parent and child to UID/GID 1001, and only then drops privileges with
 `DATABASE_URL` to an empty string so a legacy value from
 `.env.production.local` is not retained in the container environment.
 
-- [ ] **Step 6: Make production startup select the complete backend topology**
+- [x] **Step 6: Make production startup select the complete backend topology**
 
 Add:
 
@@ -483,7 +483,7 @@ Make `build-production`, `start-production`, and `stop-production` use
 `sync-production-backup-secrets` and use `up -d --force-recreate` so Compose
 rebinds the newly published secret generation. Do not call any deploy command.
 
-- [ ] **Step 7: Validate and commit Compose topology**
+- [x] **Step 7: Validate and commit Compose topology**
 
 Run:
 
@@ -765,7 +765,7 @@ git commit -m "feat(infra): add immutable monthly PostgreSQL archives"
 - Consumes: `--latest` or RFC3339 `--target-time`, an explicitly new restore directory, backup repositories, and recovery keys.
 - Produces: an isolated restored cluster, `restore-result.json`, SQL verification result, and exit `124` when duration exceeds 3,600 seconds.
 
-- [ ] **Step 1: Write destructive-guard tests**
+- [x] **Step 1: Write destructive-guard tests**
 
 Assert all of these fail before invoking pgBackRest/rclone:
 
@@ -778,7 +778,7 @@ restore-monthly.sh --target-dir /var/lib/postgresql --latest
 
 Assert an empty path under `/var/lib/postgres-backup/stage/restores/` passes validation. Verify scripts never contain `docker`, `docker compose`, or `/var/run/docker.sock` invocations.
 
-- [ ] **Step 2: Implement PITR restore**
+- [x] **Step 2: Implement PITR restore**
 
 Parse RFC3339 timestamps with `date -d`, reject future times, create the target directory mode `0700`, and run:
 
@@ -791,7 +791,7 @@ pgbackrest --config=/run/postgres-backup/pgbackrest.conf \
 
 For `--latest`, omit `--type` and `--target` but still restore into the new path. Never set `--delta`. Measure monotonic duration and call `restore-verify.sh`.
 
-- [ ] **Step 3: Implement monthly restore and on-demand identity retrieval**
+- [x] **Step 3: Implement monthly restore and on-demand identity retrieval**
 
 List only prefixes containing readable `_SUCCESS.json`. Download ciphertext and
 `upload-manifest.json`, validate ciphertext SHA-256, fetch
@@ -801,7 +801,7 @@ identity file, decrypt, and validate the inner recovery manifest. Extract
 `pg_wal/` directory; restore any additional tablespace tar explicitly rather
 than flattening it. Remove the private identity in a trap on success or failure.
 
-- [ ] **Step 4: Implement isolated PostgreSQL verification**
+- [x] **Step 4: Implement isolated PostgreSQL verification**
 
 Start PostgreSQL with no TCP listener and a private socket:
 
@@ -818,7 +818,7 @@ verify `trading_rpc`, `drizzle.__drizzle_migrations`, and
 `pg_ctl -m fast -w stop` in a trap. Write `restore-result.json` with backup ID,
 target time, duration, checks, and status; fail with `124` after 3,600 seconds.
 
-- [ ] **Step 5: Test and commit**
+- [x] **Step 5: Test and commit**
 
 ```bash
 make test-postgres-backup-scripts
@@ -837,7 +837,7 @@ git commit -m "feat(infra): add guarded PostgreSQL restore drills"
 - Consumes: the Compose backup profile and the scripts from Tasks 1–5.
 - Produces: stable `db-backup-*` and `db-restore-*` operator commands with explicit destructive guards.
 
-- [ ] **Step 1: Add Make target contract checks**
+- [x] **Step 1: Add Make target contract checks**
 
 Extend `check-docker` to grep the Make database and require these names:
 
@@ -855,15 +855,15 @@ test-postgres-backup-integration
 
 Expected before implementation: `make check-docker` fails on the first missing target.
 
-- [ ] **Step 2: Add non-destructive backup targets**
+- [x] **Step 2: Add non-destructive backup targets**
 
 Use `docker compose exec postgres-backup` for info, check, verify, and manual full backup. `db-backup-health` prints `/var/lib/postgres-backup/state/health.json` through `jq` and preserves the health script's exit code.
 
-- [ ] **Step 3: Add guarded restore targets**
+- [x] **Step 3: Add guarded restore targets**
 
 `db-restore-latest` generates a fresh restore ID and invokes `restore-pitr.sh --latest`. `db-restore-at` requires nonempty `TARGET_TIME`. Neither target accepts a production volume name. Require `CONFIRM_RESTORE=restore-into-new-volume` before either command runs, and print the isolated restore volume name without changing service configuration.
 
-- [ ] **Step 4: Write the production runbook**
+- [x] **Step 4: Write the production runbook**
 
 Document these exact operational sections in `infra/docker/README.md`:
 
@@ -904,15 +904,15 @@ git commit -m "docs(infra): add PostgreSQL recovery runbook"
 - Consumes: the production-equivalent image/scripts with local repository and local rclone substitutions.
 - Produces: repeatable evidence that physical backup, WAL replay, encrypted monthly archive, and both restore paths work without production credentials.
 
-- [ ] **Step 1: Write the failing integration harness**
+- [x] **Step 1: Write the failing integration harness**
 
 The harness creates a unique Compose project, generates a disposable age keypair, starts PostgreSQL with local pgBackRest repository mode, and registers cleanup traps. It must fail initially because `compose.backup-test.yaml` does not exist.
 
-- [ ] **Step 2: Add the local integration overlay**
+- [x] **Step 2: Add the local integration overlay**
 
 Override repository mode to `posix`, mount `pgbackrest-test-repo`, use an rclone local remote rooted at `postgres-backup-test-archive`, and enable production archive settings including `archive_timeout=240s`. Do not expose R2/AWS credentials and do not reuse the normal development data volume.
 
-- [ ] **Step 3: Implement the real recovery sequence**
+- [x] **Step 3: Implement the real recovery sequence**
 
 The test must perform these observable steps:
 
@@ -932,7 +932,7 @@ Then run the monthly physical snapshot, restore it, and assert both rows exist.
 Assert every restored PostgreSQL instance starts, the Drizzle journal is
 readable, and both restore durations are below 3,600 seconds.
 
-- [ ] **Step 4: Add and run the integration target**
+- [x] **Step 4: Add and run the integration target**
 
 ```make
 .PHONY: test-postgres-backup-integration
@@ -950,7 +950,7 @@ make check-docker
 
 Expected: all backup tests pass and all temporary containers/volumes are removed by the trap.
 
-- [ ] **Step 5: Run the complete Definition of Done**
+- [x] **Step 5: Run the complete Definition of Done**
 
 ```bash
 pnpm typecheck
@@ -973,12 +973,16 @@ the `monthly/` Bucket Lock and lifecycle rules, then verify pgBackRest
 monthly upload, `_SUCCESS.json`, download, decrypt, and restore. Do not create
 or mutate production buckets and do not run a deploy command.
 
-- [ ] **Step 7: Commit integration evidence assets**
+- [x] **Step 7: Commit integration evidence assets**
 
 ```bash
 git add Makefile infra/docker/compose.backup-test.yaml infra/docker/postgres/tests/backup-integration.sh infra/docker/README.md
 git commit -m "test(infra): verify PostgreSQL backup recovery"
 ```
+
+The isolated integration overlay and harness were committed as `d230e8a`.
+Shared `Makefile` and Docker runbook edits were intentionally excluded from that
+commit because those files already contain overlapping worktree changes.
 
 ## Completion Evidence
 

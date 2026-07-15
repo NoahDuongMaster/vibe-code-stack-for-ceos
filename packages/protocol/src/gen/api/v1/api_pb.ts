@@ -10,56 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file api/v1/api.proto.
  */
 export const file_api_v1_api: GenFile = /*@__PURE__*/
-  fileDesc("ChBhcGkvdjEvYXBpLnByb3RvEgZhcGkudjEiHgoLRWNob1JlcXVlc3QSDwoHbWVzc2FnZRgBIAEoCSJPCgxFY2hvUmVzcG9uc2USDwoHbWVzc2FnZRgBIAEoCRINCgV1cHBlchgCIAEoCRIOCgZsZW5ndGgYAyABKAUSDwoHcnVudGltZRgEIAEoCSIPCg1IZWFsdGhSZXF1ZXN0IkIKDkhlYWx0aFJlc3BvbnNlEg4KBnN0YXR1cxgBIAEoCRIPCgdzZXJ2aWNlGAIgASgJEg8KB3J1bnRpbWUYAyABKAkyfAoKQXBpU2VydmljZRIzCgRFY2hvEhMuYXBpLnYxLkVjaG9SZXF1ZXN0GhQuYXBpLnYxLkVjaG9SZXNwb25zZSIAEjkKBkhlYWx0aBIVLmFwaS52MS5IZWFsdGhSZXF1ZXN0GhYuYXBpLnYxLkhlYWx0aFJlc3BvbnNlIgBiBnByb3RvMw");
-
-/**
- * @generated from message api.v1.EchoRequest
- */
-export type EchoRequest = Message<"api.v1.EchoRequest"> & {
-  /**
-   * @generated from field: string message = 1;
-   */
-  message: string;
-};
-
-/**
- * Describes the message api.v1.EchoRequest.
- * Use `create(EchoRequestSchema)` to create a new message.
- */
-export const EchoRequestSchema: GenMessage<EchoRequest> = /*@__PURE__*/
-  messageDesc(file_api_v1_api, 0);
-
-/**
- * @generated from message api.v1.EchoResponse
- */
-export type EchoResponse = Message<"api.v1.EchoResponse"> & {
-  /**
-   * @generated from field: string message = 1;
-   */
-  message: string;
-
-  /**
-   * @generated from field: string upper = 2;
-   */
-  upper: string;
-
-  /**
-   * @generated from field: int32 length = 3;
-   */
-  length: number;
-
-  /**
-   * @generated from field: string runtime = 4;
-   */
-  runtime: string;
-};
-
-/**
- * Describes the message api.v1.EchoResponse.
- * Use `create(EchoResponseSchema)` to create a new message.
- */
-export const EchoResponseSchema: GenMessage<EchoResponse> = /*@__PURE__*/
-  messageDesc(file_api_v1_api, 1);
+  fileDesc("ChBhcGkvdjEvYXBpLnByb3RvEgZhcGkudjEiDwoNSGVhbHRoUmVxdWVzdCJCCg5IZWFsdGhSZXNwb25zZRIOCgZzdGF0dXMYASABKAkSDwoHc2VydmljZRgCIAEoCRIPCgdydW50aW1lGAMgASgJMkcKCkFwaVNlcnZpY2USOQoGSGVhbHRoEhUuYXBpLnYxLkhlYWx0aFJlcXVlc3QaFi5hcGkudjEuSGVhbHRoUmVzcG9uc2UiAGIGcHJvdG8z");
 
 /**
  * @generated from message api.v1.HealthRequest
@@ -72,7 +23,7 @@ export type HealthRequest = Message<"api.v1.HealthRequest"> & {
  * Use `create(HealthRequestSchema)` to create a new message.
  */
 export const HealthRequestSchema: GenMessage<HealthRequest> = /*@__PURE__*/
-  messageDesc(file_api_v1_api, 2);
+  messageDesc(file_api_v1_api, 0);
 
 /**
  * @generated from message api.v1.HealthResponse
@@ -99,7 +50,7 @@ export type HealthResponse = Message<"api.v1.HealthResponse"> & {
  * Use `create(HealthResponseSchema)` to create a new message.
  */
 export const HealthResponseSchema: GenMessage<HealthResponse> = /*@__PURE__*/
-  messageDesc(file_api_v1_api, 3);
+  messageDesc(file_api_v1_api, 1);
 
 /**
  * The core API served identically on every runtime (Node, Cloudflare Workers).
@@ -107,14 +58,6 @@ export const HealthResponseSchema: GenMessage<HealthResponse> = /*@__PURE__*/
  * @generated from service api.v1.ApiService
  */
 export const ApiService: GenService<{
-  /**
-   * @generated from rpc api.v1.ApiService.Echo
-   */
-  echo: {
-    methodKind: "unary";
-    input: typeof EchoRequestSchema;
-    output: typeof EchoResponseSchema;
-  },
   /**
    * @generated from rpc api.v1.ApiService.Health
    */

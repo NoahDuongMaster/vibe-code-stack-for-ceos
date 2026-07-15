@@ -2,8 +2,14 @@ import { z } from 'zod';
 import { type RpcTransport, resolveRpcTransport } from '@/infra/rpc-transport';
 
 export interface TRuntimeConfig {
+  serviceName: string;
+  databaseUrl: string;
+  databasePoolMax: number;
+  databaseConnectionTimeoutMs: number;
+  databaseIdleTimeoutMs: number;
   nodeEnv: string;
   port: number;
+  grpcPort: number;
   rpcTransport: RpcTransport;
   corsOrigins: string[];
   coingeckoApiKey?: string;
@@ -31,8 +37,14 @@ const ZOptionalPositiveInteger = z.preprocess(
 );
 
 const ZRuntimeEnvironment = z.object({
+  SERVICE_NAME: z.string().trim().min(1),
+  DATABASE_URL: z.string().trim().url(),
+  DATABASE_POOL_MAX: ZOptionalPositiveInteger,
+  DATABASE_CONNECTION_TIMEOUT_MS: ZOptionalPositiveInteger,
+  DATABASE_IDLE_TIMEOUT_MS: ZOptionalPositiveInteger,
   NODE_ENV: ZOptionalString,
   PORT: ZOptionalPositiveInteger,
+  GRPC_PORT: ZOptionalPositiveInteger,
   RPC_TRANSPORT: z.preprocess(
     normalizeOptionalString,
     z.enum(['http1', 'http2']).optional(),
@@ -66,12 +78,16 @@ export const parseRuntimeConfig = (
   }
 
   return {
+    serviceName: parsed.data.SERVICE_NAME,
+    databaseUrl: parsed.data.DATABASE_URL,
+    databasePoolMax: parsed.data.DATABASE_POOL_MAX ?? 10,
+    databaseConnectionTimeoutMs:
+      parsed.data.DATABASE_CONNECTION_TIMEOUT_MS ?? 5_000,
+    databaseIdleTimeoutMs: parsed.data.DATABASE_IDLE_TIMEOUT_MS ?? 30_000,
     nodeEnv: parsed.data.NODE_ENV ?? 'development',
     port: parsed.data.PORT ?? 3001,
-    rpcTransport: resolveRpcTransport(
-      parsed.data.RPC_TRANSPORT,
-      parsed.data.NODE_ENV,
-    ),
+    grpcPort: parsed.data.GRPC_PORT ?? 50051,
+    rpcTransport: resolveRpcTransport(parsed.data.RPC_TRANSPORT),
     corsOrigins: normalizeCorsOrigins(parsed.data.CORS_ORIGINS),
     coingeckoApiKey: parsed.data.COINGECKO_API_KEY,
     sentryDsn: parsed.data.SENTRY_DSN,

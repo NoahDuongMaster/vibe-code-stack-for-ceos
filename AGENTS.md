@@ -18,7 +18,7 @@ apps + 2 backend services + 3 shared packages, deployed to Cloudflare.
 | `apps/dapp` | `@apps/dapp` | Next.js 16 App Router (vinext/Vite) | Cloudflare Workers |
 | `apps/admin` | `@apps/admin` | React 19 SPA (Rsbuild + React Router, no RSC) | Cloudflare Pages |
 | `apps/landing` | `@apps/landing` | Astro static site (zero JS by default) | Cloudflare Workers |
-| `services/trading-rpc` | `@services/trading-rpc` | Connect-RPC server on Fastify/HTTP2 (Connect + gRPC + gRPC-Web; tsup) | Docker |
+| `services/trading-rpc` | `@services/trading-rpc` | NestJS host on Fastify: Connect for edge + native Nest gRPC for Node services | Docker |
 | `services/api-gateway` | `@services/api-gateway` | Edge gateway Worker (Hono: request-id, CORS, self-hosted Durable Object rate-limit, opt-in JWT auth, upstream proxy) | Cloudflare Workers |
 | `packages/protocol` | `@packages/protocol` | Protobuf schemas, buf codegen → `src/gen/` | — |
 | `packages/api-core` | `@packages/api-core` | Shared RPC impl + CORS-aware fetch handler | — |
@@ -44,7 +44,8 @@ Everything else (naming, testing, git, security) applies repo-wide.
 | Server actions | next-safe-action **8** |
 | Tables | TanStack Table 8 |
 | HTTP | ofetch 1 (via shared `xhr`) · Connect-RPC 2 (`@connectrpc/*`) |
-| API server (Node) | Fastify 5 + `@connectrpc/connect-fastify` (HTTP/2, gRPC) · edge gateway on Hono 4 |
+| API server (Node) | NestJS 11 + Fastify 5 + ConnectRPC 2 + native Nest gRPC · edge gateway on Hono 4 |
+| Database | PostgreSQL 18 · Drizzle ORM 0.45 + Drizzle Kit 0.31 on node-postgres 8 |
 | Auth | iron-session 8 (encrypted cookies) |
 | Admin | Rsbuild 2 (Rspack) · React Router **7** |
 | Landing | Astro 7 |
@@ -193,99 +194,145 @@ has reusable user interactions or domain entities.
    Add an FSD feature only for a reusable user interaction that provides value.
 6. Run `pnpm --filter @apps/landing lint:architecture` after structural changes.
 
-### Backend architecture — Hexagonal (Ports & Adapters) + Vertical Slice
+### Backend architecture — Feature-first pragmatic Hexagonal
 
-The backend follows **Hexagonal architecture** (a.k.a. Ports & Adapters). The
-domain is an isolated core that knows nothing about transport or infrastructure;
-the outside world plugs in through adapters. This is NOT the frontend's pattern —
-it's the backend's own standard, adapted to Connect-RPC.
+The backend is a **coarse-grained modular system** organized by business
+capability. The default unit of change is a vertical slice under `features/`.
+Inside a slice, use Hexagonal architecture (Ports & Adapters) only where a real
+domain invariant or external boundary justifies it. Simple RPCs stay simple;
+complex capabilities may grow `domain/`, `application/`, `adapters/`, and
+`infra/` inside their own slice. This is NOT the frontend's FSD pattern.
 
-| Hexagon ring | This repo |
-|--------------|-----------|
-| **Contract** (ports) | `packages/protocol` — the proto service/method definitions |
-| **Shared application core** | `packages/api-core` — transport-neutral shared RPC slices |
-| **Service-local core** | `services/*/src/{domain,application}` — tactical DDD models, ports, and use cases |
-| **Driving / inbound adapters** | `services/*` — Node http (`trading-rpc`), CF edge (`api-gateway`) |
-| **Driven / outbound adapters** | `services/*/src/infra` — repositories and runtime/provider adapters behind ports |
+| Boundary | This repo |
+|----------|-----------|
+| **Published contract** | `packages/protocol` — Protobuf service/method definitions |
+| **Shared multi-runtime RPCs** | `packages/api-core` — capability slices shared by Node and Workers |
+| **Service capability** | `services/*/src/features/[capability]` — one isolated vertical slice |
+| **Driving adapters** | service-root `adapters/` — Hono, Fastify, Cloudflare bindings |
+| **Driven adapters** | feature-local `infra/` — providers, storage, VPC/DO adapters behind ports |
 
-**The Dependency Rule** — imports point inward only. Across workspaces:
-`services/* → api-core → protocol`. Inside a service: `index/config →
-adapters/infra → application → domain`; domain imports no outer layer,
-application imports no transport/runtime, and adapters depend on ports rather
-than the reverse. The monorepo boundary (`services/` → `packages/` only)
-enforces the outer half.
+**The Dependency Rule** — across workspaces: `services/* → api-core → protocol`.
+Inside a service, composition/config/root adapters consume feature Public APIs;
+inside a feature, dependencies point inward: `adapters/infra → application →
+domain`. Features NEVER import one another. Shared policy/logging primitives may
+be imported by application code but contain no feature business logic. Domain
+and application code import no Hono, Connect, Cloudflare, Fastify, Request, or
+Response runtime types.
 
-**Application core (`packages/api-core`) — vertical slices inside the hexagon:**
+**Shared application core (`packages/api-core`):**
 
 ```
 packages/api-core/src/
-  features/[domain]/          one slice per RPC domain (echo, health, …)
-    [domain].schema.ts        Zod validation at the RPC trust boundary + types
-    [domain].service.ts       use-case / business logic — transport-agnostic, pure, tested
-    [domain].handler.ts       inbound port: binds the Connect method → service
-    [domain].repository.ts     (add when persistence exists) outbound port — data access behind an interface
-    index.ts                  PUBLIC slice barrel — the ONLY import surface
-  shared/                     cross-cutting: cors, errors, config. Zero business logic.
-  runtime/                    createRoutes (composes slices) + createFetchHandler
-  index.ts                    PUBLIC package barrel — the ONLY surface adapters import
+  adapters/connect/           Connect route/fetch adapters + Connect error mapping
+  features/[capability]/      schema + pure service + thin Connect handler + index.ts
+  shared/                     transport-neutral config/CORS helpers; zero business logic
+  index.ts                    PUBLIC package barrel — the ONLY service import surface
 ```
 
-**Driving adapters (`services/*`) — three internal roles, expressed by folder.**
-`index.ts` = composition root; `adapters/` = inbound adapters; `infra/` =
-infrastructure. A very small service MAY keep a role as a single flat file, but
-grow it into the matching folder — never a flat pile of unrelated files.
+`api-core` is not a dumping ground. Add a capability there only when the same
+behavior genuinely runs in more than one runtime. Service-owned business
+capabilities stay in their owning service.
+
+**Node service (`services/trading-rpc`):**
 
 ```
-services/trading-rpc/src/               (Node driving adapter — Fastify / HTTP2)
-  index.ts                COMPOSITION ROOT — validates env, inits Sentry, builds the
-                          server, wires graceful shutdown. The ONLY place env is read.
-  adapters/http.adapter.ts INBOUND ADAPTER — Fastify (HTTP/2) hosting api-core routes via
-                          @connectrpc/connect-fastify (Connect + gRPC + gRPC-Web, streaming);
-                          CORS, rate-limit, body cap, logging are Fastify plugins.
-
-services/api-gateway/src/               (Cloudflare edge driving adapter)
-  index.ts                COMPOSITION ROOT — the only dependency-wiring surface;
-                          exports the Worker and the Durable Object class.
-  domain/                 TACTICAL DDD — policies/value objects/aggregate roots:
-    access-control/       public-route policy.
-    rate-limiting/        ClientIdentifier + RateLimitPolicy value objects,
-                          TokenBucket aggregate, repository port, domain errors.
-    routing/              typed upstream routing errors.
-  application/            INPUT/OUTPUT PORTS + USE CASES — authorize request,
-                          enforce rate limit, route RPC, consume bucket token.
-  adapters/http/          INBOUND ADAPTER — Hono composition, middleware,
-                          handlers, HTTP error mapping; zero business logic.
-  adapters/cloudflare/    Cloudflare binding types at the runtime boundary.
-  infra/                  DRIVEN ADAPTERS — Hono JWT, console logging, api-core,
-                          VPC/local RPC proxy, DO repository + RPC class.
-  config/                 validated runtime config + operational policy values.
+src/
+  index.ts                    composition root; the only env reader
+  adapters/http.adapter.ts    Nest/Fastify host + Connect plugin + gRPC listener
+  adapters/http/              Nest HTTP controllers
+  adapters/grpc/              shared native Nest gRPC controllers
+  platform/nest/              root module, interceptors, lifecycle providers
+  features/market-data/       reference capability; see features/README.md
+    domain/                   value objects, aggregate data, domain errors + ports
+    application/              input port + use case
+    adapters/connect/         Connect response/error mapping
+    adapters/grpc/            Nest controller + Zod pipe + safe RPC filter
+    infra/coingecko/          provider-specific outbound adapter
+    infra/postgres/           Drizzle schema/repository + generated migrations
+    market-data.module.ts     feature-local Nest DI wiring
+    index.ts                  PUBLIC feature API
+  config/                     validated runtime config
+  infra/                      transport selection + Protobuf asset resolution
 ```
 
-Hard rules (convention today — services lint with Biome, which lacks the FE's
-ESLint boundary rules, so these are review-enforced):
+`trading-rpc` is a Nest hybrid application with two intentional listeners.
+Cloudflare `api-gateway` calls the Connect endpoint through the private VPC
+`Fetcher` binding. Node microservices call the separate native Nest gRPC port.
+Both inbound adapters resolve the same feature input port from Nest DI; domain
+and application code remain framework-free. Raw Connect plugin requests use
+Fastify/Connect cross-cutting hooks; Nest guards, pipes, filters, and
+interceptors apply to the native gRPC and Nest HTTP controllers, not implicitly
+to Connect routes.
 
-1. **Handlers** (inbound ports) hold ZERO business logic — validate input, call
-   the service, map the result to the proto response. Only handlers import
-   Connect/proto types.
-2. **Application use cases** own orchestration, depend only on domain models and
-   ports, contain no Hono/Connect/Cloudflare imports, and are unit-tested
-   (target ≥ 80%).
-3. **Repositories** (outbound ports) isolate data access behind an interface;
-   services depend on the interface, never a concrete client. (No persistence
-   yet — the slot is defined for when it arrives.)
-4. Validate ALL external input with **Zod at the handler boundary** (`Z`-prefixed
-   schema; proto gives structural types, Zod gives semantic ones).
-5. Services throw typed domain errors. Connect handlers map them via
-   `toConnectError`; HTTP adapters map them to safe status/envelopes — never leak
-   internals to the client.
-6. One-way deps inside `api-core`: `runtime/ → features/[domain]/index.ts →
-   shared/`. One-way deps inside service-local cores: `application → domain`.
-   Domain/application MUST NOT import `adapters`, `infra`, Hono, Connect, or
-   Cloudflare runtime modules. Import api-core only via its root barrel.
-7. **Adapters (`services/*`) are THIN** — they translate a runtime (Node http /
-   CF fetch) into api-core calls and back, and MUST NOT contain business logic.
-   Env/secrets are read ONLY in the composition root. Reuse api-core's shared
-   helpers (e.g. `isOriginAllowed`) instead of re-implementing them.
+**Edge gateway (`services/api-gateway`):**
+
+```
+src/
+  index.ts                    Cloudflare composition root
+  adapters/                   generic Worker/Hono composition only
+    cloudflare/               runtime binding types
+    http/                     app, error, request-scope, runtime middleware
+  features/
+    README.md                 capability clone guide + naming contract
+    access-control/
+      application/            authorization input/output ports + use case
+      adapters/http/          capability-owned Hono middleware
+      infra/hono/             JWT verifier implementation
+      index.ts                PUBLIC feature API
+    rate-limiting/
+      domain/                 policy, identifier, token-bucket aggregate + port
+      application/            consume-token + enforce-rate-limit use cases
+      adapters/{http,cloudflare}/
+                              Hono middleware + Durable Object inbound adapter
+      infra/cloudflare/       Durable Object port/repository implementations
+      index.ts                PUBLIC feature API
+    rpc-routing/
+      domain/                 typed routing errors
+      application/            endpoint port + routing use case
+      adapters/http/          catch-all Hono handler
+      infra/{api-core,cloudflare}/
+                              local endpoint + private Trading RPC proxy
+      index.ts                PUBLIC feature API
+  shared/{access-policy,logging}/
+                              cross-feature policy and logging ports/adapters
+  config/                     validated bindings + operational options
+```
+
+Hard rules (enforced by `scripts/check-backend-architecture.mjs` through each
+workspace's `lint:architecture` command):
+
+1. Every feature exposes `features/[capability]/index.ts`; production consumers
+   outside the slice import only that Public API. Tests may import the unit under
+   test directly.
+2. Same-layer feature slices are isolated and MUST NOT import one another. Move
+   a genuinely shared primitive downward into `shared/`; otherwise compose above.
+3. **Handlers/adapters are thin** — validate external input, invoke the use case,
+   and map domain results/errors to the transport. They contain no business rules.
+4. **Application use cases** own orchestration, depend only on domain models,
+   ports, and allowed Shared primitives, and are unit-tested (target ≥ 80%).
+5. **Domain code** owns invariants and imports only its own domain. It never
+   references frameworks, generated contracts, runtime globals, or outer layers.
+6. Add ports/repositories only for real external boundaries or persistence that
+   must be substituted or isolated. Do not create controller/service/repository
+   chains, generic repositories, or interfaces for pure local helpers.
+7. Validate ALL external input with **Zod at the handler/adapter boundary**
+   (`Z`-prefixed schema; proto gives structural types, Zod gives semantic ones).
+8. Services throw typed domain errors. Connect/HTTP/gRPC adapters map them to safe
+   transport errors/envelopes and NEVER leak internal messages.
+9. Env/secrets are read only in the composition root or validated runtime-config
+   boundary. Import `@packages/api-core` only via its root barrel.
+10. After structural changes run all three relevant `lint:architecture` commands;
+    the shared checker automatically discovers every `features/*` directory.
+11. `services/trading-rpc` and `services/api-gateway` use TypeScript-only source
+    and service-local architecture scripts. All local imports use configured
+    aliases (`@/`, `@scripts/`, and the narrow `@repo/architecture-checker`
+    tooling alias); relative imports are rejected by their architecture
+    checkers.
+12. Both backend services require a validated `SERVICE_NAME` runtime value.
+    Composition roots inject it into health and telemetry adapters; production
+    code MUST NOT hardcode, derive, or silently default the logical service
+    identity. Worker resource names, package names, and runtime labels are
+    separate concerns.
 
 ### HTTP layer
 
@@ -432,7 +479,7 @@ off-format commits/branches are rejected locally.
 
 ## Deployment
 
-- `infras/docker` is the single source of truth for all Dockerfiles and Compose
+- `infra/docker` is the single source of truth for all Dockerfiles and Compose
   configuration. Workspaces MUST NOT contain their own Dockerfiles. Keep one
   Dockerfile per deployable image and environment differences in Compose
   overlays; run `make check-docker` after changes.
@@ -444,7 +491,7 @@ off-format commits/branches are rejected locally.
   blocks with distinct worker names — deploys MUST pass an explicit
   `--env staging|production`.
 - Rollback: `wrangler rollback --env production` (Workers keep prior versions).
-- `services/trading-rpc` builds a Docker image (`infras/docker/trading-rpc.Dockerfile`,
+- `services/trading-rpc` builds a Docker image (`infra/docker/trading-rpc.Dockerfile`,
   multi-stage, non-root, `/healthz` healthcheck) — hosting platform not chosen
   yet, so it is not wired into `deploy.yml`.
 - Secrets are provisioned per environment via GitHub Environment

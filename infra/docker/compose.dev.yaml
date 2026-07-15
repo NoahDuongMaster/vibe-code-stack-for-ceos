@@ -1,0 +1,67 @@
+services:
+  dapp:
+    image: vibe-workspace-dev:development
+    pull_policy: never
+    build:
+      context: ../..
+      dockerfile: infra/docker/workspace-dev.Dockerfile
+    init: true
+    restart: unless-stopped
+    working_dir: /app/apps/dapp
+    command:
+      - pnpm
+      - exec
+      - vinext
+      - dev
+      - --hostname
+      - 0.0.0.0
+      - --port
+      - '3000'
+    ports:
+      - '127.0.0.1:${DAPP_HOST_PORT:-3000}:3000'
+    env_file:
+      - ../../apps/dapp/.env.sample
+    volumes:
+      - type: bind
+        source: ../../apps/dapp/.env.sample
+        target: /app/apps/dapp/.dev.vars
+        read_only: true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  trading-rpc:
+    image: vibe-trading-rpc:development
+    build:
+      args:
+        INCLUDE_PRETTY_LOGGER: 'true'
+    ports:
+      - '127.0.0.1:${TRADING_RPC_HTTP_HOST_PORT:-3003}:3001'
+      - '127.0.0.1:${TRADING_RPC_GRPC_HOST_PORT:-50051}:50051'
+    env_file:
+      - ../../services/trading-rpc/.env.sample
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-trading_rpc}:${POSTGRES_PASSWORD:-trading_rpc_local}@postgres:5432/${POSTGRES_DB:-trading_rpc}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    environment:
+      POSTGRES_BACKUP_MODE: disabled
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trading_rpc_local}
+    ports:
+      - '127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432'
+    networks:
+      postgres-development-host:
+
+networks:
+  postgres-development-host:

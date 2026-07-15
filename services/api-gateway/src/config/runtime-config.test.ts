@@ -1,38 +1,33 @@
 import { describe, expect, it } from 'vitest';
+import type { TGatewayRuntimeBindingValues } from '@/config/runtime-config';
 import { parseGatewayRuntimeConfig } from '@/config/runtime-config';
 
 describe('[parseGatewayRuntimeConfig]', () => {
-  it('should normalize development config and expose a safe local upstream origin', () => {
+  it('should normalize development configuration', () => {
     const config = parseGatewayRuntimeConfig({
+      SERVICE_NAME: ' edge-gateway ',
       ENVIRONMENT: 'development',
       CORS_ORIGINS:
         'https://admin.example.com, https://dapp.example.com, https://admin.example.com',
-      LOCAL_TRADING_RPC_URL: 'http://127.0.0.1:3001',
     });
 
     expect(config).toEqual({
+      serviceName: 'edge-gateway',
       environment: 'development',
       corsOrigins: ['https://admin.example.com', 'https://dapp.example.com'],
       jwtSecret: undefined,
-      localTradingRpcOrigin: 'http://127.0.0.1:3001',
     });
   });
 
-  it('should ignore a local upstream outside development', () => {
-    const config = parseGatewayRuntimeConfig({
-      ENVIRONMENT: 'production',
-      LOCAL_TRADING_RPC_URL: 'ftp://127.0.0.1:3001',
-    });
-
-    expect(config.localTradingRpcOrigin).toBeUndefined();
-  });
-
-  it('should reject a development local upstream with a non-http protocol', () => {
+  it('should reject a missing service name', () => {
     expect(() =>
-      parseGatewayRuntimeConfig({
-        ENVIRONMENT: 'development',
-        LOCAL_TRADING_RPC_URL: 'ftp://127.0.0.1:3001',
-      }),
-    ).toThrow('LOCAL_TRADING_RPC_URL');
+      parseGatewayRuntimeConfig({} as TGatewayRuntimeBindingValues),
+    ).toThrow(/SERVICE_NAME/);
+  });
+
+  it('should reject a whitespace-only service name', () => {
+    expect(() => parseGatewayRuntimeConfig({ SERVICE_NAME: '   ' })).toThrow(
+      /SERVICE_NAME/,
+    );
   });
 });

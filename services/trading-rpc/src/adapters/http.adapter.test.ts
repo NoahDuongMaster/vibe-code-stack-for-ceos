@@ -1,4 +1,6 @@
 import { connect, constants } from 'node:http2';
+import { createServer as createTcpServer } from 'node:net';
+import { Writable } from 'node:stream';
 import { Code, createClient } from '@connectrpc/connect';
 import {
   createConnectTransport,
@@ -7,10 +9,30 @@ import {
 import { ApiService, TradingService } from '@packages/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createServer } from '@/adapters/http.adapter';
-import { GetCryptoMarketsUseCase } from '@/features/get-crypto-markets/application/get-crypto-markets.use-case';
-import { CoinId } from '@/features/get-crypto-markets/domain/coin-id';
-import { MarketDataUnavailableError } from '@/features/get-crypto-markets/domain/errors';
-import { MarketSnapshot } from '@/features/get-crypto-markets/domain/market-snapshot';
+import { CoinId } from '@/features/market-data/domain/coin-id';
+import { MarketDataUnavailableError } from '@/features/market-data/domain/errors';
+import { MarketSnapshot } from '@/features/market-data/domain/market-snapshot';
+
+interface TLogEvent {
+  [key: string]: unknown;
+  msg?: string;
+}
+
+function captureJsonLogs(): {
+  events: TLogEvent[];
+  stream: Writable;
+} {
+  const events: TLogEvent[] = [];
+  const stream = new Writable({
+    write(chunk, _encoding, callback) {
+      for (const line of String(chunk).trim().split('\n')) {
+        if (line) events.push(JSON.parse(line) as TLogEvent);
+      }
+      callback();
+    },
+  });
+  return { events, stream };
+}
 
 /** Minimal h2c (cleartext HTTP/2) client for the non-RPC HTTP checks. */
 function h2(
@@ -52,7 +74,22 @@ function h2(
   });
 }
 
-describe('createServer (Fastify / HTTP2)', () => {
+async function reservePort(): Promise<number> {
+  const socket = createTcpServer();
+  await new Promise<void>((resolve, reject) => {
+    socket.once('error', reject);
+    socket.listen(0, '127.0.0.1', resolve);
+  });
+  const address = socket.address();
+  const port = typeof address === 'object' && address ? address.port : 0;
+  await new Promise<void>((resolve, reject) => {
+    socket.close((error) => (error ? reject(error) : resolve()));
+  });
+  return port;
+}
+
+describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
+  const serviceName = 'trading-rpc-test';
   let app: Awaited<ReturnType<typeof createServer>> | undefined;
   let baseUrl = '';
   const marketDataProvider = {
@@ -65,24 +102,39 @@ describe('createServer (Fastify / HTTP2)', () => {
       }),
     ]),
   };
-  const getCryptoMarkets = new GetCryptoMarketsUseCase(marketDataProvider);
-
+  const marketSnapshotRepository = {
+    onApplicationBootstrap: vi.fn(async () => undefined),
+    onApplicationShutdown: vi.fn(async () => undefined),
+    saveLatest: vi.fn(async () => undefined),
+  };
   async function start(
-    options?: Omit<Parameters<typeof createServer>[0], 'getCryptoMarkets'>,
+    options?: Omit<
+      Parameters<typeof createServer>[0],
+      'marketDataProvider' | 'marketSnapshotRepository' | 'serviceName'
+    >,
   ) {
     app = await createServer({
-      getCryptoMarkets,
+      serviceName,
+      marketDataProvider,
+      marketSnapshotRepository,
       logger: false,
+      enableGrpc: options?.grpcUrl !== undefined,
+      enableShutdownHooks: false,
       ...options,
     });
-    await app.listen({ port: 0, host: '127.0.0.1' });
-    const address = app.server.address();
+    await app.init();
+    await app.startAllMicroservices();
+    await app.listen(0, '127.0.0.1');
+    const address = app.getHttpServer().address();
     const port = typeof address === 'object' && address ? address.port : 0;
     baseUrl = `http://127.0.0.1:${port}`;
   }
 
-  function grpcClient() {
-    return createClient(ApiService, createGrpcTransport({ baseUrl }));
+  function grpcClient(rpcBaseUrl = baseUrl) {
+    return createClient(
+      ApiService,
+      createGrpcTransport({ baseUrl: rpcBaseUrl }),
+    );
   }
 
   function tradingClient() {
@@ -90,6 +142,17 @@ describe('createServer (Fastify / HTTP2)', () => {
       TradingService,
       createConnectTransport({ baseUrl, httpVersion: '1.1' }),
     );
+  }
+
+  function tradingJson(input: Record<string, unknown>): Promise<Response> {
+    return fetch(`${baseUrl}/trading.v1.TradingService/GetMarkets`, {
+      method: 'POST',
+      headers: {
+        'Connect-Protocol-Version': '1',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
   }
 
   afterEach(async () => {
@@ -104,36 +167,103 @@ describe('createServer (Fastify / HTTP2)', () => {
         currentPrice: 70_000,
       }),
     ]);
+    marketSnapshotRepository.saveLatest.mockReset();
+    marketSnapshotRepository.saveLatest.mockResolvedValue(undefined);
+    marketSnapshotRepository.onApplicationBootstrap.mockReset();
+    marketSnapshotRepository.onApplicationBootstrap.mockResolvedValue(
+      undefined,
+    );
+    marketSnapshotRepository.onApplicationShutdown.mockReset();
+    marketSnapshotRepository.onApplicationShutdown.mockResolvedValue(undefined);
   });
 
-  it('should serve a valid Echo request over native gRPC', async () => {
-    await start();
-    const res = await grpcClient().echo({ message: 'node' });
+  it('should host Fastify through a Nest application', async () => {
+    await start({ http2: false });
 
-    expect(res.upper).toBe('NODE');
-    expect(res.length).toBe(4);
-    expect(res.runtime).toBe('node');
+    expect(
+      typeof (app as unknown as { getHttpAdapter?: unknown }).getHttpAdapter,
+    ).toBe('function');
+  });
+
+  it('should run the persistence adapter through Nest bootstrap lifecycle', async () => {
+    await start({ http2: false });
+
+    expect(
+      marketSnapshotRepository.onApplicationBootstrap,
+    ).toHaveBeenCalledOnce();
   });
 
   it('should serve Health over native gRPC', async () => {
-    await start();
-    const res = await grpcClient().health({});
+    const grpcPort = await reservePort();
+    const grpcBaseUrl = `http://127.0.0.1:${grpcPort}`;
+    await start({ http2: false, grpcUrl: `127.0.0.1:${grpcPort}` });
+    const res = await grpcClient(grpcBaseUrl).health({});
 
     expect(res.status).toBe('ok');
-    expect(res.service).toBe('api-node');
+    expect(res.service).toBe(serviceName);
     expect(res.runtime).toBe('node');
   });
 
-  it('should serve a Connect Echo request over HTTP/1.1 when HTTP/2 is disabled', async () => {
+  it('should serve the configured service name over Connect', async () => {
     await start({ http2: false });
     const client = createClient(
       ApiService,
       createConnectTransport({ baseUrl, httpVersion: '1.1' }),
     );
 
-    await expect(client.echo({ message: 'local' })).resolves.toMatchObject({
-      upper: 'LOCAL',
+    await expect(client.health({})).resolves.toMatchObject({
+      service: serviceName,
       runtime: 'node',
+    });
+  });
+
+  it('should enrich completed Connect access logs without logging payloads', async () => {
+    const logs = captureJsonLogs();
+    await start({ http2: false, logger: { stream: logs.stream } });
+
+    const response = await fetch(`${baseUrl}/api.v1.ApiService/Health`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-request-id': 'gateway-request-123',
+      },
+      body: '{}',
+    });
+
+    expect(response.status).toBe(200);
+    const completed = logs.events.find(
+      (event) => event.msg === 'request completed',
+    );
+    expect(completed).toMatchObject({
+      reqId: 'gateway-request-123',
+      serviceName,
+      runtime: 'node',
+      protocol: 'connect',
+      rpcService: 'api.v1.ApiService',
+      rpcMethod: 'Health',
+      res: { statusCode: 200 },
+    });
+    expect(completed).not.toHaveProperty('body');
+    expect(completed).not.toHaveProperty('responseBody');
+  });
+
+  it('should identify plain HTTP operations in completed access logs', async () => {
+    const logs = captureJsonLogs();
+    await start({ http2: false, logger: { stream: logs.stream } });
+
+    const response = await fetch(`${baseUrl}/healthz`);
+
+    expect(response.status).toBe(200);
+    const completed = logs.events.find(
+      (event) => event.msg === 'request completed',
+    );
+    expect(completed).toMatchObject({
+      serviceName,
+      runtime: 'node',
+      protocol: 'http',
+      httpMethod: 'GET',
+      httpPath: '/healthz',
+      res: { statusCode: 200 },
     });
   });
 
@@ -149,6 +279,113 @@ describe('createServer (Fastify / HTTP2)', () => {
       markets: [{ id: 'bitcoin', currentPrice: 70_000 }],
       vsCurrency: 'usd',
     });
+    expect(marketSnapshotRepository.saveLatest).toHaveBeenCalledOnce();
+  });
+
+  it('should expose lowerCamelCase as the canonical Connect JSON contract', async () => {
+    await start({ http2: false });
+
+    const response = await tradingJson({
+      coinIds: ['bitcoin'],
+      vsCurrency: 'usd',
+    });
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      markets: [{ id: 'bitcoin', currentPrice: 70_000 }],
+      vsCurrency: 'usd',
+    });
+    expect(body).not.toHaveProperty('vs_currency');
+    expect(body.markets).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ current_price: 70_000 }),
+      ]),
+    );
+  });
+
+  it('should accept original proto snake_case names for ProtoJSON compatibility', async () => {
+    await start({ http2: false });
+
+    const response = await tradingJson({
+      coin_ids: ['bitcoin'],
+      vs_currency: 'usd',
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      markets: [{ id: 'bitcoin', currentPrice: 70_000 }],
+      vsCurrency: 'usd',
+    });
+  });
+
+  it('should return the standard Connect error object without a success envelope', async () => {
+    await start({ http2: false });
+
+    const response = await tradingJson({ coinIds: [], vsCurrency: 'usd' });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      code: 'invalid_argument',
+      message: 'Invalid market request',
+    });
+  });
+
+  it('should expose TradingService through the native Nest gRPC listener', async () => {
+    const grpcPort = await reservePort();
+    await start({
+      http2: false,
+      grpcUrl: `127.0.0.1:${grpcPort}`,
+    });
+    const client = createClient(
+      TradingService,
+      createGrpcTransport({ baseUrl: `http://127.0.0.1:${grpcPort}` }),
+    );
+
+    await expect(
+      client.getMarkets({ coinIds: ['bitcoin'], vsCurrency: 'usd' }),
+    ).resolves.toMatchObject({
+      markets: [{ id: 'bitcoin', currentPrice: 70_000 }],
+      vsCurrency: 'usd',
+    });
+  });
+
+  it('should reject invalid market input through the Nest gRPC pipe', async () => {
+    const grpcPort = await reservePort();
+    await start({
+      http2: false,
+      grpcUrl: `127.0.0.1:${grpcPort}`,
+    });
+    const client = createClient(
+      TradingService,
+      createGrpcTransport({ baseUrl: `http://127.0.0.1:${grpcPort}` }),
+    );
+
+    await expect(
+      client.getMarkets({ coinIds: [], vsCurrency: 'usd' }),
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument,
+      rawMessage: 'Invalid market request',
+    });
+  });
+
+  it('should map provider failures through the Nest gRPC exception filter', async () => {
+    marketDataProvider.getMarkets.mockRejectedValueOnce(
+      new MarketDataUnavailableError(),
+    );
+    const grpcPort = await reservePort();
+    await start({
+      http2: false,
+      grpcUrl: `127.0.0.1:${grpcPort}`,
+    });
+    const client = createClient(
+      TradingService,
+      createGrpcTransport({ baseUrl: `http://127.0.0.1:${grpcPort}` }),
+    );
+
+    await expect(
+      client.getMarkets({ coinIds: ['bitcoin'], vsCurrency: 'usd' }),
+    ).rejects.toMatchObject({ code: Code.Unavailable });
   });
 
   it('should reject a market request without coin IDs', async () => {
@@ -183,20 +420,28 @@ describe('createServer (Fastify / HTTP2)', () => {
 
   it('should reject an oversized message (readMaxBytes)', async () => {
     await start({ maxBodyBytes: 32 });
+    const client = createClient(
+      TradingService,
+      createGrpcTransport({ baseUrl }),
+    );
 
     await expect(
-      grpcClient().echo({ message: 'x'.repeat(1024) }),
+      client.getMarkets({ coinIds: ['x'.repeat(1024)], vsCurrency: 'usd' }),
     ).rejects.toThrow();
   });
 
   it('should rate-limit a client once it exceeds the configured max', async () => {
     await start({ rateLimit: 2, rateLimitWindowMs: 60_000 });
-    const client = grpcClient();
+    const client = createClient(
+      TradingService,
+      createGrpcTransport({ baseUrl }),
+    );
+    const request = { coinIds: ['bitcoin'], vsCurrency: 'usd' };
 
-    await client.echo({ message: 'a' });
-    await client.echo({ message: 'b' });
+    await client.getMarkets(request);
+    await client.getMarkets(request);
 
-    await expect(client.echo({ message: 'c' })).rejects.toThrow();
+    await expect(client.getMarkets(request)).rejects.toThrow();
   });
 
   it('should never rate-limit /healthz', async () => {
@@ -212,7 +457,7 @@ describe('createServer (Fastify / HTTP2)', () => {
     await start({ corsOrigins: ['https://admin.example.com'] });
 
     const res = await h2(baseUrl, {
-      path: '/api.v1.ApiService/Echo',
+      path: '/api.v1.ApiService/Health',
       method: 'OPTIONS',
       headers: {
         origin: 'https://admin.example.com',
@@ -229,7 +474,7 @@ describe('createServer (Fastify / HTTP2)', () => {
     await start({ corsOrigins: ['https://admin.example.com'] });
 
     const res = await h2(baseUrl, {
-      path: '/api.v1.ApiService/Echo',
+      path: '/api.v1.ApiService/Health',
       method: 'OPTIONS',
       headers: {
         origin: 'https://evil.example.com',

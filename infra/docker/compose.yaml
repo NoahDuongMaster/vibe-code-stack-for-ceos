@@ -1,0 +1,309 @@
+name: vibe-code-stack
+
+x-workspace-dev: &workspace-dev
+  image: vibe-workspace-dev:development
+  pull_policy: never
+  init: true
+  restart: unless-stopped
+
+services:
+  dapp:
+    build:
+      context: ../..
+      dockerfile: infra/docker/dapp.Dockerfile
+
+  admin:
+    <<: *workspace-dev
+    profiles: [dev]
+    working_dir: /app/apps/admin
+    command:
+      - pnpm
+      - exec
+      - rsbuild
+      - dev
+      - --host
+      - 0.0.0.0
+      - --port
+      - '3002'
+      - --strict-port
+    ports:
+      - '127.0.0.1:${ADMIN_HOST_PORT:-3002}:3002'
+    env_file:
+      - ../../apps/admin/.env.sample
+    environment:
+      PUBLIC_API_URL: http://localhost:${API_GATEWAY_HOST_PORT:-8787}
+      PUBLIC_ENABLE_MOCK_AUTH: 'true'
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3002').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  landing:
+    <<: *workspace-dev
+    profiles: [dev]
+    working_dir: /app/apps/landing
+    command:
+      - pnpm
+      - exec
+      - astro
+      - dev
+      - --host
+      - 0.0.0.0
+      - --port
+      - '4321'
+    ports:
+      - '127.0.0.1:${LANDING_HOST_PORT:-4321}:4321'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:4321').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  api-gateway:
+    <<: *workspace-dev
+    profiles: [dev]
+    working_dir: /app/services/api-gateway
+    command:
+      - sh
+      - -ec
+      - |
+        export CLOUDFLARE_API_TOKEN="$$(cat /run/secrets/cloudflare-api-token)"
+        exec pnpm exec vite --host 0.0.0.0 --port 8787 --strictPort
+    environment:
+      CLOUDFLARE_ENV: development
+    ports:
+      - '127.0.0.1:${API_GATEWAY_HOST_PORT:-8787}:8787'
+    depends_on:
+      cloudflared:
+        condition: service_healthy
+    secrets:
+      - cloudflare-api-token
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8787/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  postgres:
+    profiles: [dev, vpc, backup]
+    image: vibe-postgres:${POSTGRES_IMAGE_TAG:-development}
+    build:
+      context: ../..
+      dockerfile: infra/docker/postgres.Dockerfile
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-trading_rpc}
+      POSTGRES_USER: ${POSTGRES_USER:-trading_rpc}
+      POSTGRES_BACKUP_MODE: disabled
+    expose:
+      - '5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - postgres-socket:/var/run/postgresql
+      - pgbackrest-spool:/var/spool/pgbackrest
+    networks:
+      - trading-rpc-data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    shm_size: 128mb
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  postgres-backup:
+    profiles: [backup]
+    image: vibe-postgres:${POSTGRES_IMAGE_TAG:-development}
+    entrypoint:
+      - /usr/local/bin/postgres-backup/backup-root-entrypoint.sh
+    command:
+      - /usr/local/bin/postgres-backup/backup-entrypoint.sh
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-trading_rpc}
+      POSTGRES_USER: ${POSTGRES_USER:-trading_rpc}
+      POSTGRES_REPLICATION_ROLE: ${POSTGRES_REPLICATION_ROLE:-postgres_backup}
+      POSTGRES_BACKUP_MODE: disabled
+      POSTGRES_BACKUP_CRON_INCREMENTAL: ${POSTGRES_BACKUP_CRON_INCREMENTAL:-5 * * * *}
+      POSTGRES_BACKUP_CRON_DIFFERENTIAL: ${POSTGRES_BACKUP_CRON_DIFFERENTIAL:-0 2 * * 1-6}
+      POSTGRES_BACKUP_CRON_FULL: ${POSTGRES_BACKUP_CRON_FULL:-0 2 * * 0}
+      POSTGRES_BACKUP_CRON_CHECK: ${POSTGRES_BACKUP_CRON_CHECK:-15 */6 * * *}
+      POSTGRES_BACKUP_CRON_VERIFY: ${POSTGRES_BACKUP_CRON_VERIFY:-30 3 * * 0}
+      POSTGRES_BACKUP_CRON_MONTHLY: ${POSTGRES_BACKUP_CRON_MONTHLY:-0 4 1 * *}
+      POSTGRES_BACKUP_CRON_PITR_DRILL: ${POSTGRES_BACKUP_CRON_PITR_DRILL:-0 6 * * 0}
+      POSTGRES_BACKUP_CRON_MONTHLY_DRILL: ${POSTGRES_BACKUP_CRON_MONTHLY_DRILL:-30 6 2 * *}
+      POSTGRES_BACKUP_SERVICE_NAME: ${POSTGRES_BACKUP_SERVICE_NAME:-trading-rpc}
+      POSTGRES_RESTORE_ROOT: /var/lib/postgres-backup/restores
+      POSTGRES_RESTORE_ORPHAN_MIN_AGE_SECONDS: ${POSTGRES_RESTORE_ORPHAN_MIN_AGE_SECONDS:-0}
+      POSTGRES_MONTHLY_MIN_FREE_BYTES: ${POSTGRES_MONTHLY_MIN_FREE_BYTES:-10737418240}
+      POSTGRES_ARCHIVE_AGE_RECIPIENT: ${POSTGRES_ARCHIVE_AGE_RECIPIENT:-}
+      POSTGRES_BACKUP_RECOVERY_SECRET_ID: ${POSTGRES_BACKUP_RECOVERY_SECRET_ID:-}
+      POSTGRES_BACKUP_KMS_KEY_ID: ${POSTGRES_BACKUP_KMS_KEY_ID:-}
+      POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS: ${POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS:-}
+      AWS_REGION: ${AWS_REGION:-}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_PITR_BUCKET: ${R2_PITR_BUCKET:-}
+      R2_ARCHIVE_BUCKET: ${R2_ARCHIVE_BUCKET:-}
+      R2_PITR_ACCESS_KEY_ID_SOURCE_FILE: /run/secrets/r2-pitr-access-key-id
+      R2_PITR_SECRET_ACCESS_KEY_SOURCE_FILE: /run/secrets/r2-pitr-secret-access-key
+      R2_ARCHIVE_ACCESS_KEY_ID_SOURCE_FILE: /run/secrets/r2-archive-access-key-id
+      R2_ARCHIVE_SECRET_ACCESS_KEY_SOURCE_FILE: /run/secrets/r2-archive-secret-access-key
+      PGBACKREST_CIPHER_PASSPHRASE_SOURCE_FILE: /run/secrets/pgbackrest-cipher-passphrase
+      POSTGRES_REPLICATION_PASSWORD_SOURCE_FILE: /run/secrets/postgres-replication-password
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - postgres-data:/var/lib/postgresql:ro
+      - postgres-socket:/var/run/postgresql
+      - pgbackrest-spool:/var/spool/pgbackrest
+      - postgres-backup-state:/var/lib/postgres-backup/state
+      - postgres-backup-stage:/var/lib/postgres-backup/stage
+      - postgres-restore-stage:/var/lib/postgres-backup/restores
+    networks:
+      - trading-rpc-data
+      - postgres-backup-egress
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - /usr/local/bin/gosu
+        - postgres
+        - /usr/local/bin/postgres-backup/backup-health.sh
+      interval: 60s
+      timeout: 15s
+      retries: 2
+      start_period: 10m
+    restart: unless-stopped
+
+  trading-rpc:
+    profiles: [vpc]
+    build:
+      context: ../..
+      dockerfile: infra/docker/trading-rpc.Dockerfile
+    expose:
+      - '3001'
+      - '50051'
+    init: true
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      trading-rpc-egress:
+      trading-rpc-private:
+        aliases:
+          - ${TRADING_RPC_PRIVATE_HOSTNAME:-trading-rpc.internal}
+      trading-rpc-data:
+
+  cloudflared:
+    profiles: [vpc]
+    image: cloudflare/cloudflared:latest
+    pull_policy: always
+    command:
+      - tunnel
+      - --protocol
+      - quic
+      - --metrics
+      - 0.0.0.0:2000
+      - run
+      - --token-file
+      - /run/secrets/cloudflare-tunnel-token
+    depends_on:
+      trading-rpc:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - cloudflared
+        - tunnel
+        - --metrics
+        - 127.0.0.1:2000
+        - ready
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    read_only: true
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    secrets:
+      - cloudflare-tunnel-token
+    networks:
+      - cloudflare-egress
+      - trading-rpc-private
+
+networks:
+  cloudflare-egress:
+  trading-rpc-egress:
+  trading-rpc-private:
+    internal: true
+  trading-rpc-data:
+    internal: true
+  postgres-backup-egress:
+
+volumes:
+  postgres-data:
+  postgres-socket:
+  pgbackrest-spool:
+  postgres-backup-state:
+  postgres-backup-stage:
+  postgres-restore-stage:
+
+secrets:
+  cloudflare-api-token:
+    file: ${CLOUDFLARE_API_TOKEN_FILE:-./secrets/cloudflare-api-token}
+  cloudflare-tunnel-token:
+    file: ${CLOUDFLARE_TUNNEL_TOKEN_FILE:-./secrets/cloudflare-tunnel-token}
+  postgres-password:
+    file: ${POSTGRES_BACKUP_SECRET_DIR:-/run/vibe-code-stack/secrets}/current/postgres-password
+  postgres-replication-password:
+    file: ${POSTGRES_BACKUP_SECRET_DIR:-/run/vibe-code-stack/secrets}/current/postgres-replication-password
+  r2-pitr-access-key-id:
+    file: ${POSTGRES_BACKUP_SECRET_DIR:-/run/vibe-code-stack/secrets}/current/r2-pitr-access-key-id
+  r2-pitr-secret-access-key:
+    file: ${POSTGRES_BACKUP_SECRET_DIR:-/run/vibe-code-stack/secrets}/current/r2-pitr-secret-access-key
+  r2-archive-access-key-id:
+    file: ${POSTGRES_BACKUP_SECRET_DIR:-/run/vibe-code-stack/secrets}/current/r2-archive-access-key-id
+  r2-archive-secret-access-key:
+    file: ${POSTGRES_BACKUP_SECRET_DIR:-/run/vibe-code-stack/secrets}/current/r2-archive-secret-access-key
+  pgbackrest-cipher-passphrase:
+    file: ${POSTGRES_BACKUP_SECRET_DIR:-/run/vibe-code-stack/secrets}/current/pgbackrest-cipher-passphrase
+  trading-rpc-database-url:
+    file: ${POSTGRES_BACKUP_SECRET_DIR:-/run/vibe-code-stack/secrets}/current/trading-rpc-database-url

@@ -2,8 +2,8 @@ import type { TUser, TUserDraft } from '../model/user.schema';
 
 /**
  * ── In-memory data source (the integration seam) ─────────────────────────────
- * The proto (@packages/protocol) currently exposes only Echo + Health, so this
- * API module simulates a Users backend. When a UserService is added to the proto,
+ * The proto (@packages/protocol) does not expose a UserService yet, so this API
+ * module simulates a Users backend. When UserService is added to the proto,
  * swap these two functions for Connect RPC calls via `@packages/api-client` — the
  * model and UI consumers stay untouched. That is the point of isolating I/O in
  * the slice's API segment.

@@ -1,10 +1,13 @@
+import { readFileSync } from 'node:fs';
 import * as Sentry from '@sentry/node';
 import { createServer } from '@/adapters/http.adapter';
 import { parseRuntimeConfig } from '@/config/runtime-config';
+import { resolveRuntimeEnvironment } from '@/config/runtime-environment';
 import {
   createCoinGeckoMarketDataProvider,
-  GetCryptoMarketsUseCase,
-} from './features/get-crypto-markets/index.js';
+  createDrizzleMarketSnapshotRepository,
+} from '@/features/market-data';
+import { resolveFastifyLoggerOptions } from '@/platform/fastify/logger-options';
 
 /**
  * TIER 2 — Node.js driving adapter (heavy / stateful services).
@@ -21,33 +24,29 @@ let server: Awaited<ReturnType<typeof createServer>> | undefined;
 let shuttingDown = false;
 
 function reportError(error: unknown, message: string): void {
-  server?.log.error({ err: error }, message);
+  server?.getHttpAdapter().getInstance().log.error({ err: error }, message);
   Sentry.captureException(error);
 }
 
 async function gracefulShutdown(exitCode: number) {
   if (shuttingDown) return;
   shuttingDown = true;
-  server?.log.info('Shutting down gracefully');
+  server?.getHttpAdapter().getInstance().log.info('Shutting down gracefully');
   const forced = setTimeout(() => {
-    server?.log.fatal({ exitCode }, 'Forced shutdown after timeout');
+    server
+      ?.getHttpAdapter()
+      .getInstance()
+      .log.fatal({ exitCode }, 'Forced shutdown after timeout');
     process.exit(exitCode || 1);
   }, SHUTDOWN_TIMEOUT_MS).unref();
   try {
     await server?.close();
-    server?.log.info('Server closed');
   } finally {
     clearTimeout(forced);
-    try {
-      await Sentry.close(2_000);
-    } finally {
-      process.exit(exitCode);
-    }
+    if (!server) await Sentry.close(2_000);
+    process.exit(exitCode);
   }
 }
-
-process.on('SIGTERM', () => void gracefulShutdown(0));
-process.on('SIGINT', () => void gracefulShutdown(0));
 
 process.on('unhandledRejection', (reason) => {
   reportError(reason, 'Unhandled promise rejection');
@@ -62,34 +61,59 @@ process.on('uncaughtException', (err) => {
 async function main() {
   // The composition root is the sole reader of process.env. Every value is
   // validated before it is passed into infrastructure or application wiring.
-  const config = parseRuntimeConfig(process.env);
+  const config = parseRuntimeConfig(
+    resolveRuntimeEnvironment(process.env, (path) =>
+      readFileSync(path, 'utf8'),
+    ),
+  );
   if (config.sentryDsn) {
     Sentry.init({
       dsn: config.sentryDsn,
       environment: config.nodeEnv,
       tracesSampleRate: 0.1,
     });
+    Sentry.setTag('service', config.serviceName);
   }
 
   server = await createServer({
-    getCryptoMarkets: new GetCryptoMarketsUseCase(
-      createCoinGeckoMarketDataProvider({
-        apiKey: config.coingeckoApiKey,
-      }),
-    ),
+    serviceName: config.serviceName,
+    marketDataProvider: createCoinGeckoMarketDataProvider({
+      apiKey: config.coingeckoApiKey,
+    }),
+    marketSnapshotRepository: createDrizzleMarketSnapshotRepository({
+      connectionString: config.databaseUrl,
+      maxConnections: config.databasePoolMax,
+      connectionTimeoutMs: config.databaseConnectionTimeoutMs,
+      idleTimeoutMs: config.databaseIdleTimeoutMs,
+    }),
     corsOrigins: config.corsOrigins,
+    grpcUrl: `0.0.0.0:${config.grpcPort}`,
     http2: config.rpcTransport === 'http2',
+    logger: resolveFastifyLoggerOptions(config.nodeEnv),
     maxBodyBytes: config.maxBodyBytes,
     requestTimeoutMs: config.requestTimeoutMs,
     rateLimit: config.rateLimit,
     rateLimitWindowMs: config.rateLimitWindowMs,
   });
 
-  const address = await server.listen({ port: config.port, host: '0.0.0.0' });
-  server.log.info(
-    { address, rpcTransport: config.rpcTransport },
-    'Connect RPC server is listening',
-  );
+  // Run Nest bootstrap hooks (including PostgreSQL migration/readiness) before
+  // exposing either RPC listener.
+  await server.init();
+  await server.startAllMicroservices();
+  await server.listen(config.port, '0.0.0.0');
+  const address = await server.getUrl();
+  server
+    .getHttpAdapter()
+    .getInstance()
+    .log.info(
+      {
+        serviceName: config.serviceName,
+        connectAddress: address,
+        grpcAddress: `0.0.0.0:${config.grpcPort}`,
+        rpcTransport: config.rpcTransport,
+      },
+      'Nest trading RPC service is listening',
+    );
 }
 
 main().catch((err) => {

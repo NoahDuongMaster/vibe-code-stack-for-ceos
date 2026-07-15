@@ -1,0 +1,89 @@
+services:
+  dapp:
+    image: vibe-dapp:production
+    build:
+      args:
+        # NEXT_PUBLIC_* values are inlined at build time. Override every
+        # placeholder through the shell/environment used to build this image.
+        NEXT_PUBLIC_PROJECT_NAME: ${NEXT_PUBLIC_PROJECT_NAME:-vibe-code-stack-for-ceos}
+        NEXT_PUBLIC_API_ENDPOINT: ${NEXT_PUBLIC_API_ENDPOINT:-https://api.example.com}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-https://app.example.com}
+        NEXT_PUBLIC_CORS_COOKIE: ${NEXT_PUBLIC_CORS_COOKIE:-example.com}
+    ports:
+      - '80:3000'
+    # Required runtime secrets live in this git-ignored file. Compose refuses
+    # to start if it is missing.
+    env_file:
+      - ../../apps/dapp/.env.production.local
+
+  trading-rpc:
+    image: vibe-trading-rpc:production
+    env_file:
+      - ../../services/trading-rpc/.env.production.local
+    environment:
+      DATABASE_URL: ''
+      DATABASE_URL_FILE: /run/trading-rpc/secrets/database-url
+      TRADING_RPC_DATABASE_URL_SOURCE_FILE: /run/secrets/trading-rpc-database-url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    secrets:
+      - trading-rpc-database-url
+    tmpfs:
+      - /run/trading-rpc:mode=0700
+
+  postgres:
+    image: vibe-postgres:production
+    environment:
+      POSTGRES_BACKUP_MODE: enabled
+      POSTGRES_BACKUP_REPOSITORY_TYPE: r2
+      PGBACKREST_CONFIG: /run/postgres-backup/pgbackrest.conf
+      POSTGRES_INITDB_ARGS: --data-checksums
+      POSTGRES_PASSWORD_SOURCE_FILE: /run/secrets/postgres-password
+      POSTGRES_PASSWORD_FILE: /run/postgres-backup/secrets/postgres-password
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_PITR_BUCKET: ${R2_PITR_BUCKET:-}
+      R2_PITR_ACCESS_KEY_ID_FILE: /run/secrets/r2-pitr-access-key-id
+      R2_PITR_SECRET_ACCESS_KEY_FILE: /run/secrets/r2-pitr-secret-access-key
+      PGBACKREST_CIPHER_PASSPHRASE_FILE: /run/secrets/pgbackrest-cipher-passphrase
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_timeout=240s
+      - -c
+      - archive_command=pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc archive-push %p
+    secrets:
+      - postgres-password
+      - r2-pitr-access-key-id
+      - r2-pitr-secret-access-key
+      - pgbackrest-cipher-passphrase
+    networks:
+      postgres-backup-egress:
+    tmpfs:
+      - /run/postgres-backup:mode=0700,uid=70,gid=70
+
+  postgres-backup:
+    image: vibe-postgres:production
+    environment:
+      POSTGRES_BACKUP_MODE: enabled
+      POSTGRES_BACKUP_REPOSITORY_TYPE: r2
+      POSTGRES_BACKUP_ENVIRONMENT: production
+      POSTGRES_BACKUP_SERVICE_NAME: ${POSTGRES_BACKUP_SERVICE_NAME:?Set POSTGRES_BACKUP_SERVICE_NAME}
+      POSTGRES_ARCHIVE_AGE_RECIPIENT: ${POSTGRES_ARCHIVE_AGE_RECIPIENT:?Set POSTGRES_ARCHIVE_AGE_RECIPIENT}
+      POSTGRES_BACKUP_RECOVERY_SECRET_ID: ${POSTGRES_BACKUP_RECOVERY_SECRET_ID:?Set POSTGRES_BACKUP_RECOVERY_SECRET_ID}
+      POSTGRES_BACKUP_KMS_KEY_ID: ${POSTGRES_BACKUP_KMS_KEY_ID:?Set POSTGRES_BACKUP_KMS_KEY_ID}
+      POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS: ${POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS:?Set POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS}
+      AWS_REGION: ${AWS_REGION:?Set AWS_REGION}
+    secrets:
+      - postgres-replication-password
+      - r2-pitr-access-key-id
+      - r2-pitr-secret-access-key
+      - r2-archive-access-key-id
+      - r2-archive-secret-access-key
+      - pgbackrest-cipher-passphrase
+    tmpfs:
+      - /run/postgres-backup:mode=0700,uid=70,gid=70
+      - /run/postgres-backup-secrets:mode=0700
+      - /run/postgres-backup-cron:mode=0700

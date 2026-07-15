@@ -189,7 +189,7 @@ apps/dapp/
 | 🛍️  | `apps/dapp`            | Next.js 16 App Router on vinext (Vite)                                          | Cloudflare Workers |
 | 🛠️  | `apps/admin`           | React 19 SPA — Rsbuild, route-split, code-split                                 | Cloudflare Pages   |
 | 🪧  | `apps/landing`         | Astro — ships **literally zero JS**                                             | Cloudflare Workers |
-| ⚙️  | `services/trading-rpc` | Connect-RPC Node server — tsup build, container image, graceful shutdown, `/healthz` | Docker             |
+| ⚙️  | `services/trading-rpc` | Nest/Fastify hybrid — Connect + gRPC, PostgreSQL 18, `/healthz`                  | Docker             |
 | 🌐  | `services/api-gateway` | Edge gateway Worker — CORS allowlist, upstream proxy                            | Cloudflare Workers |
 | 📜  | `packages/protocol`    | Protobuf schemas, buf lint + breaking-change gate in CI                         | —                  |
 | 🧠  | `packages/api-core`    | One RPC implementation, two runtimes (Node + edge)                              | —                  |
@@ -242,8 +242,9 @@ This isn't linting — it's structural understanding of your codebase.
 <tr><td><b>Monitoring</b></td><td>Sentry — client/server/edge on dapp, DSN-gated on every app + trading-rpc</td></tr>
 <tr><td><b>Monorepo</b></td><td>Turborepo + pnpm workspaces (strict env allowlists, cached gates)</td></tr>
 <tr><td><b>Backend API</b></td><td>Connect RPC (Protobuf/buf) — one core, two runtimes (Workers + Node)</td></tr>
+<tr><td><b>Database</b></td><td>PostgreSQL 18 + Drizzle ORM/Kit over a bounded node-postgres pool</td></tr>
 <tr><td><b>CI/CD</b></td><td>GitHub Actions — Five Gates + CodeQL + Playwright + Dependabot + release-please + CI-gated deploys</td></tr>
-<tr><td><b>Containers</b></td><td>Docker definitions centralized in <code>infras/docker</code> (multi-stage, non-root)</td></tr>
+<tr><td><b>Containers</b></td><td>Docker definitions centralized in <code>infra/docker</code> (multi-stage, non-root)</td></tr>
 </table>
 
 ---
@@ -266,17 +267,18 @@ pnpm dev:web        # Next.js app      → http://localhost:3000
 pnpm dev:admin      # React admin SPA
 pnpm dev:landing    # Astro landing
 pnpm dev:api        # Connect-RPC Node backend
-pnpm dev:gateway    # Cloudflare edge gateway → http://127.0.0.1:8787
-pnpm dev:backend    # Gateway + trading-rpc, wired together locally
+pnpm dev:gateway    # Gateway → real development VPC → trading-rpc
+pnpm dev:backend    # Gateway VPC mode + direct local trading-rpc process
 ```
 
-### Local gateway → trading-rpc
+### Development gateway → trading-rpc through Workers VPC
 
-Run the private-service flow locally without Cloudflare credentials or a Tunnel:
+Start the Docker origin and Tunnel, then run the Worker locally with its remote
+development binding:
 
 ```bash
-cp services/api-gateway/.dev.vars.sample services/api-gateway/.dev.vars
-pnpm dev:backend
+make start-vpc-development
+pnpm dev:gateway
 
 # In a second terminal
 curl -sS -X POST http://127.0.0.1:8787/trading.v1.TradingService/GetMarkets \
@@ -285,37 +287,61 @@ curl -sS -X POST http://127.0.0.1:8787/trading.v1.TradingService/GetMarkets \
   --data '{"coinIds":["bitcoin","ethereum"],"vsCurrency":"usd"}'
 ```
 
-`trading-rpc` uses HTTP/1.1 in `pnpm dev`, which lets local workerd reach it at
-`127.0.0.1:3001`; `pnpm start` continues to use HTTP/2 for native gRPC. For a
+`pnpm dev:gateway` selects `env.development` from `wrangler.jsonc`; Worker code
+runs locally while `TRADING_RPC.fetch()` executes through Cloudflare's remote
+VPC binding. The binding is mandatory in every environment; the gateway fails
+closed when it is absent and never falls back to a direct URL.
+The development VPC Service targets the network-scoped Docker alias
+`trading-rpc.internal:3001`; override it before startup with
+`TRADING_RPC_PRIVATE_HOSTNAME` when an environment needs a different internal
+DNS suffix.
+
+`trading-rpc` keeps Connect on HTTP/1.1 port `3001` inside its container.
+Native Nest gRPC listens separately on `127.0.0.1:50051`. For a
 reliable CoinGecko quota, add a free Demo key as `COINGECKO_API_KEY` in
 `services/trading-rpc/.env`: the Node service owns the `TradingService` use
 case and its CoinGecko adapter, while the gateway only proxies the Connect
-request. Staging and production never use this URL: they use the `TRADING_RPC`
-Workers VPC Service binding through a Cloudflare Tunnel.
+request. Staging and production require isolated `TRADING_RPC` VPC Service IDs
+before those environments can proxy this capability.
 
 Then point your AI tool of choice at the repo. It reads [`AGENTS.md`](./AGENTS.md) and behaves. That's it — that's the onboarding.
 
 <details>
 <summary><b>🐳 Docker environments</b></summary>
 
-`infras/docker` is the single source of truth for container builds. It keeps one
-Dockerfile per deployable image (`dapp` and `trading-rpc`), one shared dapp
-Compose definition, and thin environment overlays. Every build uses the repo
-root as its context.
+`infra/docker` is the single source of truth for container builds. Development
+uses one shared non-root workspace image for the Cloudflare-native apps, the
+dedicated `trading-rpc` image, the official PostgreSQL 18 image, and
+`cloudflare/cloudflared:latest`. Every build uses the repo root as its context.
 
 ```bash
-# Development  → http://localhost:3001
-docker compose -f infras/docker/compose.yml -f infras/docker/development/compose.yml up --build
+# Development: five apps + PostgreSQL + cloudflared
+make start-development
+
+# Follow or stop the complete development stack
+make logs-development
+make stop-development
 
 # Staging      → http://localhost:3002
-docker compose -f infras/docker/compose.yml -f infras/docker/staging/compose.yml up --build
+docker compose -f infra/docker/compose.yaml -f infra/docker/compose.staging.yaml up --build
 
 # Production   → http://localhost:80
-docker compose -f infras/docker/compose.yml -f infras/docker/production/compose.yml up --build
+docker compose -f infra/docker/compose.yaml -f infra/docker/compose.prod.yaml up --build
 ```
 
-Use `make start-development|start-staging|start-production` for the same flows
-and `make check-docker` after configuration changes. Staging expects
+Development exposes dapp on `3000`, admin on `3002`, landing on `4321`, the
+gateway on `8787`, trading-rpc Connect on `3003`, and native gRPC on `50051`.
+PostgreSQL is available only on loopback port `5433` and persists through the
+named `postgres-data` volume.
+The trading-rpc capability owns its Drizzle schema and generated migration
+journal. Use `pnpm --filter @services/trading-rpc db:generate` after changing
+the schema and `pnpm --filter @services/trading-rpc db:migrate` to migrate a
+configured database outside normal service bootstrap.
+It requires the rotated tunnel token at
+`infra/docker/secrets/cloudflare-tunnel-token`; see
+[`infra/docker/README.md`](./infra/docker/README.md). Use
+`make start-staging|start-production` for the other environments and
+`make check-docker` after configuration changes. Staging expects
 `apps/dapp/.env.staging`; production expects
 `apps/dapp/.env.production.local`. Both are git-ignored and required at runtime.
 
@@ -376,7 +402,7 @@ Declared in `apps/dapp/src/shared/config/env.ts` with Zod validation. Never use 
 ├── services/
 │   ├── api-gateway/              Connect RPC on Cloudflare Workers (edge + upstream proxy)
 │   └── trading-rpc/              Connect RPC on Node.js (tsup build, /healthz)
-├── infras/docker/                All Dockerfiles + shared Compose/environment overlays
+├── infra/docker/                All Dockerfiles + shared Compose/environment overlays
 ├── AGENTS.md                     ★ The company handbook — every AI agent reads this
 ├── CLAUDE.md                     → symlink to AGENTS.md
 ├── turbo.json                    Turborepo task pipeline

@@ -7,7 +7,7 @@ import { env } from '@/shared/config';
 // production instead of silently shipping a well-known demo password.
 // - 'change-me-please': the value committed in apps/dapp/.env.sample.
 // - 'build-time-placeholder': used only in the
-//   infras/docker/dapp.Dockerfile builder stage; it must never reach a running
+//   infra/docker/dapp.Dockerfile builder stage; it must never reach a running
 //   container without being overridden at deploy time.
 const KNOWN_PLACEHOLDER_DEMO_AUTH_PASSWORDS = new Set([
   'change-me-please',

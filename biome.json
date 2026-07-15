@@ -41,6 +41,9 @@
     "lineEnding": "lf"
   },
   "javascript": {
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
+    },
     "formatter": {
       "trailingCommas": "all",
       "quoteStyle": "single",

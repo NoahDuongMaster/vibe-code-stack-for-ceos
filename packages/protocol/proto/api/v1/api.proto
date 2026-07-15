@@ -2,19 +2,8 @@ syntax = "proto3";
 
 package api.v1;
 
-// Request/response contracts shared by every microservice and client.
+// Operational contracts shared by every microservice and client.
 // One source of truth, gRPC- and Connect-compatible.
-
-message EchoRequest {
-  string message = 1;
-}
-
-message EchoResponse {
-  string message = 1;
-  string upper = 2;
-  int32 length = 3;
-  string runtime = 4;
-}
 
 message HealthRequest {}
 
@@ -26,6 +15,5 @@ message HealthResponse {
 
 // The core API served identically on every runtime (Node, Cloudflare Workers).
 service ApiService {
-  rpc Echo(EchoRequest) returns (EchoResponse) {}
   rpc Health(HealthRequest) returns (HealthResponse) {}
 }

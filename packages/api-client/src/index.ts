@@ -9,8 +9,8 @@ import { ApiService, TradingService } from '@packages/protocol';
  * Every call is typed from the proto contract — no drift, gRPC-compatible:
  *
  *   const client = createApiClient('http://localhost:3001')
- *   const res = await client.echo({ message: 'hi' })
- *   res.upper // 'HI' — fully typed
+ *   const res = await client.health({})
+ *   res.status // 'ok' — fully typed
  */
 export const createApiClient = (
   baseUrl: string,
@@ -32,8 +32,6 @@ export type TradingClient = Client<typeof TradingService>;
 // Re-export the generated message types for consumers/UI.
 export type {
   CryptoMarket,
-  EchoRequest,
-  EchoResponse,
   GetMarketsRequest,
   GetMarketsResponse,
   HealthResponse,

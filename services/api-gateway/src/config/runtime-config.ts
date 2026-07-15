@@ -3,26 +3,26 @@ import { z } from 'zod';
 export type TGatewayEnvironment = 'development' | 'staging' | 'production';
 
 export interface TGatewayRuntimeBindingValues {
+  SERVICE_NAME: string;
   ENVIRONMENT?: TGatewayEnvironment;
-  LOCAL_TRADING_RPC_URL?: string;
   CORS_ORIGINS?: string;
   JWT_SECRET?: string;
 }
 
 const ZGatewayRuntimeBindings = z
   .object({
+    SERVICE_NAME: z.string().trim().min(1),
     ENVIRONMENT: z.enum(['development', 'staging', 'production']).optional(),
     CORS_ORIGINS: z.string().optional(),
-    LOCAL_TRADING_RPC_URL: z.string().optional(),
     JWT_SECRET: z.string().optional(),
   })
   .passthrough();
 
 export interface TGatewayRuntimeConfig {
+  serviceName: string;
   environment: TGatewayEnvironment;
   corsOrigins: readonly string[];
   jwtSecret: string | undefined;
-  localTradingRpcOrigin: string | undefined;
 }
 
 const isHttpProtocol = (protocol: string): boolean =>
@@ -71,33 +71,6 @@ const normalizeCorsOrigins = (
   return [...new Set(origins.map(normalizeCorsOrigin))];
 };
 
-const parseLocalTradingRpcOrigin = (
-  rawUrl: string | undefined,
-): string | undefined => {
-  if (!rawUrl) return undefined;
-
-  let url: URL;
-
-  try {
-    url = new URL(rawUrl);
-  } catch {
-    throw new Error('LOCAL_TRADING_RPC_URL must be a valid HTTP origin');
-  }
-
-  if (
-    !isHttpProtocol(url.protocol) ||
-    url.username ||
-    url.password ||
-    url.pathname !== '/' ||
-    url.search ||
-    url.hash
-  ) {
-    throw new Error('LOCAL_TRADING_RPC_URL must be a valid HTTP origin');
-  }
-
-  return url.origin;
-};
-
 /**
  * Validates Worker bindings at the request boundary. Deployment configuration
  * is still owned by wrangler, while this parser prevents malformed values from
@@ -110,12 +83,9 @@ export const parseGatewayRuntimeConfig = (
   const environment = input.ENVIRONMENT ?? 'production';
 
   return {
+    serviceName: input.SERVICE_NAME,
     environment,
     corsOrigins: normalizeCorsOrigins(input.CORS_ORIGINS),
     jwtSecret: input.JWT_SECRET || undefined,
-    localTradingRpcOrigin:
-      environment === 'development'
-        ? parseLocalTradingRpcOrigin(input.LOCAL_TRADING_RPC_URL)
-        : undefined,
   };
 };

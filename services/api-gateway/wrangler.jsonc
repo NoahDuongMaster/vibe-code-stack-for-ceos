@@ -7,7 +7,7 @@
   "observability": {
     "enabled": true
   },
-  // Self-hosted rate limiter (src/infra/rate-limiting/rate-limiter.do.ts) — a
+  // Self-hosted rate limiter (src/features/rate-limiting/adapters/cloudflare/rate-limiter.do.ts) — a
   // token-bucket Durable Object, NOT Cloudflare's native Rate Limiting binding.
   // One DO instance per client IP gives exact, strongly-consistent counts.
   // Migrations are global (top-level only); the binding is repeated per named
@@ -32,8 +32,8 @@
   // config/gateway-options.ts).
   //
   // TRADING_RPC is a Workers VPC Service binding, not a Worker Service Binding
-  // or a public URL. After creating the Cloudflare Tunnel and VPC Service for
-  // the private Docker service, add its returned service ID to BOTH named envs:
+  // or a public URL. Development is configured in env.development below. When
+  // isolated staging and production services exist, add their IDs similarly:
   // "vpc_services": [{
   //   "binding": "TRADING_RPC",
   //   "service_id": "<VPC Service ID>",
@@ -41,16 +41,39 @@
   // }]
   // VPC bindings are not inherited by named environments. Do not add an
   // invented ID here: it makes `wrangler.jsonc` invalid for deployment.
+  // The composition root rejects every request when TRADING_RPC is absent;
+  // local development therefore requires Wrangler authentication and this
+  // remote VPC binding. There is intentionally no direct-URL fallback.
   //
-  // For fully offline local development, copy `.dev.vars.sample` to
-  // `.dev.vars`. It supplies ENVIRONMENT=development and
-  // LOCAL_TRADING_RPC_URL=http://127.0.0.1:3001. The Worker honors that URL
-  // only in development and only if TRADING_RPC is absent; deployed
-  // environments remain VPC-only.
+  // SERVICE_NAME is the logical application identity used by health responses
+  // and structured logs. It is independent from each Worker resource `name`
+  // and is required at runtime; production code provides no fallback.
   "env": {
+    "development": {
+      "name": "api-gateway-development",
+      "vars": {
+        "SERVICE_NAME": "api-gateway",
+        "ENVIRONMENT": "development",
+        "CORS_ORIGINS": "http://localhost:3000,http://localhost:3002,http://localhost:4321"
+      },
+      "durable_objects": {
+        "bindings": [{ "name": "RATE_LIMITER", "class_name": "RateLimiterDO" }]
+      },
+      // The VPC Service owns the physical target
+      // trading-rpc.internal:3001. `remote` keeps Worker code local while
+      // binding calls execute through Cloudflare.
+      "vpc_services": [
+        {
+          "binding": "TRADING_RPC",
+          "service_id": "019f63fc-a6ec-7603-8cf9-799d6581303c",
+          "remote": true
+        }
+      ]
+    },
     "staging": {
       "name": "ai-gateway-staging",
       "vars": {
+        "SERVICE_NAME": "api-gateway",
         "ENVIRONMENT": "staging",
         // TODO: set to the real staging admin/dapp origin(s) once the Pages
         // project's staging branch URL is known, e.g.
@@ -66,6 +89,7 @@
     "production": {
       "name": "api-gateway-production",
       "vars": {
+        "SERVICE_NAME": "api-gateway",
         "ENVIRONMENT": "production",
         // TODO: set to the real production admin/dapp origin(s).
         "CORS_ORIGINS": ""
