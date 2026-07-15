@@ -506,7 +506,13 @@ jq -e '.status == "unhealthy" and (.reasons | index("incremental_stale"))' \
   "$STATE_DIR/health.json"
 ```
 
-Start one fake long job, invoke a second job, and assert the second exits with the documented lock-contention code `75` without changing the first job's state.
+Start one fake long full job, invoke an incremental job, and assert the
+incremental exits with the documented lock-contention code `75`, records
+`status=skipped` rather than `failure`, and does not change the full job's
+state. Then start one fake long incremental job, invoke a full job, release the
+incremental lock, and assert the full job waits and then executes successfully.
+Repeat the waiting assertion for differential, monthly, check, verify,
+PITR-drill, and monthly-drill job names.
 
 - [ ] **Step 2: Implement `run-backup-job.sh`**
 
@@ -517,12 +523,17 @@ run-backup-job.sh JOB_NAME COMMAND [ARGUMENT ...]
 ```
 
 Before locking, sleep a random zero-to-`BACKUP_JITTER_MAX_SECONDS` interval
-(default 300 in production and zero in tests/manual commands). Acquire
-`/var/lib/postgres-backup/state/backup.lock` with `flock -n`; return `75` on
-contention. Record `startedAt`, `finishedAt`, `durationSeconds`, `status`, and
-safe `errorCategory` through `jq -n`; write a temporary file and rename
-atomically. Preserve the command's nonzero exit code and never put command
-arguments into JSON logs.
+(default 300 in production and zero in tests/manual commands). Incremental jobs
+use `flock -n`; lock contention is a safe skipped recovery point because WAL
+continues and the next incremental will run hourly. Full, differential,
+monthly, check, verify, PITR-drill, and monthly-drill jobs use
+`flock -w "$BACKUP_PRIORITY_LOCK_WAIT_SECONDS"`, default 21,600 seconds. A
+priority-job timeout is a failure that makes backup health unhealthy and is
+eligible for startup reconciliation; it is never silently skipped. Record
+`startedAt`, `finishedAt`, `durationSeconds`, `status`, and safe
+`errorCategory` through `jq -n`; write a temporary file and rename atomically.
+Preserve the command's nonzero exit code and never put command arguments into
+JSON logs.
 
 - [ ] **Step 3: Install the exact UTC schedule**
 
@@ -558,7 +569,17 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 - [ ] **Step 5: Implement health evaluation**
 
-`backup-health.sh` constructs `health.json` and exits nonzero when any invariant fails. Use these exact maximum ages: incremental 7,200 seconds, differential 93,600 seconds, full 691,200 seconds, monthly 3,024,000 seconds, and required drills 691,200/3,024,000 seconds. Fail when a `pg_wal/archive_status/*.ready` file remains pending for more than 300 seconds or when `pg_stat_archiver.failed_count` increases from the stored healthy baseline. Do not declare an idle database unhealthy merely because `last_archived_time` is old. Fail at `BACKUP_DISK_HIGH_WATER_PERCENT`, default `85`.
+`backup-health.sh` constructs `health.json` and exits nonzero when any invariant
+fails. Use these exact maximum ages: latest successful physical backup of any
+type 7,200 seconds, differential 93,600 seconds, full 691,200 seconds, monthly
+3,024,000 seconds, and required drills 691,200/3,024,000 seconds. A running
+priority physical-backup job suppresses only the two-hour physical-backup age
+failure until its lock timeout; it does not suppress WAL, disk, or prior-job
+failures. Fail when a `pg_wal/archive_status/*.ready` file remains pending for
+more than 300 seconds or when `pg_stat_archiver.failed_count` increases from the
+stored healthy baseline. Do not declare an idle database unhealthy merely
+because `last_archived_time` is old. Fail at
+`BACKUP_DISK_HIGH_WATER_PERCENT`, default `85`.
 
 Configure the Compose healthcheck:
 
