@@ -676,7 +676,11 @@ git commit -m "feat(infra): schedule and monitor PostgreSQL backups"
 
 **Files:**
 - Create: `infra/docker/postgres/scripts/backup-monthly.sh`
+- Create: `infra/docker/postgres/scripts/cleanup-monthly-orphans.sh`
 - Create: `infra/docker/postgres/tests/monthly-backup.test.sh`
+- Modify: `infra/docker/postgres/scripts/backup-entrypoint.sh`
+- Modify: `infra/docker/postgres/scripts/run-backup-job.sh`
+- Modify: `infra/docker/postgres/tests/job-health.test.sh`
 - Modify: `infra/docker/compose.yaml`
 - Modify: `infra/docker/compose.prod.yaml`
 
@@ -684,7 +688,7 @@ git commit -m "feat(infra): schedule and monitor PostgreSQL backups"
 - Consumes: the dedicated replication role configured in Task 2, archive R2 credentials, `POSTGRES_ARCHIVE_AGE_RECIPIENT`, and staging volume.
 - Produces: `staging/BACKUP_ID`, verified `monthly/YYYY/MM/BACKUP_ID`, encrypted artifacts, outer upload manifest, and `_SUCCESS.json` written last.
 
-- [ ] **Step 1: Write the failing publish-order test**
+- [x] **Step 1: Write the failing publish-order test**
 
 Fake `pg_basebackup`, `age`, and `rclone` into a temporary `PATH`. Append every fake operation to `operations.log`; make the fake remote check fail once. Assert that failure leaves local ciphertext present and never logs `write _SUCCESS.json`. On the successful run assert the final operations are:
 
@@ -698,7 +702,7 @@ delete remote staging
 delete local staging
 ```
 
-- [ ] **Step 2: Implement preflight and physical snapshot creation**
+- [x] **Step 2: Implement preflight and physical snapshot creation**
 
 Require 1.5 times the previous compressed snapshot size, or `POSTGRES_MONTHLY_MIN_FREE_BYTES` on the first run. Create backup IDs as `YYYYMMDDTHHMMSSZ-` plus the PostgreSQL system identifier. Run:
 
@@ -710,9 +714,14 @@ pg_basebackup \
   --pgdata="$stage/plain"
 ```
 
-Create `recovery-manifest.json` with PostgreSQL major version, system identifier, timeline, start/end timestamps, service name, environment, pgBackRest version, pg_basebackup version, and plaintext SHA-256 values.
+Create `recovery-manifest.json` with PostgreSQL major version, system identifier, timeline, start/end timestamps, service name, environment, pgBackRest version, pg_basebackup version, and plaintext SHA-256 values. PostgreSQL 18 emits `base.tar.zst`, an uncompressed streamed `pg_wal.tar`, `backup_manifest`, and one `<tablespace-oid>.tar.zst` per additional tablespace; discover and describe the actual top-level artifacts rather than assuming fixed names.
 
-- [ ] **Step 3: Encrypt and publish safely**
+Preflight the archive bucket before the snapshot with an exact temporary
+write/readback/delete transaction, not only a list request. Reconcile any
+atomic pending publication from a prior crash before applying the 1.5x capacity
+gate.
+
+- [x] **Step 3: Encrypt and publish safely**
 
 Encrypt each tar and the recovery manifest using:
 
@@ -727,9 +736,15 @@ Upload to `staging` through `retry_with_backoff`, run `rclone check --download`
 against local ciphertext, copy to `monthly`, upload `_SUCCESS.json` last, read
 it back, then clean staging. Never use `rclone sync` or any command that can
 delete unrelated prefixes. A failed checksum or exhausted retry preserves local
-ciphertext and emits a stable non-secret error category.
+ciphertext and emits a stable non-secret error category. The exact atomic local
+pending document is also the `_SUCCESS.json` payload and includes
+`artifactBytes`; this closes the remote/local commit ambiguity and lets crash
+reconciliation recover `monthly.last-size.json` before deleting verified local
+ciphertext. Plaintext hard-crash orphans are removed at the earliest sidecar
+startup point and before/after every monthly child while holding the same
+validated global lock.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 ```bash
 make test-postgres-backup-scripts
@@ -782,7 +797,7 @@ List only prefixes containing readable `_SUCCESS.json`. Download ciphertext and
 `upload-manifest.json`, validate ciphertext SHA-256, fetch
 `POSTGRES_BACKUP_RECOVERY_SECRET_ID` with AWS CLI into a mode-`0600` tmpfs
 identity file, decrypt, and validate the inner recovery manifest. Extract
-`base.tar.zst` into the new target directory and `pg_wal.tar.zst` into its
+`base.tar.zst` into the new target directory and `pg_wal.tar` into its
 `pg_wal/` directory; restore any additional tablespace tar explicitly rather
 than flattening it. Remove the private identity in a trap on success or failure.
 
