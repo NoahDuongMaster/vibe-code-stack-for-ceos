@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+require_backup_mode() {
+  case "$1" in
+    enabled | disabled) printf '%s' "$1" ;;
+    *)
+      printf 'POSTGRES_BACKUP_MODE must be enabled or disabled\n' >&2
+      return 1
+      ;;
+  esac
+}
+
 require_scalar_value() {
   local name=$1
   local value=$2
@@ -106,7 +116,7 @@ retry_with_backoff() {
     cat -- "$output_path" >&2
     normalized_output=$(tr '[:upper:]' '[:lower:]' <"$output_path")
     if printf '%s' "$normalized_output" | grep -Eq \
-      'authentication|authorization|access[ _-]?denied|permission[ _-]?denied|invalidaccesskeyid|signaturedoesnotmatch|repository.*(identity|mismatch)|stanza.*(identity|mismatch)'; then
+      'authentication|authorization|access[ _-]?denied|permission[ _-]?denied|invalidaccesskeyid|signaturedoesnotmatch|do not match|(system[ -]?id|database).*(mismatch|do not match)|dbmismatcherror|backupmismatcherror|archivemismatcherror|repository.*(identity|mismatch)|stanza.*(identity|mismatch)'; then
       rm -f -- "$output_path"
       return "$status"
     fi

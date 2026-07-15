@@ -33,6 +33,15 @@ export R2_PITR_SECRET_ACCESS_KEY_FILE="$tmp/secret"
 export PGBACKREST_CIPHER_PASSPHRASE_FILE="$tmp/cipher"
 
 . "$ROOT/infra/docker/postgres/scripts/render-pgbackrest-config.sh"
+assert_eq "$(require_backup_mode enabled)" enabled
+assert_eq "$(require_backup_mode disabled)" disabled
+if require_backup_mode typo >/dev/null 2>&1; then
+  fail 'invalid POSTGRES_BACKUP_MODE must be rejected'
+fi
+assert_file_contains "$ROOT/infra/docker/postgres/scripts/postgres-entrypoint.sh" \
+  'backup_mode=$(require_backup_mode "${POSTGRES_BACKUP_MODE:-disabled}")'
+printf 'ok - backup mode validation\n'
+
 render_pgbackrest_config "$tmp/pgbackrest.conf"
 assert_file_mode "$tmp/pgbackrest.conf" 600
 assert_file_contains "$tmp/pgbackrest.conf" 'repo1-type=s3'
@@ -114,6 +123,15 @@ printf '%s' "$count" >"$RETRY_AUTH_COUNT_FILE"
 printf 'AccessDenied: authorization failed\n' >&2
 exit 23
 EOF
+cat >"$tmp/bin/identity-failure" <<'EOF'
+#!/usr/bin/env sh
+count=0
+[ ! -f "$RETRY_IDENTITY_COUNT_FILE" ] || count=$(cat "$RETRY_IDENTITY_COUNT_FILE")
+count=$((count + 1))
+printf '%s' "$count" >"$RETRY_IDENTITY_COUNT_FILE"
+printf '%s\n' "$RETRY_IDENTITY_MESSAGE" >&2
+exit 24
+EOF
 chmod +x "$tmp/bin/"*
 export PATH="$tmp/bin:$PATH"
 export RETRY_SLEEP_LOG="$tmp/sleeps" RETRY_COUNT_FILE="$tmp/retry-count"
@@ -126,4 +144,20 @@ if retry_with_backoff "$tmp/bin/auth-failure" >/dev/null 2>&1; then
   fail 'authentication failure must remain a failure'
 fi
 assert_eq "$(cat "$tmp/retry-auth-count")" 1
+
+for identity_message in \
+  'backup and archive info files exist but do not match' \
+  'database system-id mismatch' \
+  'database mismatch detected' \
+  'DbMismatchError: database identity changed' \
+  'BackupMismatchError: backup repository identity changed' \
+  'ArchiveMismatchError: archive repository identity changed'; do
+  export RETRY_IDENTITY_COUNT_FILE="$tmp/retry-identity-count"
+  export RETRY_IDENTITY_MESSAGE="$identity_message"
+  rm -f "$RETRY_IDENTITY_COUNT_FILE"
+  if retry_with_backoff "$tmp/bin/identity-failure" >/dev/null 2>&1; then
+    fail 'repository identity mismatch must remain a failure'
+  fi
+  assert_eq "$(cat "$RETRY_IDENTITY_COUNT_FILE")" 1
+done
 printf 'ok - bounded retry policy\n'
