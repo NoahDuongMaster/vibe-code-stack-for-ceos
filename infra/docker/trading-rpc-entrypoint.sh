@@ -28,8 +28,8 @@ if [ -n "$database_url_source" ]; then
   }
   install_runtime_dir
   if [ "$(id -u)" -eq 0 ]; then
-    install -o "$runtime_uid" -g "$runtime_gid" -m 0600 \
-      "$database_url_source" "$runtime_secret_dir/database-url"
+    install -m 0600 "$database_url_source" "$runtime_secret_dir/database-url"
+    chown "$runtime_uid:$runtime_gid" "$runtime_secret_dir/database-url"
     chown "$runtime_uid:$runtime_gid" "$runtime_secret_dir" "$runtime_dir"
   else
     install -m 0600 "$database_url_source" "$runtime_secret_dir/database-url"

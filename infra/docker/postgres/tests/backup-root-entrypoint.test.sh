@@ -42,4 +42,27 @@ assert_file_mode "$tmp/runtime" 700
 assert_file_mode "$tmp/runtime/postgres-replication-password" 600
 assert_file_contains "$tmp/gosu-environment" \
   "POSTGRES_REPLICATION_PASSWORD_FILE=$tmp/runtime/postgres-replication-password"
+
+docker run --rm \
+  --entrypoint /test-entrypoint.sh \
+  --cap-drop ALL \
+  --cap-add CHOWN \
+  --cap-add SETGID \
+  --cap-add SETUID \
+  --security-opt no-new-privileges:true \
+  --tmpfs /run/postgres-backup-secrets:rw,noexec,nosuid,nodev,mode=0700 \
+  --mount "type=bind,source=$ROOT/infra/docker/postgres/scripts/backup-root-entrypoint.sh,target=/test-entrypoint.sh,readonly" \
+  --mount "type=bind,source=$tmp/source,target=/run/secrets,readonly" \
+  --env POSTGRES_BACKUP_MODE=enabled \
+  --env POSTGRES_RUNTIME_USER=70:70 \
+  --env POSTGRES_RUNTIME_UID=70 \
+  --env POSTGRES_RUNTIME_GID=70 \
+  --env POSTGRES_REPLICATION_PASSWORD_SOURCE_FILE=/run/secrets/replication \
+  --env R2_PITR_ACCESS_KEY_ID_SOURCE_FILE=/run/secrets/pitr-key \
+  --env R2_PITR_SECRET_ACCESS_KEY_SOURCE_FILE=/run/secrets/pitr-secret \
+  --env R2_ARCHIVE_ACCESS_KEY_ID_SOURCE_FILE=/run/secrets/archive-key \
+  --env R2_ARCHIVE_SECRET_ACCESS_KEY_SOURCE_FILE=/run/secrets/archive-secret \
+  --env PGBACKREST_CIPHER_PASSPHRASE_SOURCE_FILE=/run/secrets/cipher \
+  postgres:18.4-alpine3.24@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15 \
+  sh -ec 'test "$(id -u)" = 70; for secret in /run/postgres-backup-secrets/*; do test -r "$secret"; done'
 printf 'ok - backup root entrypoint\n'

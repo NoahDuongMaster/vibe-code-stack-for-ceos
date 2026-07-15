@@ -33,6 +33,11 @@ assert_eq "$(cat "$tmp/runtime/secrets/database-url")" \
 
 docker run --rm \
   --entrypoint /test-entrypoint.sh \
+  --cap-drop ALL \
+  --cap-add CHOWN \
+  --cap-add SETGID \
+  --cap-add SETUID \
+  --security-opt no-new-privileges:true \
   --tmpfs /run/trading-rpc:rw,noexec,nosuid,nodev,mode=0700 \
   --mount "type=bind,source=$ROOT/infra/docker/trading-rpc-entrypoint.sh,target=/test-entrypoint.sh,readonly" \
   --mount "type=bind,source=$tmp/source,target=/run/secrets/database-url,readonly" \

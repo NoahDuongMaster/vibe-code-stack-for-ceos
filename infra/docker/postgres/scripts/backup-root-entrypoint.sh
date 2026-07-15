@@ -32,8 +32,8 @@ copy_runtime_secret() {
     exit 1
   }
   if [ "$(id -u)" -eq 0 ]; then
-    install -o "$runtime_uid" -g "$runtime_gid" -m 0600 \
-      "$source_path" "$target_path"
+    install -m 0600 "$source_path" "$target_path"
+    chown "$runtime_uid:$runtime_gid" "$target_path"
   else
     install -m 0600 "$source_path" "$target_path"
   fi
