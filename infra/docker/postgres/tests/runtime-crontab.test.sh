@@ -24,12 +24,29 @@ assert_file_contains "$output" \
   '5 * * * * env POSTGRES_BACKUP_SCHEDULED_RUN=true /usr/local/bin/postgres-backup/run-backup-job.sh incremental '
 printf 'ok - one schedule can be overridden without rebuilding the image\n'
 
+POSTGRES_BACKUP_CRON_FULL='0,15,30,45 1-23/2 1,15 1-12/3 1-5' \
+  "$renderer" "$output"
+assert_file_contains "$output" \
+  '0,15,30,45 1-23/2 1,15 1-12/3 1-5 env POSTGRES_BACKUP_SCHEDULED_RUN=true '
+printf 'ok - semantic cron lists ranges and steps are accepted\n'
+
 checksum_before=$(sha256sum "$output" | awk '{print $1}')
 for malicious_schedule in \
   $'0 2 * * *\ntouch /tmp/injected' \
   '0 2 * * *; touch /tmp/injected' \
   '0 2 * * * extra' \
-  '@daily'; do
+  '@daily' \
+  '99 2 * * *' \
+  '*/0 2 * * *' \
+  '*/61 2 * * *' \
+  '- 2 * * *' \
+  '1--2 2 * * *' \
+  '10-1 2 * * *' \
+  '60 2 * * *' \
+  '0 24 * * *' \
+  '0 2 32 * *' \
+  '0 2 * 13 *' \
+  '0 2 * * 8'; do
   if POSTGRES_BACKUP_CRON_FULL="$malicious_schedule" \
     "$renderer" "$output" >/dev/null 2>&1; then
     fail 'unsafe runtime cron schedule was accepted'

@@ -23,13 +23,24 @@ readonly PITR_DRILL_MAX_AGE_SECONDS=691200
 readonly MONTHLY_DRILL_MAX_AGE_SECONDS=3024000
 readonly DRILL_MAX_DURATION_SECONDS=3600
 readonly WAL_READY_MAX_AGE_SECONDS=300
+readonly ARCHIVER_FAILURE_UNHEALTHY_PROBES=2
 
-case "$priority_lock_wait:$disk_high_water" in
-  *[!0-9:]* | :* | *:)
-    printf 'backup health thresholds must be non-negative integers\n' >&2
+case "$priority_lock_wait" in
+  '' | *[!0-9]*)
+    printf 'BACKUP_PRIORITY_LOCK_WAIT_SECONDS must be a non-negative integer\n' >&2
     exit 2
     ;;
 esac
+case "$disk_high_water" in
+  '' | *[!0-9]*)
+    printf 'BACKUP_DISK_HIGH_WATER_PERCENT must be an integer from 1 through 100\n' >&2
+    exit 2
+    ;;
+esac
+if [ "$disk_high_water" -lt 1 ] || [ "$disk_high_water" -gt 100 ]; then
+  printf 'BACKUP_DISK_HIGH_WATER_PERCENT must be an integer from 1 through 100\n' >&2
+  exit 2
+fi
 
 install -d -m 0700 "$state_dir"
 now=$(date +%s)
@@ -162,11 +173,23 @@ else
 fi
 
 baseline_path="$state_dir/archiver-failed-count.baseline.json"
+pending_archiver_path="$state_dir/archiver-failed-count.pending.json"
 baseline_failed_count=$(state_number "$baseline_path" '.failedCount')
+pending_archiver_failed_count=$(state_number "$pending_archiver_path" '.failedCount')
+pending_archiver_probe_count=$(state_number "$pending_archiver_path" '.unhealthyProbeCount')
+archiver_pending_failure=false
 if [ "$archiver_failed_count" -ge 0 ] && \
   [ -r "$baseline_path" ] && \
   [ "$archiver_failed_count" -gt "$baseline_failed_count" ]; then
-  add_reason archiver_failed_count_increased
+  if [ "$pending_archiver_failed_count" -eq "$archiver_failed_count" ]; then
+    pending_archiver_probe_count=$((pending_archiver_probe_count + 1))
+  else
+    pending_archiver_probe_count=1
+  fi
+  if [ "$pending_archiver_probe_count" -le "$ARCHIVER_FAILURE_UNHEALTHY_PROBES" ]; then
+    archiver_pending_failure=true
+    add_reason archiver_failed_count_increased
+  fi
 fi
 
 maximum_disk_percent=0
@@ -208,13 +231,22 @@ atomic_write_json "$state_dir/health.json" -n \
       oldestReadyAgeSeconds:$oldestReadyAgeSeconds,
       maximumDiskPercent:$maximumDiskPercent}}'
 
-if [ "$archiver_failed_count" -ge 0 ]; then
+if [ "$archiver_pending_failure" = true ]; then
+  atomic_write_json "$pending_archiver_path" -n \
+    --argjson failedCount "$archiver_failed_count" \
+    --argjson unhealthyProbeCount "$pending_archiver_probe_count" \
+    --arg recordedAt "$checked_at" \
+    --argjson recordedEpochSeconds "$now" \
+    '{failedCount:$failedCount,unhealthyProbeCount:$unhealthyProbeCount,
+      recordedAt:$recordedAt,recordedEpochSeconds:$recordedEpochSeconds}'
+elif [ "$archiver_failed_count" -ge 0 ]; then
   atomic_write_json "$baseline_path" -n \
     --argjson failedCount "$archiver_failed_count" \
     --arg recordedAt "$checked_at" \
     --argjson recordedEpochSeconds "$now" \
     '{failedCount:$failedCount,recordedAt:$recordedAt,
       recordedEpochSeconds:$recordedEpochSeconds}'
+  rm -f -- "$pending_archiver_path"
 fi
 
 if [ "$health_status" = healthy ]; then

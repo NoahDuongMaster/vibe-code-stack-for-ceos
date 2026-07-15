@@ -3,11 +3,91 @@ set -Eeuo pipefail
 
 output_path=${1:-/run/postgres-backup-cron/postgres}
 
+validate_cron_number() {
+  local name=$1
+  local value=$2
+  local minimum=$3
+  local maximum=$4
+  local numeric_value
+
+  [[ "$value" =~ ^[0-9]+$ ]] && [ "${#value}" -le 2 ] || {
+    printf '%s contains an invalid cron number\n' "$name" >&2
+    return 1
+  }
+  numeric_value=$((10#$value))
+  [ "$numeric_value" -ge "$minimum" ] && [ "$numeric_value" -le "$maximum" ] || {
+    printf '%s contains a cron number outside its allowed range\n' "$name" >&2
+    return 1
+  }
+}
+
+validate_cron_field() {
+  local name=$1
+  local value=$2
+  local minimum=$3
+  local maximum=$4
+  local range_size=$((maximum - minimum + 1))
+  local item
+  local base
+  local step
+  local start
+  local end
+  local -a items=()
+
+  case "$value" in
+    '' | ,* | *, | *,,*)
+      printf '%s contains an empty cron list item\n' "$name" >&2
+      return 1
+      ;;
+  esac
+  IFS=',' read -r -a items <<<"$value"
+  for item in "${items[@]}"; do
+    base=$item
+    step=''
+    if [[ "$item" == */* ]]; then
+      base=${item%%/*}
+      step=${item#*/}
+      [[ "$step" != */* ]] || {
+        printf '%s contains more than one cron step separator\n' "$name" >&2
+        return 1
+      }
+      validate_cron_number "$name step" "$step" 1 "$range_size" || return 1
+    fi
+
+    if [ "$base" = '*' ]; then
+      continue
+    fi
+    if [[ "$base" =~ ^[0-9]+$ ]]; then
+      validate_cron_number "$name" "$base" "$minimum" "$maximum" || return 1
+      continue
+    fi
+    if [[ "$base" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+      start=${BASH_REMATCH[1]}
+      end=${BASH_REMATCH[2]}
+      validate_cron_number "$name range start" "$start" "$minimum" "$maximum" || \
+        return 1
+      validate_cron_number "$name range end" "$end" "$minimum" "$maximum" || \
+        return 1
+      [ "$((10#$start))" -le "$((10#$end))" ] || {
+        printf '%s contains a descending cron range\n' "$name" >&2
+        return 1
+      }
+      continue
+    fi
+    printf '%s contains an invalid cron field expression\n' "$name" >&2
+    return 1
+  done
+}
+
 normalize_schedule() {
   local name=$1
   local value=$2
   local field
   local -a fields=()
+  local -a field_names=(minute hour day-of-month month day-of-week)
+  local -a field_minimums=(0 0 1 1 0)
+  local -a field_maximums=(59 23 31 12 7)
+  local index
 
   case "$value" in
     *$'\n'* | *$'\r'*)
@@ -25,6 +105,11 @@ normalize_schedule() {
       printf '%s contains an unsupported cron field\n' "$name" >&2
       return 1
     }
+  done
+  for index in "${!fields[@]}"; do
+    validate_cron_field "$name ${field_names[$index]}" \
+      "${fields[$index]}" "${field_minimums[$index]}" \
+      "${field_maximums[$index]}" || return 1
   done
   printf '%s' "${fields[*]}"
 }

@@ -83,6 +83,16 @@ printf '%s\n' "$2"
 exec sleep 60
 EOF
 
+cat >"$tmp/bin/pause-before-outcome" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf '%s\n' "$$" >"$BEFORE_OUTCOME_PID_FILE"
+printf 'started\n' >"$BEFORE_OUTCOME_STARTED_FILE"
+while [ ! -e "$BEFORE_OUTCOME_RELEASE_FILE" ]; do
+  sleep 0.05
+done
+EOF
+
 cat >"$tmp/bin/fake-sleep" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$1" >>"$JITTER_LOG"
@@ -237,6 +247,67 @@ jq -e '.status == "failure"' "$tmp/state/check.last-outcome.json" >/dev/null || 
 jq -e '.status == "success"' "$tmp/state/check.last-outcome.json" >/dev/null || \
   fail 'later success did not replace the crash-safe failure outcome'
 printf 'ok - current outcome is published before derived status state\n'
+
+rm -f "$tmp/state/check.last-failure.json" \
+  "$tmp/state/check.last-outcome.json" \
+  "$tmp/state/check.running.json"
+export BEFORE_OUTCOME_PID_FILE="$tmp/before-outcome-pid"
+export BEFORE_OUTCOME_STARTED_FILE="$tmp/before-outcome-started"
+export BEFORE_OUTCOME_RELEASE_FILE="$tmp/before-outcome-release"
+BACKUP_BEFORE_OUTCOME_HOOK="$tmp/bin/pause-before-outcome" \
+  "$RUN_JOB" check true >/dev/null 2>&1 &
+pre_outcome_runner_pid=$!
+children+=("$pre_outcome_runner_pid")
+wait_for_file "$BEFORE_OUTCOME_STARTED_FILE"
+wait_for_file "$tmp/state/check.running.json"
+[ ! -e "$tmp/state/check.last-outcome.json" ] || \
+  fail 'terminal outcome was published before the pre-outcome crash seam'
+pre_outcome_hook_pid=$(cat "$BEFORE_OUTCOME_PID_FILE")
+kill -9 "$pre_outcome_hook_pid" "$pre_outcome_runner_pid" 2>/dev/null || true
+wait "$pre_outcome_runner_pid" 2>/dev/null || true
+children=()
+sleep 0.1
+[ -e "$tmp/state/check.running.json" ] || \
+  fail 'SIGKILL before outcome publication lost the running attempt marker'
+[ ! -e "$tmp/state/check.last-outcome.json" ] || \
+  fail 'SIGKILL before outcome publication unexpectedly wrote an outcome'
+set +e
+BACKUP_RUN_JOB_BIN=/bin/false "$RECONCILE" --preflight-complete >/dev/null
+set -e
+jq -e '.status == "failure" and .errorCategory == "interrupted"' \
+  "$tmp/state/check.last-outcome.json" >/dev/null || \
+  fail 'startup reconciliation did not recover the pre-outcome crash'
+printf 'ok - pre-outcome SIGKILL preserves a recoverable running marker\n'
+
+for signal_spec in TERM:143:check INT:130:verify HUP:129:pitr-drill; do
+  signal_name=${signal_spec%%:*}
+  signal_tail=${signal_spec#*:}
+  expected_status=${signal_tail%%:*}
+  signal_job=${signal_tail##*:}
+  signal_child_file="$tmp/$signal_job-signal-child"
+  rm -f "$signal_child_file" \
+    "$tmp/state/$signal_job.running.json" \
+    "$tmp/state/$signal_job.last-outcome.json" \
+    "$tmp/state/$signal_job.last-failure.json"
+  set +e
+  timeout --preserve-status --signal="$signal_name" --kill-after=3s 1s \
+    env --default-signal="$signal_name" "$RUN_JOB" "$signal_job" \
+    "$tmp/bin/crash-command" "$signal_child_file" signal-test >/dev/null 2>&1
+  signal_status=$?
+  set -e
+  wait_for_file "$signal_child_file"
+  signal_child_pid=$(cat "$signal_child_file")
+  assert_eq "$signal_status" "$expected_status"
+  if kill -0 "$signal_child_pid" 2>/dev/null; then
+    fail "$signal_name left the backup command child alive"
+  fi
+  [ ! -e "$tmp/state/$signal_job.running.json" ] || \
+    fail "$signal_name left the running marker after terminal outcome publication"
+  jq -e '.status == "failure" and .errorCategory == "interrupted"' \
+    "$tmp/state/$signal_job.last-outcome.json" >/dev/null || \
+    fail "$signal_name did not publish an interrupted terminal outcome"
+done
+printf 'ok - TERM INT and HUP forward to command groups and publish interruption\n'
 
 unset BACKUP_JITTER_MAX_SECONDS
 export POSTGRES_BACKUP_SCHEDULED_RUN=true
@@ -395,11 +466,14 @@ export FAKE_ARCHIVER_FAILED_COUNT=1
 if "$HEALTH" >/dev/null; then fail 'increased pg_stat_archiver failed_count must be unhealthy'; fi
 jq -e '.reasons | index("archiver_failed_count_increased")' "$tmp/state/health.json" >/dev/null || \
   fail 'archiver failure-count reason missing'
+if "$HEALTH" >/dev/null; then
+  fail 'archiver failure-count increase must survive the second Compose health retry'
+fi
 "$HEALTH"
 assert_eq "$(jq -r '.failedCount' "$tmp/state/archiver-failed-count.baseline.json")" 1
 export FAKE_ARCHIVER_FAILED_COUNT=0
 "$HEALTH"
-printf 'ok - archiver baseline detects increases without checking idle archive time\n'
+printf 'ok - archiver increase fails two probes before bounded acknowledgement\n'
 
 touch -d '10 minutes ago' "$tmp/wal/000000010000000000000002.ready"
 BACKUP_STAT_BIN="$tmp/bin/disappearing-stat" "$HEALTH"
@@ -412,6 +486,13 @@ if "$HEALTH" >/dev/null; then fail 'disk usage at the high-water mark must be un
 jq -e '.reasons | index("disk_high_water")' "$tmp/state/health.json" >/dev/null || \
   fail 'disk high-water reason missing'
 export FAKE_DISK_PERCENT=10
+for invalid_high_water in 0 101; do
+  if BACKUP_DISK_HIGH_WATER_PERCENT="$invalid_high_water" \
+    "$HEALTH" >/dev/null 2>&1; then
+    fail "disk high-water accepted invalid percentage: $invalid_high_water"
+  fi
+done
+printf 'ok - disk high-water accepts only integer percentages 1 through 100\n'
 
 write_job_state differential success 93601
 if "$HEALTH" >/dev/null; then fail 'stale differential must be unhealthy'; fi

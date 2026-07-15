@@ -10,6 +10,9 @@ lock_path=${POSTGRES_BACKUP_LOCK_PATH:-$state_dir/backup-job.lock}
 flock_bin=${BACKUP_FLOCK_BIN:-flock}
 sleep_bin=${BACKUP_SLEEP_BIN:-sleep}
 date_bin=${BACKUP_DATE_BIN:-date}
+setsid_bin=${BACKUP_SETSID_BIN:-setsid}
+env_bin=${BACKUP_ENV_BIN:-env}
+before_outcome_hook=${BACKUP_BEFORE_OUTCOME_HOOK:-true}
 outcome_publish_hook=${BACKUP_AFTER_OUTCOME_HOOK:-true}
 priority_lock_wait=${BACKUP_PRIORITY_LOCK_WAIT_SECONDS:-21600}
 
@@ -65,9 +68,13 @@ started_epoch=$("$date_bin" +%s)
 started_at=$("$date_bin" -u '+%Y-%m-%dT%H:%M:%SZ')
 running_path="$state_dir/$job.running.json"
 lock_acquired=false
+terminal_outcome_published=false
+command_pid=''
+received_signal=''
 
 cleanup() {
-  if [ "$lock_acquired" = true ]; then
+  if [ "$lock_acquired" = true ] && \
+    [ "$terminal_outcome_published" = true ]; then
     rm -f -- "$running_path"
   fi
 }
@@ -102,6 +109,7 @@ record_outcome() {
         startedEpochSeconds:$startedEpochSeconds,
         finishedEpochSeconds:$finishedEpochSeconds,
         durationSeconds:$durationSeconds,errorCategory:$errorCategory}'
+    terminal_outcome_published=true
     "$outcome_publish_hook"
   fi
   atomic_write_json "$output_path" -n \
@@ -123,6 +131,16 @@ record_outcome() {
     *) log_level=info ;;
   esac
   json_log "$log_level" backup_job_finished "$job:$status:$error_category"
+}
+
+forward_signal() {
+  local signal=$1
+
+  [ -n "$received_signal" ] || received_signal=$signal
+  if [ -n "$command_pid" ] && kill -0 "$command_pid" 2>/dev/null; then
+    kill -s "$signal" -- "-$command_pid" 2>/dev/null || \
+      kill -s "$signal" "$command_pid" 2>/dev/null || true
+  fi
 }
 
 exec {lock_fd}>"$lock_path"
@@ -150,16 +168,41 @@ atomic_write_json "$running_path" -n \
     startedEpochSeconds:$startedEpochSeconds,
     lockAcquiredEpochSeconds:$lockAcquiredEpochSeconds}'
 
-set +e
-"$@" >/dev/null 2>&1
-command_status=$?
-set -e
+trap 'forward_signal TERM' TERM
+trap 'forward_signal INT' INT
+trap 'forward_signal HUP' HUP
 
-rm -f -- "$running_path"
-lock_acquired=false
-if [ "$command_status" -eq 0 ]; then
+set +e
+"$setsid_bin" -- "$env_bin" --default-signal=HUP,INT,TERM "$@" \
+  >/dev/null 2>&1 &
+command_pid=$!
+wait "$command_pid"
+command_status=$?
+while kill -0 "$command_pid" 2>/dev/null; do
+  wait "$command_pid"
+  command_status=$?
+done
+set -e
+command_pid=''
+trap - TERM INT HUP
+
+if [ -n "$received_signal" ]; then
+  case "$received_signal" in
+    HUP) command_status=129 ;;
+    INT) command_status=130 ;;
+    TERM) command_status=143 ;;
+  esac
+  "$before_outcome_hook"
+  record_outcome failure interrupted
+elif [ "$command_status" -eq 0 ]; then
+  "$before_outcome_hook"
   record_outcome success none
 else
+  "$before_outcome_hook"
   record_outcome failure command_failed
 fi
+rm -f -- "$running_path"
+"$flock_bin" -u "$lock_fd"
+exec {lock_fd}>&-
+lock_acquired=false
 exit "$command_status"
