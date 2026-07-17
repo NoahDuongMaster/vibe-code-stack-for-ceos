@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
+import { BACKEND_SPECS } from './backend-specs.ts';
+import { EXPECTED_GRAPH_HASHES } from './graph-identity.ts';
 import { OVERVIEW_AND_TEST_SPECS } from './overview-and-test-specs.ts';
 import { renderDiagram } from './svg-renderer.ts';
+import type { TDiagramSpec } from './types.ts';
+import { UI_SPECS } from './ui-specs.ts';
 
 const EXPECTED_KEYS = [
   'page-1-system-context',
@@ -12,6 +17,12 @@ const EXPECTED_KEYS = [
 ] as const;
 
 const PLACEHOLDER_SENTINELS = ['T' + 'BD', 'TO' + 'DO', 'Lo' + 'rem'];
+
+const ALL_SPECS = [
+  ...OVERVIEW_AND_TEST_SPECS,
+  ...BACKEND_SPECS,
+  ...UI_SPECS,
+] as const satisfies readonly TDiagramSpec[];
 
 const flattenNodes = (spec: (typeof OVERVIEW_AND_TEST_SPECS)[number]) =>
   spec.columns.flatMap((column) => column.nodes);
@@ -31,6 +42,26 @@ test('should define the four approved overview and test diagram keys', () => {
 
   assert.deepEqual(keys, EXPECTED_KEYS);
   assert.equal(new Set(keys).size, EXPECTED_KEYS.length);
+});
+
+test('should preserve all 28 diagram graph identities while translating visible copy', () => {
+  assert.equal(ALL_SPECS.length, 28);
+  assert.equal(Object.keys(EXPECTED_GRAPH_HASHES).length, 28);
+
+  for (const spec of ALL_SPECS) {
+    const identity = {
+      key: spec.key,
+      columns: spec.columns.map((column) =>
+        column.nodes.map((node) => node.id),
+      ),
+      edges: spec.edges.map((edge) => [edge.from, edge.to, edge.style]),
+    };
+    const hash = createHash('sha256')
+      .update(JSON.stringify(identity))
+      .digest('hex');
+
+    assert.equal(hash, EXPECTED_GRAPH_HASHES[spec.key], spec.key);
+  }
 });
 
 test('should connect every edge to a unique declared node without placeholders', () => {

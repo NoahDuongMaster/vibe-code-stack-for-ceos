@@ -12,161 +12,171 @@ const EXPECTED_KEYS = Array.from(
 
 const LIFECYCLE_TERMS: Readonly<Record<string, readonly string[]>> = {
   '2-01-backend': [
-    'application draft',
-    'submitted',
-    'identity',
-    'channel ownership',
-    'admin review',
+    'bản nháp đăng ký',
+    'đã gửi',
+    'định danh',
+    'quyền sở hữu kênh',
+    'admin xét duyệt',
     'active',
     'needs_action',
     'rejected',
-    'suspension',
-    'reverification',
-    'versioned evidence',
+    'tạm ngưng',
+    'xác minh lại',
+    'bằng chứng có phiên bản',
   ],
   '2-02-backend': [
-    'dashboard query',
-    'offer',
-    'rate version',
-    'eligibility',
-    'invitation',
-    'enrollment',
-    'link/content/referral asset',
-    'click/order/earning',
-    'freshness',
+    'truy vấn dashboard',
+    'ưu đãi',
+    'phiên bản tỷ lệ',
+    'đủ điều kiện',
+    'lời mời',
+    'tham gia',
+    'tài sản link/nội dung/giới thiệu',
+    'lượt nhấp/đơn hàng/thu nhập',
+    'độ mới',
     'audit',
   ],
   '2-03-backend': [
     'link',
-    'code',
-    'collection',
-    'resolver',
-    'redirect',
-    'click evidence',
-    'order-line conversion',
-    'reports',
-    'earnings',
-    'payment',
-    'export',
+    'mã',
+    'bộ sưu tập',
+    'bộ phân giải',
+    'chuyển hướng',
+    'bằng chứng lượt nhấp',
+    'chuyển đổi theo dòng đơn hàng',
+    'báo cáo',
+    'thu nhập',
+    'thanh toán',
+    'xuất dữ liệu',
   ],
   '2-04-backend': [
-    'touchpoints',
-    'window',
-    'candidate set',
-    'class',
-    'winner',
-    'rate snapshot',
-    'ledger',
-    'adjustment',
-    'evidence replay',
+    'điểm chạm',
+    'cửa sổ',
+    'tập ứng viên',
+    'lớp attribution',
+    'kết quả thắng',
+    'snapshot tỷ lệ',
+    'sổ cái',
+    'điều chỉnh',
+    'phát lại bằng chứng',
   ],
   '2-05-backend': [
-    'upload',
+    'tải lên',
     'transcode',
-    'draft',
+    'bản nháp',
     'tags',
     'voucher',
-    'immutable version',
+    'phiên bản bất biến',
     'feed',
-    'detail',
-    'commerce click/order',
-    'moderation',
-    'appeal',
-    'evidence',
+    'chi tiết',
+    'lượt nhấp/đơn hàng thương mại',
+    'kiểm duyệt',
+    'khiếu nại',
+    'bằng chứng',
   ],
   '2-06-backend': [
-    'schedule',
+    'lên lịch',
     'preflight',
     'ingest',
     'metadata',
-    'live session',
-    'product pin',
-    'tray',
+    'phiên live',
+    'ghim sản phẩm',
+    'khay sản phẩm',
     'chat',
     'q&a',
-    'discovery conversion',
+    'chuyển đổi khám phá',
     'replay',
-    'moderation evidence',
+    'bằng chứng kiểm duyệt',
   ],
   '2-07-backend': [
-    'pps eligibility',
-    'terms',
-    'enrollment',
-    'product/rate version',
-    'creator discovery',
+    'điều kiện pps',
+    'điều khoản',
+    'tham gia',
+    'phiên bản sản phẩm/tỷ lệ',
+    'khám phá creator',
     'chat',
-    'contact consent',
-    'revoke',
-    'expiry',
+    'đồng ý liên hệ',
+    'thu hồi',
+    'hết hạn',
     'audit',
   ],
   '2-08-backend': [
-    'conversation',
-    'proposal',
-    'contract',
-    'funded fee',
-    'sample shipment',
-    'deliverable',
-    'review',
-    'release',
-    'cancellation',
-    'dispute',
-    'evidence',
+    'cuộc hội thoại',
+    'đề xuất',
+    'hợp đồng',
+    'phí đã cấp vốn',
+    'vận chuyển hàng mẫu',
+    'sản phẩm bàn giao',
+    'xét duyệt',
+    'giải ngân',
+    'hủy',
+    'tranh chấp',
+    'bằng chứng',
   ],
   '2-09-backend': [
-    'mcn application',
-    'roster invitation',
-    'membership',
+    'đơn đăng ký mcn',
+    'lời mời roster',
+    'tư cách thành viên',
     'rbac',
-    'assignment',
-    'report',
-    'split',
-    'settlement',
-    'notification',
+    'phân công',
+    'báo cáo',
+    'phân chia',
+    'quyết toán',
+    'thông báo',
     'audit',
   ],
   '2-10-backend': [
-    'identity/tax/payment gates',
+    'cổng định danh/thuế/thanh toán',
     'wallet',
-    'period',
-    'statement',
-    'provider payout',
-    'reconciliation',
-    'notify',
-    'hold',
-    'retry',
-    'correct',
-    'compensating evidence',
+    'kỳ mở',
+    'sao kê',
+    'payout qua nhà cung cấp',
+    'đối soát',
+    'thông báo',
+    'giữ lại',
+    'thử lại',
+    'điều chỉnh',
+    'bằng chứng bù trừ',
   ],
   '2-11-backend': [
-    'report',
-    'evidence',
-    'risk triage',
-    'entity graph',
-    'decision policy',
-    'hold',
-    'reverse',
-    'enforce',
-    'appeal',
-    'recall',
-    'takedown',
-    'preserved evidence',
+    'báo cáo',
+    'bằng chứng',
+    'phân loại rủi ro',
+    'đồ thị thực thể',
+    'chính sách quyết định',
+    'giữ lại',
+    'đảo ngược',
+    'thực thi',
+    'khiếu nại',
+    'thu hồi',
+    'gỡ bỏ',
+    'bằng chứng được bảo toàn',
   ],
   '2-12-backend': [
-    'property registration',
-    'verification',
-    'disclosure helper',
+    'đăng ký property',
+    'xác minh',
+    'hỗ trợ disclosure',
     'oauth',
-    'scopes',
+    'phạm vi quyền',
     'catalog',
-    'feed sync',
-    'external tag',
-    'click/order/earning report',
-    'disconnect',
-    'health',
+    'đồng bộ feed',
+    'tag ngoài nền tảng',
+    'báo cáo lượt nhấp/đơn hàng/thu nhập',
+    'ngắt kết nối',
+    'sức khỏe',
     'audit',
   ],
 };
+
+const APPROVED_BADGES = new Set([
+  'Hiện có',
+  'Mở rộng',
+  'Mới',
+  'Cổng xác thực thực địa',
+]);
+
+const VIETNAMESE_SIGNAL =
+  /[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/i;
 
 const semanticText = (spec: (typeof BACKEND_SPECS)[number]): string =>
   [
@@ -297,7 +307,7 @@ test('should connect evidence and expose a safe remediation path', () => {
         .some(
           (node) =>
             node.id.endsWith('-remediation') &&
-            /safe|appeal|retry|reverif|revoke|disconnect|dispute|correct/i.test(
+            /an toàn|khiếu nại|thử lại|xác minh lại|thu hồi|ngắt kết nối|tranh chấp|điều chỉnh/i.test(
               `${node.label} ${node.detail}`,
             ),
         ),
@@ -319,13 +329,19 @@ test('should make source fit visible without claiming secret parity', () => {
       ),
     );
     assert.ok(
-      badges.has('New'),
+      badges.has('Mới'),
       `${spec.key} must identify new affiliate work`,
     );
     assert.ok(
-      badges.has('Existing') || badges.has('Extend'),
+      badges.has('Hiện có') || badges.has('Mở rộng'),
       `${spec.key} must identify reused or extended source primitives`,
     );
+    for (const badge of badges) {
+      assert.ok(
+        APPROVED_BADGES.has(badge),
+        `${spec.key} contains unapproved badge ${badge}`,
+      );
+    }
   }
 
   for (const key of ['2-04-backend', '2-11-backend']) {
@@ -334,9 +350,30 @@ test('should make source fit visible without claiming secret parity', () => {
     assert.ok(
       spec.columns
         .flatMap((column) => column.nodes)
-        .some((node) => node.badge === 'Field-validation gate'),
+        .some((node) => node.badge === 'Cổng xác thực thực địa'),
       `${key} must gate unobservable attribution/risk internals`,
     );
+  }
+});
+
+test('should use Vietnamese visible copy in every backend diagram', () => {
+  for (const spec of BACKEND_SPECS) {
+    const visibleCopy = [
+      spec.title,
+      spec.scope,
+      ...spec.columns.flatMap((column) => [
+        column.title,
+        ...column.nodes.flatMap((node) => [node.label, node.detail]),
+      ]),
+      ...spec.edges.map((edge) => edge.label),
+    ];
+    for (const value of visibleCopy) {
+      assert.match(
+        value,
+        VIETNAMESE_SIGNAL,
+        `${spec.key} must translate visible copy: ${value}`,
+      );
+    }
   }
 });
 
@@ -378,7 +415,7 @@ test('should resolve attribution in deterministic candidate order without secret
   ]);
   assert.doesNotMatch(
     semanticText(backendSpec('2-04-backend')),
-    /rank|secret/i,
+    /rank|secret|xếp hạng|bí mật/i,
   );
 });
 
@@ -449,16 +486,18 @@ test('should accrue earnings into an open period before payee gating and held/pa
 });
 
 test('should describe source-fit truthfully for sample and YouTube feed/tag domains', () => {
-  assert.equal(backendNode('2-08-backend', 'sample').badge, 'New');
-  assert.equal(backendNode('2-12-backend', 'catalog-sync').badge, 'New');
+  const sample = backendNode('2-08-backend', 'sample');
+  assert.match(sample.label, /\bSample\b/);
+  assert.equal(sample.badge, 'Mới');
+  assert.equal(backendNode('2-12-backend', 'catalog-sync').badge, 'Mới');
 });
 
 test('should keep CN-004 parity open until native ADR, implementation, and authenticated evidence exist', () => {
   const nativeGate = backendNode('2-01-backend', 'native-parity-gate');
-  assert.equal(nativeGate.badge, 'Field-validation gate');
+  assert.equal(nativeGate.badge, 'Cổng xác thực thực địa');
   assert.match(nativeGate.detail, /ADR/i);
-  assert.match(nativeGate.detail, /native implementation/i);
-  assert.match(nativeGate.detail, /authenticated field evidence/i);
+  assert.match(nativeGate.detail, /triển khai native/i);
+  assert.match(nativeGate.detail, /bằng chứng xác thực/i);
   assertOrderedReachability('2-01-backend', ['native-parity-gate', 'evidence']);
 });
 

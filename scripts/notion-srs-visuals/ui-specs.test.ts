@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { auditVietnameseCopy } from './localization-policy.ts';
 import { DIAGRAM_TARGETS } from './manifest.ts';
 import { renderDiagram } from './svg-renderer.ts';
 import { UI_SPECS } from './ui-specs.ts';
@@ -9,6 +10,13 @@ const EXPECTED_KEYS = Array.from(
   { length: 12 },
   (_, index) => `3-${String(index + 1).padStart(2, '0')}-ui`,
 );
+
+const APPROVED_BADGES = new Set([
+  'Hiện có',
+  'Mở rộng',
+  'Mới',
+  'Cổng xác thực thực địa',
+]);
 
 const REQUIRED_PRIMARY_EDGES: Readonly<
   Record<string, readonly (readonly [string, string])[]>
@@ -67,50 +75,50 @@ const REQUIRED_PRIMARY_EDGES: Readonly<
 
 const BRANCH_REQUIREMENTS: Readonly<Record<string, readonly RegExp[]>> = {
   '3-01-ui': [
-    /admin deep-link/i,
-    /needs_action|rejected/i,
-    /exact form section/i,
+    /deep-link quản trị/i,
+    /needs_action|bị từ chối/i,
+    /đúng phần biểu mẫu/i,
   ],
   '3-02-ui': [
-    /invitation deep-link/i,
-    /referral/i,
-    /stale offer/i,
-    /version refresh/i,
+    /deep-link lời mời/i,
+    /giới thiệu/i,
+    /ưu đãi cũ/i,
+    /làm mới phiên bản/i,
   ],
-  '3-03-ui': [
-    /link or code or collection/i,
-    /resolver error/i,
-    /source context/i,
-  ],
+  '3-03-ui': [/link, mã hoặc bộ sưu tập/i, /lỗi phân giải/i, /ngữ cảnh nguồn/i],
   '3-04-ui': [
-    /seller config/i,
-    /admin evidence/i,
-    /permission denied/i,
-    /safe exit/i,
+    /cấu hình người bán/i,
+    /bằng chứng quản trị/i,
+    /bị từ chối quyền/i,
+    /thoát an toàn/i,
   ],
-  '3-05-ui': [/create/i, /publish/i, /enforcement/i, /appeal/i],
-  '3-06-ui': [/host/i, /reconnect/i, /ended/i, /replay|enforcement/i],
+  '3-05-ui': [/tạo/i, /xuất bản/i, /enforcement/i, /khiếu nại/i],
+  '3-06-ui': [/host/i, /kết nối lại/i, /đã kết thúc/i, /phát lại|enforcement/i],
   '3-07-ui': [
-    /internal chat/i,
-    /revoked consent/i,
-    /hides contact/i,
-    /preserves chat/i,
+    /chat nội bộ/i,
+    /thu hồi đồng ý/i,
+    /ẩn thông tin liên hệ/i,
+    /giữ nguyên chat/i,
   ],
   '3-08-ui': [
-    /release/i,
-    /seller affiliate/i,
-    /revision|dispute/i,
-    /immutable contract version/i,
+    /giải ngân/i,
+    /Seller Affiliate/i,
+    /sửa đổi|tranh chấp/i,
+    /phiên bản hợp đồng bất biến/i,
   ],
-  '3-09-ui': [/leave|revoke/i, /effective membership/i, /permissions/i],
+  '3-09-ui': [/rời|thu hồi/i, /thành viên có hiệu lực/i, /quyền/i],
   '3-10-ui': [
-    /notification deep-link/i,
-    /finance role/i,
-    /held|failed/i,
-    /safe action/i,
+    /deep-link thông báo/i,
+    /vai trò tài chính/i,
+    /held|thất bại/i,
+    /hành động an toàn/i,
   ],
-  '3-11-ui': [/destructive action/i, /confirm/i, /return reference/i],
-  '3-12-ui': [/disconnect|reconnect/i, /preserves history/i, /safe status/i],
+  '3-11-ui': [/hành động phá hủy/i, /xác nhận/i, /trả về tham chiếu/i],
+  '3-12-ui': [
+    /ngắt kết nối|kết nối lại/i,
+    /giữ nguyên lịch sử/i,
+    /trạng thái an toàn/i,
+  ],
 };
 
 const specText = (spec: (typeof UI_SPECS)[number]): string =>
@@ -131,6 +139,22 @@ test('should define exactly the twelve approved UI diagram keys', () => {
     EXPECTED_KEYS,
   );
   assert.equal(new Set(UI_SPECS.map((spec) => spec.key)).size, 12);
+});
+
+test('should expose Vietnamese visible copy and approved badges for all UI specs', () => {
+  assert.deepEqual(auditVietnameseCopy([], UI_SPECS), []);
+  for (const spec of UI_SPECS) {
+    for (const diagramNode of spec.columns.flatMap(
+      (diagramColumn) => diagramColumn.nodes,
+    )) {
+      if (diagramNode.badge) {
+        assert.ok(
+          APPROVED_BADGES.has(diagramNode.badge),
+          `${spec.key}: ${diagramNode.id} has an approved Vietnamese badge`,
+        );
+      }
+    }
+  }
 });
 
 test('should represent every manifest MH exactly once as a primary node', () => {
@@ -175,14 +199,14 @@ test('should keep every UI spec within renderer layout limits and render it', ()
 test('should expose surface entry, authoritative API states, and a safe outcome', () => {
   for (const spec of UI_SPECS) {
     const surfaceColumn = spec.columns.find((column) =>
-      /surface boundary/i.test(column.title),
+      /ranh giới bề mặt/i.test(column.title),
     );
     assert.ok(surfaceColumn, `${spec.key}: separate surface boundary column`);
     assert.match(
       surfaceColumn.nodes
         .map((node) => `${node.label} ${node.detail}`)
         .join(' '),
-      /entry\/auth/i,
+      /điểm vào\/xác thực|đã xác thực/i,
       `${spec.key}: entry/auth`,
     );
 
@@ -191,12 +215,12 @@ test('should expose surface entry, authoritative API states, and a safe outcome'
       ?.nodes.map((node) => `${node.label} ${node.detail}`)
       .join(' ');
     assert.ok(outcomeText, `${spec.key}: final outcome column`);
-    assert.match(outcomeText, /BFF\/API authoritative result/i, spec.key);
-    assert.match(outcomeText, /loading/i, spec.key);
-    assert.match(outcomeText, /error/i, spec.key);
-    assert.match(outcomeText, /denied/i, spec.key);
-    assert.match(outcomeText, /remediation|safe exit/i, spec.key);
-    assert.match(outcomeText, /audit|reference/i, spec.key);
+    assert.match(outcomeText, /kết quả chuẩn tắc BFF\/API/i, spec.key);
+    assert.match(outcomeText, /đang tải/i, spec.key);
+    assert.match(outcomeText, /lỗi/i, spec.key);
+    assert.match(outcomeText, /từ chối/i, spec.key);
+    assert.match(outcomeText, /khắc phục|thoát an toàn/i, spec.key);
+    assert.match(outcomeText, /audit|tham chiếu/i, spec.key);
   }
 });
 
@@ -220,12 +244,12 @@ test('should keep responsive web outside Video and LIVE native parity closure', 
     assert.ok(spec, `${key}: missing spec`);
     const nativeGate = spec.columns
       .flatMap((column) => column.nodes)
-      .find((node) => node.label === 'Native gate');
+      .find((node) => node.label === 'Cổng native');
 
     assert.ok(nativeGate, `${key}: Native gate node`);
     assert.match(
       nativeGate.detail,
-      /responsive web does not close (?:native )?parity/i,
+      /web đáp ứng không khép.*tương đương native/i,
       `${key}: responsive web is not closure evidence`,
     );
   }
@@ -238,7 +262,7 @@ test('should connect every surface, state, remediation, and native gate to a mea
     );
     const surfaceNodeIds =
       spec.columns
-        .find((diagramColumn) => /surface boundary/i.test(diagramColumn.title))
+        .find((diagramColumn) => /ranh giới bề mặt/i.test(diagramColumn.title))
         ?.nodes.map((diagramNode) => diagramNode.id) ?? [];
     const requiredNodeIds = spec.columns
       .flatMap((diagramColumn) => diagramColumn.nodes)
@@ -247,7 +271,7 @@ test('should connect every surface, state, remediation, and native gate to a mea
           surfaceNodeIds.includes(diagramNode.id) ||
           diagramNode.id.endsWith('-states') ||
           diagramNode.id.endsWith('-remediation') ||
-          diagramNode.label === 'Native gate',
+          diagramNode.label === 'Cổng native',
       )
       .map((diagramNode) => diagramNode.id);
 
@@ -311,12 +335,12 @@ test('should separate public Buyer or Viewer entry from authenticated creator to
     );
     assert.match(
       `${publicEntry?.label} ${publicEntry?.detail}`,
-      /public.*(?:buyer|viewer)|(?:buyer|viewer).*public/i,
+      /công khai.*(?:buyer|viewer)|(?:buyer|viewer).*công khai/i,
       `${key}: public Buyer/Viewer entry`,
     );
     assert.match(
       `${authenticatedEntry?.label} ${authenticatedEntry?.detail}`,
-      /authenticated/i,
+      /đã xác thực/i,
       `${key}: authenticated creator entry`,
     );
 
@@ -333,7 +357,7 @@ test('should separate public Buyer or Viewer entry from authenticated creator to
       assert.equal(screen?.tone, 'system', `${key}: ${screenId} public tone`);
       assert.match(
         `${screen?.label} ${screen?.detail}`,
-        /public|buyer|viewer/i,
+        /công khai|buyer|viewer/i,
         `${key}: ${screenId} public audience`,
       );
     }
@@ -374,7 +398,7 @@ test('should expose seller catalog and admin moderation boundaries for Video and
     const spec = UI_SPECS.find((item) => item.key === key);
     assert.ok(spec, `${key}: missing spec`);
     const surfaceColumn = spec.columns.find((diagramColumn) =>
-      /surface boundary/i.test(diagramColumn.title),
+      /ranh giới bề mặt/i.test(diagramColumn.title),
     );
     assert.ok(surfaceColumn, `${key}: missing surface boundary`);
     const labels = surfaceColumn.nodes.map((diagramNode) => diagramNode.label);
@@ -420,7 +444,7 @@ test('should keep MCN tools in the storefront application unless an ADR changes 
   const spec = UI_SPECS.find((item) => item.key === '3-09-ui');
   assert.ok(spec);
   const surfaceText = spec.columns
-    .find((diagramColumn) => /surface boundary/i.test(diagramColumn.title))
+    .find((diagramColumn) => /ranh giới bề mặt/i.test(diagramColumn.title))
     ?.nodes.map((diagramNode) => `${diagramNode.label} ${diagramNode.detail}`)
     .join(' ');
   assert.ok(surfaceText);
@@ -436,17 +460,17 @@ test('should require ADR, implementation, and authenticated native evidence befo
     assert.ok(spec, `${key}: missing spec`);
     const nativeGate = spec.columns
       .flatMap((diagramColumn) => diagramColumn.nodes)
-      .find((diagramNode) => diagramNode.label === 'Native gate');
+      .find((diagramNode) => diagramNode.label === 'Cổng native');
     assert.ok(nativeGate, `${key}: Native gate`);
     assert.match(nativeGate.detail, /ADR/i, `${key}: ADR evidence`);
     assert.match(
       nativeGate.detail,
-      /implementation/i,
+      /triển khai/i,
       `${key}: implementation evidence`,
     );
     assert.match(
       nativeGate.detail,
-      /authenticated/i,
+      /đã xác thực/i,
       `${key}: authenticated evidence`,
     );
     assert.ok(
@@ -477,7 +501,17 @@ test('should treat reversed as a compensating entry while preserving all six mon
   ]) {
     assert.match(wallet.detail, new RegExp(moneyTerm, 'i'));
   }
-  assert.match(wallet.detail, /reversed.*compensating entry/i);
-  assert.match(wallet.detail, /not (?:a )?balance state|never (?:a )?balance/i);
-  assert.doesNotMatch(wallet.detail, /reversed balances?/i);
+  assert.match(wallet.detail, /reversed.*bút toán bù trừ/i);
+  assert.match(wallet.detail, /không phải.*trạng thái số dư/i);
+  assert.doesNotMatch(wallet.detail, /reversed (?:là )?trạng thái số dư/i);
+});
+
+test('should preserve the Sample proper noun in the MH-038 localized label', () => {
+  const spec = UI_SPECS.find((item) => item.key === '3-08-ui');
+  assert.ok(spec);
+  const sample = spec.columns
+    .flatMap((diagramColumn) => diagramColumn.nodes)
+    .find((diagramNode) => diagramNode.id === 'mh-038');
+  assert.ok(sample);
+  assert.match(sample.label, /^MH-038\b.*\bSample\b/);
 });
