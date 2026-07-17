@@ -1,8 +1,11 @@
-/** Operational paths that bypass both authentication and rate limiting. */
-export const PUBLIC_PATHS = [
-  '/healthz',
-  '/health.v1.HealthService/Health',
+const HEALTH_PATHS = ['/healthz', '/health.v1.HealthService/Health'] as const;
+
+export const AUTH_PUBLIC_PATHS = [
+  ...HEALTH_PATHS,
+  '/trading.v1.TradingService/GetMarkets',
 ] as const;
+
+export const RATE_LIMIT_EXEMPT_PATHS = HEALTH_PATHS;
 
 export const CORS_ALLOWED_HEADERS = [
   'Content-Type',

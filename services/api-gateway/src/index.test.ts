@@ -5,6 +5,7 @@ import worker, { createGatewayWorker, type RateLimiterDO } from '@/index';
 
 const HEALTH_URL = 'http://gateway.test/health.v1.HealthService/Health';
 const MARKETS_URL = 'http://gateway.test/trading.v1.TradingService/GetMarkets';
+const PROTECTED_URL = 'http://gateway.test/private.v1.PrivateService/Read';
 const JWT_SECRET = 'test-secret';
 
 /** A Connect-style RPC POST (JSON) helper, optionally bearer-authenticated. */
@@ -446,32 +447,28 @@ describe('gateway fetch handler', () => {
     );
   });
 
-  it('should reject a protected route with 401 when a token is required but missing', async () => {
+  it('should keep market data public when auth is enabled', async () => {
+    const fetchMock = vi.fn(async () => new Response('ok'));
     const res = await fetchGateway(
       rpcRequest(MARKETS_URL, { coinIds: ['bitcoin'], vsCurrency: 'usd' }),
-      { JWT_SECRET },
+      {
+        JWT_SECRET,
+        TRADING_RPC: { fetch: fetchMock } as unknown as Fetcher,
+      },
     );
 
-    expect(res.status).toBe(401);
-    const body = (await res.json()) as { error: { code: string } };
-    expect(body.error.code).toBe('unauthorized');
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it('should allow a protected route with a valid bearer token', async () => {
     const token = await sign({ sub: 'user-1' }, JWT_SECRET);
     const fetchMock = vi.fn(async () => new Response('ok'));
 
-    const res = await fetchGateway(
-      rpcRequest(
-        MARKETS_URL,
-        { coinIds: ['bitcoin'], vsCurrency: 'usd' },
-        token,
-      ),
-      {
-        JWT_SECRET,
-        TRADING_RPC: { fetch: fetchMock } as unknown as Fetcher,
-      },
-    );
+    const res = await fetchGateway(rpcRequest(PROTECTED_URL, {}, token), {
+      JWT_SECRET,
+      TRADING_RPC: { fetch: fetchMock } as unknown as Fetcher,
+    });
 
     expect(res.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledOnce();

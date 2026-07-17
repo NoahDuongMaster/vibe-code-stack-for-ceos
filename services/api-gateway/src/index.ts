@@ -2,7 +2,8 @@ import type { TGatewayBindings } from '@/adapters/cloudflare/gateway-bindings';
 import { createGatewayApp } from '@/adapters/http/gateway-app';
 import type { GatewayRequestScopeFactory } from '@/adapters/http/gateway-request-scope.factory';
 import {
-  PUBLIC_PATHS,
+  AUTH_PUBLIC_PATHS,
+  RATE_LIMIT_EXEMPT_PATHS,
   RATE_LIMIT_POLICY,
   TRADING_RPC_ORIGIN,
   UPSTREAM_TIMEOUT_MS,
@@ -26,7 +27,8 @@ import { createConsoleGatewayLogger } from '@/shared/logging';
 
 export { RateLimiterDO } from '@/features/rate-limiting';
 
-const accessPolicy = new GatewayAccessPolicy(PUBLIC_PATHS);
+const authAccessPolicy = new GatewayAccessPolicy(AUTH_PUBLIC_PATHS);
+const rateLimitAccessPolicy = new GatewayAccessPolicy(RATE_LIMIT_EXEMPT_PATHS);
 const rateLimitPolicy = RateLimitPolicy.create(RATE_LIMIT_POLICY);
 
 const requireTradingRpcBinding = (bindings: TGatewayBindings): Fetcher => {
@@ -47,12 +49,12 @@ const createRequestScope: GatewayRequestScopeFactory = (bindings, config) => {
   return {
     logger,
     authorizeGatewayRequest: new AuthorizeGatewayRequestUseCase(
-      accessPolicy,
+      authAccessPolicy,
       honoJwtTokenVerifier,
       config.jwtSecret,
     ),
     enforceRateLimit: new EnforceRateLimitUseCase(
-      accessPolicy,
+      rateLimitAccessPolicy,
       createDurableObjectRateLimiterAdapter(bindings.RATE_LIMITER),
       rateLimitPolicy,
       logger,
