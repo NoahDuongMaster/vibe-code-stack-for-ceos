@@ -37,7 +37,7 @@
 - Consumes: Approved visual design and current Notion page IDs/headings.
 - Produces: `TDiagramTarget`, `DIAGRAM_TARGETS`, `TARGET_BY_KEY`, and exact placement/version metadata used by generation and Notion updates.
 
-- [ ] **Step 1: Write the failing manifest test**
+- [x] **Step 1: Write the failing manifest test**
 
 Create `scripts/notion-srs-visuals/manifest.test.ts`:
 
@@ -79,13 +79,13 @@ test('should use exact headings as non-destructive insertion anchors', () => {
 
 The expected `0.2` count is 16 diagram placements, not 14 pages: Page 1 and Page 4 each receive two diagrams, and the 12 Page 2 pages receive one each.
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/manifest.test.ts`
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `manifest.ts`.
 
-- [ ] **Step 3: Define the shared types**
+- [x] **Step 3: Define the shared types**
 
 Create `scripts/notion-srs-visuals/types.ts`:
 
@@ -142,7 +142,7 @@ export type TDiagramSpec = Readonly<{
 }>
 ```
 
-- [ ] **Step 4: Create the complete target manifest**
+- [x] **Step 4: Create the complete target manifest**
 
 Create `scripts/notion-srs-visuals/manifest.ts`. Use this helper and exact target rows:
 
@@ -196,13 +196,13 @@ export const TARGET_BY_KEY = new Map(
 )
 ```
 
-- [ ] **Step 5: Run the manifest test and verify GREEN**
+- [x] **Step 5: Run the manifest test and verify GREEN**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/manifest.test.ts`
 
 Expected: 4 tests PASS.
 
-- [ ] **Step 6: Commit the inventory contract**
+- [x] **Step 6: Commit the inventory contract**
 
 ```bash
 git add scripts/notion-srs-visuals/types.ts scripts/notion-srs-visuals/manifest.ts scripts/notion-srs-visuals/manifest.test.ts
@@ -219,17 +219,17 @@ git commit -m "test(docs): lock Notion SRS visual inventory"
 - Consumes: `TDiagramSpec` from Task 1.
 - Produces: `renderDiagram(spec: TDiagramSpec): string`, a safe `1600 × 900` SVG with title, description, columns, nodes, routed edges, badges, and legend.
 
-- [ ] **Step 1: Write renderer behavior tests**
+- [x] **Step 1: Write renderer behavior tests**
 
 Create a fixture with two columns, creator/system nodes, and all three edge styles. Assert exact presence of `xmlns="http://www.w3.org/2000/svg"`, `viewBox="0 0 1600 900"`, `<title>`, `<desc>`, `marker-end`, `stroke-dasharray="12 8"`, `stroke-dasharray="3 8"`, and escaped XML text. Assert absence of `<script`, `javascript:`, `<image`, external `href`, and any `http/https` value other than the required SVG namespace.
 
-- [ ] **Step 2: Run the renderer test and verify RED**
+- [x] **Step 2: Run the renderer test and verify RED**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/svg-renderer.test.ts`
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `svg-renderer.ts`.
 
-- [ ] **Step 3: Implement the renderer**
+- [x] **Step 3: Implement the renderer**
 
 Implement these exact exports in `svg-renderer.ts`:
 
@@ -347,13 +347,13 @@ export const renderDiagram = (spec: TDiagramSpec): string => {
 
 The implementation must remain dependency-free and must throw descriptive errors for duplicate node IDs, unknown edge endpoints, zero columns, more than five columns, or more than four nodes in one column.
 
-- [ ] **Step 4: Run the renderer tests and verify GREEN**
+- [x] **Step 4: Run the renderer tests and verify GREEN**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/svg-renderer.test.ts`
 
 Expected: renderer tests PASS.
 
-- [ ] **Step 5: Commit the renderer**
+- [x] **Step 5: Commit the renderer**
 
 ```bash
 git add scripts/notion-srs-visuals/svg-renderer.ts scripts/notion-srs-visuals/svg-renderer.test.ts
@@ -370,17 +370,17 @@ git commit -m "feat(docs): add safe SRS SVG renderer"
 - Consumes: `TDiagramSpec` and manifest keys.
 - Produces: `OVERVIEW_AND_TEST_SPECS`, four specs keyed by `page-1-system-context`, `page-1-end-to-end`, `page-4-traceability`, and `page-4-release-gate`.
 
-- [ ] **Step 1: Write spec coverage tests**
+- [x] **Step 1: Write spec coverage tests**
 
 Assert four unique keys, all edge endpoints exist, no node contains any placeholder sentinel from `['T' + 'BD', 'TO' + 'DO', 'Lo' + 'rem']`, Page 4 contains `SP`, `CN`, `QT`, `MH`, `KT`, `evidence`, and the end-to-end flow contains all six money states.
 
-- [ ] **Step 2: Run the focused spec test and verify RED**
+- [x] **Step 2: Run the focused spec test and verify RED**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: FAIL because the four specs do not exist.
 
-- [ ] **Step 3: Define the exact semantic columns**
+- [x] **Step 3: Define the exact semantic columns**
 
 Create the four specs with these columns in order:
 
@@ -393,13 +393,13 @@ Create the four specs with these columns in order:
 
 Use dotted edges from every decision/financial node to evidence, dashed edges for provider/async processing, and solid edges for primary flow.
 
-- [ ] **Step 4: Run the spec tests and verify GREEN**
+- [x] **Step 4: Run the spec tests and verify GREEN**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: overview/test spec tests PASS.
 
-- [ ] **Step 5: Commit the overview and test specs**
+- [x] **Step 5: Commit the overview and test specs**
 
 ```bash
 git add scripts/notion-srs-visuals/overview-and-test-specs.ts scripts/notion-srs-visuals/specs.test.ts
@@ -416,17 +416,17 @@ git commit -m "feat(docs): define SRS overview and test diagrams"
 - Consumes: backend manifest keys and `TDiagramSpec`.
 - Produces: `BACKEND_SPECS`, exactly twelve specs with keys `2-01-backend` through `2-12-backend`.
 
-- [ ] **Step 1: Extend tests for backend scope**
+- [x] **Step 1: Extend tests for backend scope**
 
 Assert twelve keys; every subtitle includes the exact `CN` range from the manifest; each spec has 3–5 columns, at least one dotted evidence edge, at least one safe failure/remediation node, and only permitted codes for its range.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: FAIL because `BACKEND_SPECS` is missing.
 
-- [ ] **Step 3: Define the twelve lifecycle specs**
+- [x] **Step 3: Define the twelve lifecycle specs**
 
 Use these exact primary nodes and flow order; add evidence/version nodes as the final column:
 
@@ -447,13 +447,13 @@ Use these exact primary nodes and flow order; add evidence/version nodes as the 
 
 Badges are assigned from the source implementation map already present in each Page 2; where the SRS states the domain is absent, use `New`; for reusable primitives use `Extend` or `Existing`; for native/secret-algorithm claims use `Field-validation gate`.
 
-- [ ] **Step 4: Run the full spec tests and verify GREEN**
+- [x] **Step 4: Run the full spec tests and verify GREEN**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: all overview, test, and backend spec tests PASS.
 
-- [ ] **Step 5: Commit backend specs**
+- [x] **Step 5: Commit backend specs**
 
 ```bash
 git add scripts/notion-srs-visuals/backend-specs.ts scripts/notion-srs-visuals/specs.test.ts
@@ -470,17 +470,17 @@ git commit -m "feat(docs): define affiliate backend lifecycle diagrams"
 - Consumes: Page 3 screen maps, `MH` code ranges, routes, and component contracts.
 - Produces: `UI_SPECS`, exactly twelve specs with keys `3-01-ui` through `3-12-ui`.
 
-- [ ] **Step 1: Extend tests for UI scope and native gate**
+- [x] **Step 1: Extend tests for UI scope and native gate**
 
 Assert twelve keys; every `MH` in each manifest range appears exactly once as a primary node; each spec contains entry/auth, authoritative API result, loading/error/denied handling, and remediation or safe exit. Assert Video and LIVE include a `Native gate` node stating responsive web is not closure evidence.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: FAIL because `UI_SPECS` is missing.
 
-- [ ] **Step 3: Define the twelve navigation specs**
+- [x] **Step 3: Define the twelve navigation specs**
 
 Use these exact screen sequences and branch annotations:
 
@@ -501,13 +501,13 @@ Use these exact screen sequences and branch annotations:
 
 Each UI spec uses a separate column for surface boundary (`Storefront`, `Vendor portal`, `Medusa Admin`, `External OAuth`) and a final column for `BFF/API authoritative result`, `loading/error/denied`, and `audit/reference`.
 
-- [ ] **Step 4: Run all spec tests and verify GREEN**
+- [x] **Step 4: Run all spec tests and verify GREEN**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: all 28 spec contracts PASS.
 
-- [ ] **Step 5: Commit UI specs**
+- [x] **Step 5: Commit UI specs**
 
 ```bash
 git add scripts/notion-srs-visuals/ui-specs.ts scripts/notion-srs-visuals/specs.test.ts
@@ -527,7 +527,7 @@ git commit -m "feat(docs): define affiliate UI navigation diagrams"
 - Consumes: all 28 specs, renderer, and manifest.
 - Produces: deterministic SVG files and a local contact sheet; `validateGeneratedAssets(outputDir): string[]` returns an empty error list only when every contract passes.
 
-- [ ] **Step 1: Write failing generation/validation tests**
+- [x] **Step 1: Write failing generation/validation tests**
 
 Tests must assert:
 
@@ -537,19 +537,19 @@ Tests must assert:
 - contact sheet contains 28 `<object type="image/svg+xml">` entries;
 - output is deterministic across two temporary runs.
 
-- [ ] **Step 2: Run generation tests and verify RED**
+- [x] **Step 2: Run generation tests and verify RED**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/generate.test.ts`
 
 Expected: FAIL because `generate.ts` and `validate.ts` do not exist.
 
-- [ ] **Step 3: Implement generator and validator**
+- [x] **Step 3: Implement generator and validator**
 
 `generate.ts` exports `generateAll(outputDir: string): Promise<void>` and, when executed directly, writes to `docs/superpowers/assets/notion-srs-visuals`. It merges the three spec collections, rejects missing/extra keys, renders files in manifest order, and writes an HTML contact sheet with the title, key, code range, and embedded local SVG object.
 
 `validate.ts` exports `validateGeneratedAssets(outputDir: string): Promise<string[]>`. It reports all errors instead of stopping at the first one and exits non-zero in its CLI entrypoint when errors are present.
 
-- [ ] **Step 4: Run tests and generate assets**
+- [x] **Step 4: Run tests and generate assets**
 
 Run:
 
@@ -562,17 +562,17 @@ xmllint --noout docs/superpowers/assets/notion-srs-visuals/*.svg
 
 Expected: all tests PASS; generator reports `28 SVGs generated`; validator reports `28/28 valid`; `xmllint` exits 0.
 
-- [ ] **Step 5: Perform visual review using the contact sheet**
+- [x] **Step 5: Perform visual review using the contact sheet**
 
 Open `docs/superpowers/assets/notion-srs-visuals/contact-sheet.html` locally. Review all 28 diagrams at desktop width and 50% zoom. Reject and fix any clipped label, crossing edge that obscures text, unreadable badge, inconsistent legend, missing actor, wrong code range, or layout that requires horizontal scrolling in Notion.
 
-- [ ] **Step 6: Re-run validation after visual fixes**
+- [x] **Step 6: Re-run validation after visual fixes**
 
 Run the four commands from Step 4 again.
 
 Expected: all remain GREEN and the generated files are deterministic.
 
-- [ ] **Step 7: Commit reproducible assets and tooling**
+- [x] **Step 7: Commit reproducible assets and tooling**
 
 ```bash
 git add scripts/notion-srs-visuals docs/superpowers/assets/notion-srs-visuals
@@ -590,7 +590,7 @@ git commit -m "docs: generate affiliate SRS visual diagrams"
 - Consumes: validated SVG content and exact manifest anchors.
 - Produces: 28 attached Notion image blocks with captions; all page-level versions remain unchanged during this task.
 
-- [ ] **Step 1: Fetch and preflight all 26 target pages**
+- [x] **Step 1: Fetch and preflight all 26 target pages**
 
 For each unique `pageId`, fetch the page and assert:
 
@@ -602,7 +602,7 @@ For each unique `pageId`, fetch the page and assert:
 
 Stop before mutation if any assertion fails.
 
-- [ ] **Step 2: Upload and attach each SVG sequentially**
+- [x] **Step 2: Upload and attach each SVG sequentially**
 
 For each manifest item in order:
 
@@ -621,11 +621,11 @@ new_str = ## Sơ đồ — {item.title}
 
 Omit the related-page link only for Page 1 and Page 4. Never batch unattached uploads.
 
-- [ ] **Step 3: Read back after every placement**
+- [x] **Step 3: Read back after every placement**
 
 Fetch the page immediately and verify the new filename/image source, title, alt/caption text, unchanged version, preserved anchor, and expected image count. Record successful manifest keys. Retry only a failed key; never upload a second copy for a successful key.
 
-- [ ] **Step 4: Verify placement totals before versioning**
+- [x] **Step 4: Verify placement totals before versioning**
 
 Fetch all 27 pages (master plus children) and assert:
 
@@ -649,7 +649,7 @@ Do not continue if any count or preserved-content check fails.
 - Consumes: successful 28/28 placement verification from Task 7.
 - Produces: master and all children at version 0.5, with one auditable master changelog entry.
 
-- [ ] **Step 1: Update child page version markers**
+- [x] **Step 1: Update child page version markers**
 
 Use targeted `update_content` replacements:
 
@@ -658,7 +658,7 @@ Use targeted `update_content` replacements:
 
 Fetch after each update and verify exactly one 0.5 marker and no stale marker.
 
-- [ ] **Step 2: Update the master current version and history**
+- [x] **Step 2: Update the master current version and history**
 
 Change `Phiên bản hiện tại` from `0.4` to `0.5`. Insert this row before the 0.4 history row:
 
@@ -666,7 +666,7 @@ Change `Phiên bản hiện tại` from `0.4` to `0.5`. Insert this row before t
 0.5 | 18/07/2026 | Bổ sung 28 SVG technical diagrams: 2 Page 1, 12 backend lifecycle, 12 UI navigation và 2 traceability/release-gate; đồng bộ 26 page-level version; không đổi functional baseline. | Codex theo review/approval của Noah Duong | Chưa duyệt
 ```
 
-- [ ] **Step 3: Fetch and verify version consistency**
+- [x] **Step 3: Fetch and verify version consistency**
 
 Expected: master and 26/26 child pages report 0.5; history order begins 0.5, 0.4, 0.3; no page reports 0.2 or 0.4 as its current/applied version.
 
@@ -680,7 +680,7 @@ Expected: master and 26/26 child pages report 0.5; history order begins 0.5, 0.4
 - Consumes: completed local assets and Notion v0.5 pages.
 - Produces: evidence-backed completion report; no deployment.
 
-- [ ] **Step 1: Run focused local validation**
+- [x] **Step 1: Run focused local validation**
 
 ```bash
 mise exec -- node --test scripts/notion-srs-visuals/*.test.ts
@@ -701,7 +701,9 @@ mise test
 
 Expected: zero errors and all tests pass. `mise build` is not required because no application/build configuration changes; run it only if implementation expands beyond documentation tooling/assets.
 
-- [ ] **Step 3: Perform final Notion read-back audit**
+Status 18/07/2026: `mise typecheck`, `mise check:ci`, and `mise lint` PASS. The standard `mise test` command repeatedly exposes two pre-existing `services/trading-rpc/src/adapters/http.adapter.test.ts` teardown timeouts only under file-parallel execution. The same file passes 21/21 in isolation, and the full trading-rpc suite passes 55/55 with `--maxWorkers=1 --no-file-parallelism`. No unrelated service/test code was changed.
+
+- [x] **Step 3: Perform final Notion read-back audit**
 
 Verify all of the following in one report:
 
@@ -714,7 +716,7 @@ Verify all of the following in one report:
 - no duplicate diagram title, filename, image block or caption;
 - no broken related-page link.
 
-- [ ] **Step 4: Commit execution tracking and report completion**
+- [x] **Step 4: Commit execution tracking and report completion**
 
 ```bash
 git add docs/superpowers/plans/2026-07-18-notion-srs-visual-diagrams.md
