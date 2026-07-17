@@ -1,0 +1,1039 @@
+import { TARGET_BY_KEY } from './manifest.ts';
+
+import type {
+  TBadge,
+  TDiagramColumn,
+  TDiagramEdge,
+  TDiagramNode,
+  TDiagramSpec,
+  TEdgeStyle,
+  TTone,
+} from './types.ts';
+
+const node = (
+  id: string,
+  label: string,
+  detail: string,
+  tone: TTone,
+  badge?: TBadge,
+): TDiagramNode =>
+  badge ? { id, label, detail, tone, badge } : { id, label, detail, tone };
+
+const edge = (
+  from: string,
+  to: string,
+  label: string,
+  style: TEdgeStyle = 'solid',
+): TDiagramEdge => ({ from, to, label, style });
+
+const column = (
+  title: string,
+  nodes: readonly TDiagramNode[],
+): TDiagramColumn => ({ title, nodes });
+
+const surfaceBoundary = (
+  key: string,
+  surfaces: readonly TDiagramNode[],
+): TDiagramColumn =>
+  column('Surface boundary', [
+    node(
+      `${key}-entry`,
+      'Entry/auth',
+      'Authenticated route entry with role and account-state gate.',
+      'system',
+      'Existing',
+    ),
+    ...surfaces,
+  ]);
+
+const authoritativeOutcome = (
+  key: string,
+  result: string,
+  states: string,
+  remediation: string,
+  audit: string,
+): TDiagramColumn =>
+  column('Authoritative outcome', [
+    node(
+      `${key}-api`,
+      'BFF/API authoritative result',
+      result,
+      'system',
+      'Extend',
+    ),
+    node(`${key}-states`, 'Loading/error/denied', states, 'ops'),
+    node(`${key}-remediation`, 'Remediation / safe exit', remediation, 'ops'),
+    node(`${key}-audit`, 'Audit / reference', audit, 'system'),
+  ]);
+
+const uiSpec = (
+  key: string,
+  scope: string,
+  columns: readonly TDiagramColumn[],
+  edges: readonly TDiagramEdge[],
+): TDiagramSpec => {
+  const target = TARGET_BY_KEY.get(key);
+  if (!target) {
+    throw new Error(`Unknown UI diagram target: ${key}`);
+  }
+
+  return {
+    key,
+    title: target.title,
+    subtitle: target.codeRange,
+    scope,
+    columns,
+    edges,
+  };
+};
+
+export const UI_SPECS: readonly TDiagramSpec[] = [
+  uiSpec(
+    '3-01-ui',
+    'Creator onboarding plus admin review; needs_action or rejected returns to the exact form section.',
+    [
+      surfaceBoundary('3-01', [
+        node(
+          '3-01-storefront',
+          'Storefront',
+          'Creator account and affiliate center routes.',
+          'creator',
+          'Extend',
+        ),
+        node(
+          '3-01-admin',
+          'Medusa Admin',
+          'Admin deep-link opens the submitted application review.',
+          'ops',
+          'Extend',
+        ),
+      ]),
+      column('Creator journey', [
+        node(
+          'mh-001',
+          'MH-001 Eligibility',
+          'Show eligibility, account state, and the allowed next action.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-002',
+          'MH-002 Application',
+          'Validated identity, contact, consent, and participant fields.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-003',
+          'MH-003 Channel verify',
+          'Ownership challenge and authoritative verification status.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-004',
+          'MH-004 Settings',
+          'Editable profile, channels, consent, and account state.',
+          'creator',
+          'New',
+        ),
+      ]),
+      column('Operations review', [
+        node(
+          'mh-005',
+          'MH-005 Review',
+          'Admin evidence, decision, reason code, and requested corrections.',
+          'ops',
+          'New',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-01',
+        'Application, verification, and review status from the BFF/API.',
+        'Loading preserves draft; error is retryable; denied hides protected evidence.',
+        'needs_action or rejected returns to the exact form section; otherwise safe exit to affiliate center.',
+        'Application version, reviewer decision, reason code, and correlation reference.',
+      ),
+    ],
+    [
+      edge('3-01-entry', 'mh-001', 'entry/auth'),
+      edge('mh-001', 'mh-002', 'eligible → apply'),
+      edge('mh-002', 'mh-003', 'submit → verify'),
+      edge('mh-003', 'mh-004', 'verified → settings'),
+      edge('3-01-admin', 'mh-005', 'admin deep-link'),
+      edge('mh-002', '3-01-api', 'submit'),
+      edge('mh-003', '3-01-api', 'verify'),
+      edge('mh-005', '3-01-api', 'decision'),
+      edge('3-01-remediation', 'mh-002', 'exact form section'),
+      edge('3-01-api', '3-01-audit', 'versioned evidence', 'dotted'),
+    ],
+  ),
+  uiSpec(
+    '3-02-ui',
+    'Dashboard discovery, offer assets, invitation and referral branches, plus seller or admin offer management.',
+    [
+      surfaceBoundary('3-02', [
+        node(
+          '3-02-storefront',
+          'Storefront',
+          'Creator dashboard, marketplace, invitation, and referral routes.',
+          'creator',
+          'Extend',
+        ),
+        node(
+          '3-02-vendor',
+          'Vendor Portal',
+          'Seller offer and commission configuration entry.',
+          'seller',
+          'Extend',
+        ),
+        node(
+          '3-02-admin',
+          'Medusa Admin',
+          'Authorized offer oversight entry.',
+          'ops',
+          'Extend',
+        ),
+      ]),
+      column('Discover & activate', [
+        node(
+          'mh-006',
+          'MH-006 Dashboard',
+          'Authoritative clicks, orders, earnings, tasks, and freshness.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-007',
+          'MH-007 Marketplace',
+          'Eligible offers with filters, rates, terms, and availability.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-008',
+          'MH-008 Offer detail',
+          'Current version, eligibility, enrollment, and asset action.',
+          'creator',
+          'New',
+        ),
+      ]),
+      column('Deep links & management', [
+        node(
+          'mh-009',
+          'MH-009 Invitation',
+          'Invitation deep-link with status, versioned terms, and response.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-010',
+          'MH-010 Referral',
+          'Referral link, invite state, eligibility, and earned outcome.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-011',
+          'MH-011 Offer manage',
+          'Seller/admin rate version, targeting, pause, and audit controls.',
+          'seller',
+          'New',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-02',
+        'Eligibility, enrollment, invitation, referral, and offer version from the BFF/API.',
+        'Loading uses stable skeletons; error retries; denied removes ineligible actions.',
+        'A stale offer forces version refresh before mutation; safe exit preserves filters.',
+        'Offer version, eligibility decision, freshness time, and action reference.',
+      ),
+    ],
+    [
+      edge('3-02-entry', 'mh-006', 'entry/auth'),
+      edge('mh-006', 'mh-007', 'browse offers'),
+      edge('mh-007', 'mh-008', 'select offer'),
+      edge('3-02-entry', 'mh-009', 'invitation deep-link'),
+      edge('3-02-entry', 'mh-010', 'referral'),
+      edge('3-02-vendor', 'mh-011', 'seller management'),
+      edge('3-02-admin', 'mh-011', 'admin oversight'),
+      edge('mh-008', '3-02-api', 'enroll / create asset'),
+      edge('mh-009', '3-02-api', 'accept / decline'),
+      edge('mh-010', '3-02-api', 'referral status'),
+      edge('mh-011', '3-02-api', 'publish version'),
+      edge('3-02-api', '3-02-audit', 'freshness and version', 'dotted'),
+    ],
+  ),
+  uiSpec(
+    '3-03-ui',
+    'Tracked link, product code, collection publication, conversion reporting, and earning or payment views.',
+    [
+      surfaceBoundary('3-03', [
+        node(
+          '3-03-storefront',
+          'Storefront',
+          'Creator tools, public collection, PDP, and reporting routes.',
+          'creator',
+          'Extend',
+        ),
+      ]),
+      column('Create & publish', [
+        node(
+          'mh-012',
+          'MH-012 Link builder',
+          'Destination, campaign parameters, validation, and copy action.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-013',
+          'MH-013 Code generator',
+          'Product code, channel context, expiration, and copy action.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-014',
+          'MH-014 Collections',
+          'Draft, ordered items, visibility, version, and publish action.',
+          'creator',
+          'New',
+        ),
+      ]),
+      column('Resolve & report', [
+        node(
+          'mh-015',
+          'MH-015 Public/PDP',
+          'Public collection or product destination with source context.',
+          'system',
+          'Extend',
+        ),
+        node(
+          'mh-016',
+          'MH-016 Conversions',
+          'Order-line conversion rows, attribution state, and drill-down.',
+          'money',
+          'New',
+        ),
+        node(
+          'mh-017',
+          'MH-017 Earnings',
+          'Earning, payment, period, state, and export views.',
+          'money',
+          'New',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-03',
+        'Resolver destination, click reference, conversion rows, and financial state from the BFF/API.',
+        'Loading preserves query context; resolver error is explicit; denied protects private reports.',
+        'Resolver errors preserve source context for retry or safe exit to the originating asset.',
+        'Asset version, click source, order-line reference, report query, and export reference.',
+      ),
+    ],
+    [
+      edge('3-03-entry', 'mh-012', 'link or code or collection'),
+      edge('3-03-entry', 'mh-013', 'code tool'),
+      edge('3-03-entry', 'mh-014', 'collection tool'),
+      edge('mh-012', 'mh-015', 'resolve link'),
+      edge('mh-013', 'mh-015', 'resolve code'),
+      edge('mh-014', 'mh-015', 'publish collection'),
+      edge('3-03-entry', 'mh-016', 'reports'),
+      edge('mh-016', 'mh-017', 'earnings / payment'),
+      edge('mh-015', '3-03-api', 'resolver result'),
+      edge('mh-017', '3-03-api', 'financial query'),
+      edge('3-03-api', '3-03-audit', 'source and report evidence', 'dotted'),
+    ],
+  ),
+  uiSpec(
+    '3-04-ui',
+    'Creator report drill-down, seller rate simulation, and authorized admin attribution replay.',
+    [
+      surfaceBoundary('3-04', [
+        node(
+          '3-04-storefront',
+          'Storefront',
+          'Creator report row and ledger navigation.',
+          'creator',
+          'Extend',
+        ),
+        node(
+          '3-04-vendor',
+          'Vendor Portal',
+          'Seller config opens rate simulator and version preview.',
+          'seller',
+          'Extend',
+        ),
+        node(
+          '3-04-admin',
+          'Medusa Admin',
+          'Admin evidence deep-link for authorized replay.',
+          'ops',
+          'Extend',
+        ),
+      ]),
+      column('Financial detail', [
+        node(
+          'mh-018',
+          'MH-018 Attribution',
+          'Candidate, winner, rule version, and source evidence detail.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-020',
+          'MH-020 Ledger',
+          'Order-line journal, state transition, adjustment, and balance.',
+          'money',
+          'New',
+        ),
+      ]),
+      column('Authorized tools', [
+        node(
+          'mh-019',
+          'MH-019 Rate simulator',
+          'Seller inputs, effective version, preview, and non-binding result.',
+          'seller',
+          'New',
+        ),
+        node(
+          'mh-021',
+          'MH-021 Explorer',
+          'Admin candidate evidence and deterministic replay controls.',
+          'ops',
+          'Field-validation gate',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-04',
+        'Attribution decision, rate version, ledger entries, and replay evidence from the BFF/API.',
+        'Loading keeps row identity; error offers retry; permission denied reveals no protected evidence.',
+        'Permission denied exits safely to the permitted report with no secret decision internals.',
+        'Decision version, rate snapshot, ledger journal, replay input, and correlation reference.',
+      ),
+    ],
+    [
+      edge('3-04-entry', 'mh-018', 'report row'),
+      edge('mh-018', 'mh-020', 'ledger detail'),
+      edge('3-04-vendor', 'mh-019', 'seller config'),
+      edge('3-04-admin', 'mh-021', 'admin evidence'),
+      edge('mh-018', 'mh-021', 'authorized explorer'),
+      edge('mh-019', '3-04-api', 'simulate version'),
+      edge('mh-020', '3-04-api', 'journal query'),
+      edge('mh-021', '3-04-api', 'replay'),
+      edge('3-04-api', '3-04-audit', 'decision evidence', 'dotted'),
+    ],
+  ),
+  uiSpec(
+    '3-05-ui',
+    'Mobile-first Video discovery, creation, commerce detail, moderation, and appeal; native parity remains gated.',
+    [
+      surfaceBoundary('3-05', [
+        node(
+          '3-05-storefront',
+          'Storefront',
+          'Responsive web feed, composer, detail sheet, and appeal routes.',
+          'creator',
+          'Extend',
+        ),
+        node(
+          '3-05-native',
+          'Native gate',
+          'Responsive web does not close native parity; validate on native app.',
+          'system',
+          'Field-validation gate',
+        ),
+      ]),
+      column('Discover & create', [
+        node(
+          'mh-022',
+          'MH-022 Video feed',
+          'Mobile-first feed with disclosure, product cue, and stable states.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-023',
+          'MH-023 Composer',
+          'Upload, caption, validation, draft, product tags, and publish.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-024',
+          'MH-024 Product picker',
+          'Eligible product search, selection, rate context, and removal.',
+          'creator',
+          'New',
+        ),
+      ]),
+      column('Commerce & enforcement', [
+        node(
+          'mh-025',
+          'MH-025 Detail sheet',
+          'Video detail, tagged product, voucher, and commerce action.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-026',
+          'MH-026 Appeal',
+          'Enforcement reason, evidence upload, appeal status, and reference.',
+          'ops',
+          'New',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-05',
+        'Feed page, upload, tag eligibility, publish, commerce, and appeal result from the BFF/API.',
+        'Loading has skeleton/progress; error preserves draft; denied explains moderation state.',
+        'Retry upload or publish safely, remove invalid tags, or exit through enforcement appeal.',
+        'Content version, publish result, product click, moderation case, and appeal reference.',
+      ),
+    ],
+    [
+      edge('3-05-entry', 'mh-022', 'entry/auth'),
+      edge('mh-022', 'mh-025', 'open detail/product sheet'),
+      edge('3-05-entry', 'mh-023', 'create'),
+      edge('mh-023', 'mh-024', 'pick product'),
+      edge('mh-024', '3-05-api', 'publish'),
+      edge('3-05-remediation', 'mh-026', 'enforcement → appeal'),
+      edge('mh-026', '3-05-api', 'submit appeal'),
+      edge('3-05-api', '3-05-audit', 'content and case evidence', 'dotted'),
+    ],
+  ),
+  uiSpec(
+    '3-06-ui',
+    'Mobile-first LIVE discovery, host setup and console, viewer room, replay, reconnect, and enforcement.',
+    [
+      surfaceBoundary('3-06', [
+        node(
+          '3-06-storefront',
+          'Storefront',
+          'Responsive web discovery, setup, host, viewer, and replay routes.',
+          'creator',
+          'Extend',
+        ),
+        node(
+          '3-06-native',
+          'Native gate',
+          'Responsive web does not close native parity; validate on native app.',
+          'system',
+          'Field-validation gate',
+        ),
+      ]),
+      column('Discover & host', [
+        node(
+          'mh-027',
+          'MH-027 Discovery',
+          'LIVE cards, schedule, host, disclosure, product cue, and state.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-028',
+          'MH-028 Setup',
+          'Host schedule, metadata, product tray, and preflight checks.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-029',
+          'MH-029 Host console',
+          'Ingest health, product pin, chat controls, and session state.',
+          'creator',
+          'New',
+        ),
+      ]),
+      column('Watch & replay', [
+        node(
+          'mh-030',
+          'MH-030 Viewer room',
+          'Stream, product tray, pinned item, chat, reconnect, and checkout.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-031',
+          'MH-031 Replay',
+          'Ended/replay state, product evidence, enforcement, and reference.',
+          'ops',
+          'New',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-06',
+        'Schedule, preflight, session, product pin, viewer commerce, and replay result from the BFF/API.',
+        'Loading joins safely; error can reconnect; denied or ended changes the available action.',
+        'Reconnect active sessions, open ended replay, or take a safe exit through enforcement support.',
+        'Session ID, state transition, product pin, viewer action, and moderation reference.',
+      ),
+    ],
+    [
+      edge('3-06-entry', 'mh-027', 'entry/auth'),
+      edge('mh-027', 'mh-030', 'join viewer room'),
+      edge('3-06-entry', 'mh-028', 'host'),
+      edge('mh-028', 'mh-029', 'preflight passed'),
+      edge('mh-029', '3-06-api', 'host commands'),
+      edge('mh-030', 'mh-031', 'replay/enforcement'),
+      edge('mh-030', '3-06-api', 'viewer commerce'),
+      edge('mh-031', '3-06-api', 'replay evidence'),
+      edge('3-06-api', '3-06-audit', 'session evidence', 'dotted'),
+    ],
+  ),
+  uiSpec(
+    '3-07-ui',
+    'Seller PPS enrollment and rate management, creator discovery, internal chat, and consent-scoped contact.',
+    [
+      surfaceBoundary('3-07', [
+        node(
+          '3-07-vendor',
+          'Vendor Portal',
+          'Seller PPS, rate, directory, and internal chat routes.',
+          'seller',
+          'Extend',
+        ),
+        node(
+          '3-07-storefront',
+          'Storefront',
+          'Creator contact-consent settings and revocation route.',
+          'creator',
+          'Extend',
+        ),
+      ]),
+      column('Seller journey', [
+        node(
+          'mh-032',
+          'MH-032 PPS enrollment',
+          'Eligibility, terms version, enrollment status, and next action.',
+          'seller',
+          'New',
+        ),
+        node(
+          'mh-033',
+          'MH-033 Rates',
+          'Product targeting, commission value, effective time, and version.',
+          'seller',
+          'New',
+        ),
+        node(
+          'mh-034',
+          'MH-034 Directory',
+          'Creator discovery, consent-safe profile, and internal chat action.',
+          'seller',
+          'New',
+        ),
+      ]),
+      column('Creator consent', [
+        node(
+          'mh-035',
+          'MH-035 Contact consent',
+          'Contact scope, purpose, expiry, revoke, and effective state.',
+          'creator',
+          'New',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-07',
+        'PPS enrollment, effective rate, directory visibility, and contact consent from the BFF/API.',
+        'Loading keeps filters; error retries; denied or revoked removes protected contact data.',
+        'Revoked consent hides contact but preserves chat; safe exit returns to the consent-safe directory.',
+        'Terms/rate version, consent grant or revoke, disclosure purpose, and chat reference.',
+      ),
+    ],
+    [
+      edge('3-07-entry', 'mh-032', 'seller entry/auth'),
+      edge('mh-032', 'mh-033', 'enrolled → configure'),
+      edge('mh-033', 'mh-034', 'discover creators'),
+      edge('mh-034', '3-07-api', 'internal chat'),
+      edge('3-07-storefront', 'mh-035', 'creator consent'),
+      edge('mh-035', '3-07-api', 'grant / revoke'),
+      edge('3-07-api', '3-07-audit', 'rate and consent evidence', 'dotted'),
+    ],
+  ),
+  uiSpec(
+    '3-08-ui',
+    'Collaboration inbox through immutable proposal, sample, deliverable review, release, and seller affiliate branch.',
+    [
+      surfaceBoundary('3-08', [
+        node(
+          '3-08-storefront',
+          'Storefront',
+          'Creator collaboration inbox, contract, sample, and deliverable routes.',
+          'creator',
+          'Extend',
+        ),
+        node(
+          '3-08-vendor',
+          'Vendor Portal',
+          'Seller review, funded release, dispute, and affiliate dashboard.',
+          'seller',
+          'Extend',
+        ),
+      ]),
+      column('Agree & fulfill', [
+        node(
+          'mh-036',
+          'MH-036 Inbox',
+          'Conversation, proposal status, unread state, and next action.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-037',
+          'MH-037 Proposal',
+          'Immutable contract version, fee, scope, deadline, and acceptance.',
+          'seller',
+          'New',
+        ),
+        node(
+          'mh-038',
+          'MH-038 Sample',
+          'Address scope, shipment, tracking, receipt, and exception state.',
+          'creator',
+          'New',
+        ),
+      ]),
+      column('Review & branch', [
+        node(
+          'mh-039',
+          'MH-039 Deliverable',
+          'Submission version, review, revision, approval, and release.',
+          'seller',
+          'New',
+        ),
+        node(
+          'mh-040',
+          'MH-040 Seller affiliate',
+          'Seller affiliate status, offers, performance, and settlement.',
+          'seller',
+          'New',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-08',
+        'Proposal, funded fee, shipment, deliverable, review, and release result from the BFF/API.',
+        'Loading preserves version; error retries; denied respects party and funding permissions.',
+        'Revision/dispute returns to the immutable contract version; cancellation provides a safe exit.',
+        'Contract and deliverable versions, shipment, funding, review, dispute, and release reference.',
+      ),
+    ],
+    [
+      edge('3-08-entry', 'mh-036', 'entry/auth'),
+      edge('mh-036', 'mh-037', 'open proposal'),
+      edge('mh-037', 'mh-038', 'accepted / sample'),
+      edge('mh-038', 'mh-039', 'received → deliver'),
+      edge('mh-039', '3-08-api', 'release'),
+      edge('3-08-vendor', 'mh-040', 'seller affiliate branch'),
+      edge('mh-040', '3-08-api', 'dashboard query'),
+      edge('3-08-remediation', 'mh-037', 'revision/dispute'),
+      edge('3-08-api', '3-08-audit', 'contract evidence', 'dotted'),
+    ],
+  ),
+  uiSpec(
+    '3-09-ui',
+    'MCN application, effective roster membership, RBAC, campaign assignment, report, split, and settlement.',
+    [
+      surfaceBoundary('3-09', [
+        node(
+          '3-09-vendor',
+          'Vendor Portal',
+          'MCN application, roster, role, campaign, and settlement routes.',
+          'mcn',
+          'Extend',
+        ),
+        node(
+          '3-09-admin',
+          'Medusa Admin',
+          'Authorized MCN verification and membership oversight.',
+          'ops',
+          'Extend',
+        ),
+      ]),
+      column('Establish agency', [
+        node(
+          'mh-041',
+          'MH-041 Application',
+          'MCN identity, representative, evidence, status, and correction.',
+          'mcn',
+          'New',
+        ),
+        node(
+          'mh-042',
+          'MH-042 Roster',
+          'Invitation, acceptance, effective membership, leave, and revoke.',
+          'mcn',
+          'New',
+        ),
+        node(
+          'mh-043',
+          'MH-043 RBAC',
+          'Sub-account roles, scoped permissions, effective time, and revoke.',
+          'mcn',
+          'New',
+        ),
+      ]),
+      column('Operate & settle', [
+        node(
+          'mh-044',
+          'MH-044 Assignment',
+          'Eligible roster, campaign scope, role, dates, and status.',
+          'mcn',
+          'New',
+        ),
+        node(
+          'mh-045',
+          'MH-045 Report',
+          'Performance, revenue split, settlement, export, and notification.',
+          'money',
+          'New',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-09',
+        'Application, membership, permission, assignment, split, and settlement from the BFF/API.',
+        'Loading preserves scope; error retries; denied reflects effective role and membership.',
+        'Leave/revoke updates effective membership and permissions, then exits to a permitted route.',
+        'Membership version, permission change, assignment, split rule, settlement, and actor reference.',
+      ),
+    ],
+    [
+      edge('3-09-entry', 'mh-041', 'entry/auth'),
+      edge('mh-041', 'mh-042', 'approved → roster'),
+      edge('mh-042', 'mh-043', 'membership → RBAC'),
+      edge('mh-043', 'mh-044', 'authorized assignment'),
+      edge('mh-044', 'mh-045', 'report / settlement'),
+      edge('mh-042', '3-09-api', 'leave / revoke'),
+      edge('mh-045', '3-09-api', 'query / export'),
+      edge('3-09-api', '3-09-audit', 'membership and split evidence', 'dotted'),
+    ],
+  ),
+  uiSpec(
+    '3-10-ui',
+    'Creator wallet, tax and payment setup, statements and remediation, plus finance reconciliation.',
+    [
+      surfaceBoundary('3-10', [
+        node(
+          '3-10-storefront',
+          'Storefront',
+          'Creator wallet, setup, statement, and notification routes.',
+          'money',
+          'Extend',
+        ),
+        node(
+          '3-10-admin',
+          'Medusa Admin',
+          'Finance role opens authorized reconciliation workbench.',
+          'ops',
+          'Extend',
+        ),
+      ]),
+      column('Creator finance', [
+        node(
+          'mh-046',
+          'MH-046 Wallet',
+          'Estimated, approved, payable, paid, held, and reversed balances.',
+          'money',
+          'New',
+        ),
+        node(
+          'mh-047',
+          'MH-047 Tax/payment',
+          'Identity, tax, payment method, verification, and safe masking.',
+          'money',
+          'New',
+        ),
+        node(
+          'mh-048',
+          'MH-048 Statement',
+          'Period, order-line entries, adjustments, payout, and export.',
+          'money',
+          'New',
+        ),
+      ]),
+      column('Exceptions & finance', [
+        node(
+          'mh-049',
+          'MH-049 Remediation',
+          'Notification deep-link for held/failed cause and safe action.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-050',
+          'MH-050 Reconciliation',
+          'Finance role exceptions, provider result, retry, and correction.',
+          'ops',
+          'New',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-10',
+        'Wallet states, verification, statement, payout, and reconciliation result from the BFF/API.',
+        'Loading never shows zero as fact; error retries; denied protects tax and payment data.',
+        'held/failed routes to a safe action, provider retry, correction, support, or safe exit.',
+        'Ledger entry, verification, payout attempt, provider response, correction, and case reference.',
+      ),
+    ],
+    [
+      edge('3-10-entry', 'mh-046', 'entry/auth'),
+      edge('mh-046', 'mh-047', 'setup required'),
+      edge('mh-047', 'mh-048', 'verified → statement'),
+      edge('3-10-entry', 'mh-049', 'notification deep-link'),
+      edge('3-10-admin', 'mh-050', 'finance role'),
+      edge('mh-049', '3-10-api', 'safe action'),
+      edge('mh-050', '3-10-api', 'reconcile / correct'),
+      edge('3-10-api', '3-10-audit', 'financial evidence', 'dotted'),
+    ],
+  ),
+  uiSpec(
+    '3-11-ui',
+    'User fraud report and appeal plus admin queue, evidence graph, enforcement, and policy recall.',
+    [
+      surfaceBoundary('3-11', [
+        node(
+          '3-11-storefront',
+          'Storefront',
+          'User report, enforcement notice, and appeal routes.',
+          'creator',
+          'Extend',
+        ),
+        node(
+          '3-11-admin',
+          'Medusa Admin',
+          'Risk queue, case graph, destructive action, and recall controls.',
+          'ops',
+          'Extend',
+        ),
+      ]),
+      column('Report & investigate', [
+        node(
+          'mh-051',
+          'MH-051 Fraud report',
+          'Category, entity reference, evidence, disclosure, and receipt.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-052',
+          'MH-052 Risk queue',
+          'Priority, status, assignee, policy version, and safe filters.',
+          'ops',
+          'New',
+        ),
+        node(
+          'mh-053',
+          'MH-053 Case graph',
+          'Authorized evidence graph, decision, enforcement, and reason.',
+          'ops',
+          'Field-validation gate',
+        ),
+      ]),
+      column('Appeal & recall', [
+        node(
+          'mh-054',
+          'MH-054 Appeal',
+          'Enforcement reference, appeal evidence, status, and outcome.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-055',
+          'MH-055 Recall',
+          'Policy operator scope, affected assets, confirm, and rollback.',
+          'ops',
+          'New',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-11',
+        'Report, case, policy, enforcement, appeal, and recall result from the BFF/API.',
+        'Loading preserves case identity; error retries; denied hides restricted evidence and actions.',
+        'All destructive actions confirm and return reference; appeal/support provides a safe exit.',
+        'Reporter receipt, evidence version, decision, actor, appeal, recall, and correlation reference.',
+      ),
+    ],
+    [
+      edge('3-11-entry', 'mh-051', 'entry/auth'),
+      edge('mh-051', 'mh-052', 'admin queue'),
+      edge('mh-052', 'mh-053', 'open case graph'),
+      edge('mh-053', 'mh-054', 'enforcement → user appeal'),
+      edge('3-11-admin', 'mh-055', 'policy operator'),
+      edge('mh-053', '3-11-api', 'confirm enforcement'),
+      edge('mh-054', '3-11-api', 'appeal'),
+      edge('mh-055', '3-11-api', 'confirm recall'),
+      edge('3-11-api', '3-11-audit', 'preserved evidence', 'dotted'),
+    ],
+  ),
+  uiSpec(
+    '3-12-ui',
+    'External property registry, YouTube OAuth, product feed health and remediation, and channel reporting.',
+    [
+      surfaceBoundary('3-12', [
+        node(
+          '3-12-storefront',
+          'Storefront',
+          'Creator property, connection, feed, tag, and report routes.',
+          'creator',
+          'Extend',
+        ),
+        node(
+          '3-12-oauth',
+          'External OAuth',
+          'YouTube authorization, scope consent, callback, and revoke boundary.',
+          'system',
+          'New',
+        ),
+      ]),
+      column('Connect channel', [
+        node(
+          'mh-056',
+          'MH-056 Properties',
+          'Property registry, ownership verification, disclosure, and state.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-057',
+          'MH-057 YouTube OAuth',
+          'Requested scopes, provider consent, callback, and disconnect.',
+          'system',
+          'New',
+        ),
+      ]),
+      column('Operate & report', [
+        node(
+          'mh-058',
+          'MH-058 Feed health',
+          'Catalog sync, item/tag errors, last success, and remediation.',
+          'creator',
+          'New',
+        ),
+        node(
+          'mh-059',
+          'MH-059 Channel report',
+          'External clicks, attributed orders, earnings, and freshness.',
+          'money',
+          'New',
+        ),
+      ]),
+      authoritativeOutcome(
+        '3-12',
+        'Property verification, OAuth state, feed sync, tag, and channel report from the BFF/API.',
+        'Loading preserves provider state; error supports retry; denied handles lost scopes safely.',
+        'Disconnect/reconnect preserves history and safe status; failed tags link to remediation.',
+        'Property proof, OAuth grant/revoke, feed run, tag error, click, order, and report reference.',
+      ),
+    ],
+    [
+      edge('3-12-entry', 'mh-056', 'entry/auth'),
+      edge('mh-056', 'mh-057', 'connect YouTube'),
+      edge('mh-057', 'mh-058', 'authorized → feed sync'),
+      edge('mh-058', 'mh-059', 'healthy feed → report'),
+      edge('mh-057', '3-12-oauth', 'authorize / revoke'),
+      edge('mh-058', '3-12-api', 'sync / tag remediation'),
+      edge('mh-059', '3-12-api', 'report query'),
+      edge('3-12-api', '3-12-audit', 'channel evidence', 'dotted'),
+    ],
+  ),
+];
