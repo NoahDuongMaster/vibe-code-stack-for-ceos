@@ -95,7 +95,7 @@ export const renderDiagram = (spec: TDiagramSpec): string => {
 
   const left = 60;
   const right = 1540;
-  const gap = 24;
+  const gap = 112;
   const columnWidth =
     (right - left - gap * (spec.columns.length - 1)) / spec.columns.length;
   const nodeHeight = 112;
@@ -118,21 +118,36 @@ export const renderDiagram = (spec: TDiagramSpec): string => {
     });
   });
 
-  const edgeSvg = spec.edges
-    .map((edge) => {
-      const from = requirePosition(positions, edge.from, spec.key);
-      const to = requirePosition(positions, edge.to, spec.key);
-      const x1 = from.x + from.width;
-      const y1 = from.y + from.height / 2;
-      const x2 = to.x;
-      const y2 = to.y + to.height / 2;
-      const bend = Math.max(28, Math.abs(x2 - x1) / 2);
-      const dash = DASH[edge.style];
-      const dashAttribute = dash ? ` stroke-dasharray="${dash}"` : '';
-      const labelX = (x1 + x2) / 2;
-      const labelY = (y1 + y2) / 2 - 8;
+  const edgeLayouts = spec.edges.map((edge) => {
+    const from = requirePosition(positions, edge.from, spec.key);
+    const to = requirePosition(positions, edge.to, spec.key);
+    const goesRight = to.x >= from.x;
+    const direction = goesRight ? 1 : -1;
+    const x1 = goesRight ? from.x + from.width : from.x;
+    const y1 = from.y + from.height / 2;
+    const x2 = goesRight ? to.x : to.x + to.width;
+    const y2 = to.y + to.height / 2;
+    const bend = Math.max(28, Math.abs(x2 - x1) / 2);
 
-      return `<g><path d="M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}" fill="none" stroke="#56616F" stroke-width="3"${dashAttribute} marker-end="url(#arrow)"/><text x="${labelX}" y="${labelY}" text-anchor="middle" font-size="16" fill="#26303B">${escapeXml(edge.label)}</text></g>`;
+    return {
+      edge,
+      x1,
+      y1,
+      x2,
+      y2,
+      controlX1: x1 + direction * bend,
+      controlX2: x2 - direction * bend,
+      labelX: goesRight ? from.x + from.width + gap / 2 : from.x - gap / 2,
+      labelY: (y1 + y2) / 2,
+    };
+  });
+
+  const edgePathSvg = edgeLayouts
+    .map((edge) => {
+      const dash = DASH[edge.edge.style];
+      const dashAttribute = dash ? ` stroke-dasharray="${dash}"` : '';
+
+      return `<path d="M ${edge.x1} ${edge.y1} C ${edge.controlX1} ${edge.y1}, ${edge.controlX2} ${edge.y2}, ${edge.x2} ${edge.y2}" fill="none" stroke="#56616F" stroke-width="3"${dashAttribute} marker-end="url(#arrow)"/>`;
     })
     .join('\n');
 
@@ -163,7 +178,26 @@ export const renderDiagram = (spec: TDiagramSpec): string => {
     })
     .join('\n');
 
+  const edgeLabelSvg = edgeLayouts
+    .map(({ edge, labelX, labelY }) => {
+      const lines = wrap(edge.label, 11);
+      const pillWidth = 96;
+      const pillHeight = lines.length === 1 ? 34 : 52;
+      const pillX = labelX - pillWidth / 2;
+      const pillY = labelY - pillHeight / 2;
+      const textY = labelY - (lines.length - 1) * 9 + 5;
+      const text = lines
+        .map(
+          (line, index) =>
+            `<tspan x="${labelX}" dy="${index === 0 ? 0 : 18}">${escapeXml(line)}</tspan>`,
+        )
+        .join('');
+
+      return `<g data-edge-label="true"><title>${escapeXml(edge.label)}</title><rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="10" fill="#FFFFFF" stroke="#697586" stroke-width="2"/><text x="${labelX}" y="${textY}" text-anchor="middle" font-size="15" font-weight="700" fill="#26303B">${text}</text></g>`;
+    })
+    .join('\n');
+
   const description = escapeXml(`${spec.subtitle}. ${spec.scope}`);
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="diagram-title diagram-desc"><title id="diagram-title">${escapeXml(spec.title)}</title><desc id="diagram-desc">${description}</desc><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#56616F"/></marker></defs><rect width="1600" height="900" fill="#FFFFFF"/><text x="60" y="58" font-size="34" font-weight="800" fill="#17202A">${escapeXml(spec.title)}</text><text x="60" y="94" font-size="21" fill="#374151">${escapeXml(spec.subtitle)}</text><text x="60" y="124" font-size="18" fill="#56616F">${escapeXml(spec.scope)}</text>${edgeSvg}${columnSvg}<g transform="translate(60 820)" font-size="16" fill="#26303B"><path d="M 0 12 H 90" stroke="#56616F" stroke-width="3" marker-end="url(#arrow)"/><text x="105" y="18">request / navigation</text><path d="M 345 12 H 435" stroke="#56616F" stroke-width="3" stroke-dasharray="12 8" marker-end="url(#arrow)"/><text x="450" y="18">async / webhook</text><path d="M 680 12 H 770" stroke="#56616F" stroke-width="3" stroke-dasharray="3 8" marker-end="url(#arrow)"/><text x="785" y="18">audit / evidence</text><text x="1120" y="18" font-weight="700">Visual aid — normative SRS text is authoritative</text></g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="diagram-title diagram-desc"><title id="diagram-title">${escapeXml(spec.title)}</title><desc id="diagram-desc">${description}</desc><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#56616F"/></marker></defs><rect width="1600" height="900" fill="#FFFFFF"/><text x="60" y="58" font-size="34" font-weight="800" fill="#17202A">${escapeXml(spec.title)}</text><text x="60" y="94" font-size="21" fill="#374151">${escapeXml(spec.subtitle)}</text><text x="60" y="124" font-size="18" fill="#56616F">${escapeXml(spec.scope)}</text>${edgePathSvg}${columnSvg}${edgeLabelSvg}<g transform="translate(60 820)" font-size="16" fill="#26303B"><path d="M 0 12 H 90" stroke="#56616F" stroke-width="3" marker-end="url(#arrow)"/><text x="105" y="18">request / navigation</text><path d="M 345 12 H 435" stroke="#56616F" stroke-width="3" stroke-dasharray="12 8" marker-end="url(#arrow)"/><text x="450" y="18">async / webhook</text><path d="M 680 12 H 770" stroke="#56616F" stroke-width="3" stroke-dasharray="3 8" marker-end="url(#arrow)"/><text x="785" y="18">audit / evidence</text><text x="1120" y="18" font-weight="700">Visual aid — normative SRS text is authoritative</text></g></svg>`;
 };

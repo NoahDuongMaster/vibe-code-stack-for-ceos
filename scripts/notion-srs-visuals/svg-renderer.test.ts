@@ -92,6 +92,63 @@ test('should render a safe semantic SVG with all approved edge styles', () => {
   assert.deepEqual(urls, ['http://www.w3.org/2000/svg']);
 });
 
+test('should reserve a readable immediate label lane and paint a wrapped pill above nodes', () => {
+  const svg = renderDiagram({
+    ...FIXTURE,
+    key: 'edge-label-layout-fixture',
+    columns: [
+      column('source', 1),
+      column('intermediate', 1),
+      column('destination', 1),
+    ],
+    edges: [
+      {
+        from: 'source-0',
+        to: 'destination-0',
+        label: 'submit verified affiliate application',
+        style: 'solid',
+      },
+    ],
+  });
+  const nodeRects = [
+    ...svg.matchAll(
+      /<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="112" rx="16"/g,
+    ),
+  ];
+  const firstNode = nodeRects[0];
+  const secondNode = nodeRects[1];
+  assert.ok(firstNode && secondNode);
+
+  const laneLeft = Number(firstNode[1]) + Number(firstNode[2]);
+  const laneRight = Number(secondNode[1]);
+  const labelGroup = svg.match(/<g data-edge-label="true">([\s\S]*?)<\/g>/);
+  const labelPill = labelGroup?.[1].match(
+    /<rect x="([\d.]+)"[^>]*width="([\d.]+)"[^>]*rx="10"[^>]*fill="#FFFFFF"/,
+  );
+  const pillLeft = Number(labelPill?.[1] ?? Number.NaN);
+  const pillRight = pillLeft + Number(labelPill?.[2] ?? Number.NaN);
+  const wrappedLineCount = labelGroup?.[1].match(/<tspan\b/g)?.length ?? 0;
+
+  assert.deepEqual(
+    {
+      hasReadableLane: laneRight - laneLeft >= 96,
+      hasVisiblePill: Boolean(labelPill),
+      labelUsesImmediateLane: pillLeft >= laneLeft && pillRight <= laneRight,
+      paintedAfterNodes:
+        svg.indexOf('<g data-edge-label="true">') >
+        svg.lastIndexOf('height="112" rx="16"'),
+      wrappedLineCount,
+    },
+    {
+      hasReadableLane: true,
+      hasVisiblePill: true,
+      labelUsesImmediateLane: true,
+      paintedAfterNodes: true,
+      wrappedLineCount: 2,
+    },
+  );
+});
+
 test('should reject fewer than two or more than five columns', () => {
   assert.throws(
     () => renderDiagram({ ...FIXTURE, columns: [] }),
