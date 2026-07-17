@@ -357,11 +357,11 @@ curl -fsSL https://mise.run | \
   MISE_VERSION=v2026.7.7 MISE_INSTALL_PATH="$mise_test_root/mise" sh
 "$mise_test_root/mise" trust mise.toml
 "$mise_test_root/mise" lock \
-  --platform linux-x64,linux-arm64,macos-x64,macos-arm64
+  --platform linux-x64,linux-arm64,macos-arm64
 "$mise_test_root/mise" install --locked
 ```
 
-Expected: mise 2026.7.7 creates `mise.lock` entries for CI Linux and supported macOS/Linux development architectures, then installs Node.js 22 and pnpm 11.2.2 without an unlocked metadata fallback. `.cache/mise-integration` remains ignored and isolated from the user's global mise state.
+Expected: mise 2026.7.7 creates `mise.lock` entries for CI Linux x64 plus Linux/macOS ARM64 development, then installs Node.js 22 and pnpm 11.2.2 without an unlocked metadata fallback. pnpm 11.2.2 does not publish a Darwin x64 standalone artifact, so Intel macOS is not included in locked mode. `.cache/mise-integration` remains ignored and isolated from the user's global mise state.
 
 - [ ] **Step 8: Validate the task surface and active versions**
 
