@@ -5,7 +5,10 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { BACKEND_SPECS } from './backend-specs.ts';
+import { layoutDiagram } from './diagram-layout.ts';
 import { generateAll } from './generate.ts';
+import { auditDiagramGeometry } from './geometry-audit.ts';
+import { auditVietnameseCopy } from './localization-policy.ts';
 import { DIAGRAM_TARGETS } from './manifest.ts';
 import { OVERVIEW_AND_TEST_SPECS } from './overview-and-test-specs.ts';
 import { escapeXml } from './svg-renderer.ts';
@@ -13,6 +16,7 @@ import { UI_SPECS } from './ui-specs.ts';
 import { validateGeneratedAssets } from './validate.ts';
 
 const ALL_SPECS = [...OVERVIEW_AND_TEST_SPECS, ...BACKEND_SPECS, ...UI_SPECS];
+const SPEC_BY_KEY = new Map(ALL_SPECS.map((spec) => [spec.key, spec]));
 
 const PLACEHOLDER_PATTERN = /\b(?:TBD|TODO|FIXME|LOREM|PLACEHOLDER)\b/i;
 const UNSAFE_PATTERN = /<\s*(?:script|image)\b|javascript:|\bon\w+\s*=/i;
@@ -63,6 +67,7 @@ test('should merge exactly the same unique keys as the approved manifest', () =>
 
 test('should generate 28 safe, bounded SVGs and a complete contact sheet', async () => {
   await withTemporaryDirectories(async (outputDir) => {
+    assert.deepEqual(auditVietnameseCopy(DIAGRAM_TARGETS, ALL_SPECS), []);
     await generateAll(outputDir);
 
     const filenames = (await readdir(outputDir)).sort();
@@ -75,10 +80,22 @@ test('should generate 28 safe, bounded SVGs and a complete contact sheet', async
     );
 
     for (const target of DIAGRAM_TARGETS) {
+      const spec = SPEC_BY_KEY.get(target.key);
+      assert.ok(spec, target.key);
+      assert.deepEqual(auditDiagramGeometry(layoutDiagram(spec)), []);
       const svg = await readFile(join(outputDir, target.filename), 'utf8');
       assert.ok(Buffer.byteLength(svg) < 200 * 1024, target.filename);
       assert.match(svg, /^<svg\s[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
-      assert.match(svg, /\bviewBox="0 0 1600 900"/);
+      assert.match(svg, /\bviewBox="0 0 1400 1800"/);
+      assert.doesNotMatch(svg, /…/);
+      assert.match(svg, /font-size="46"/);
+      assert.match(svg, /font-size="24"/);
+      assert.match(svg, /font-size="22"/);
+      assert.equal((svg.match(/data-band-index=/g) ?? []).length, 2);
+      assert.equal(
+        (svg.match(/data-edge-directory-code=/g) ?? []).length,
+        spec.edges.length,
+      );
       assert.ok(
         svg.includes(
           `<title id="diagram-title">${escapeXml(target.title)}</title>`,
@@ -108,6 +125,21 @@ test('should generate 28 safe, bounded SVGs and a complete contact sheet', async
     assert.equal(
       contactSheet.match(/<object\b[^>]*type="image\/svg\+xml"/g)?.length,
       28,
+    );
+    assert.match(contactSheet, /<html lang="vi">/);
+    assert.match(contactSheet, /aspect-ratio:\s*7\s*\/\s*9/);
+    assert.match(
+      contactSheet,
+      /#review-700:checked[^{}]*\{[^}]*width:\s*700px/,
+    );
+    assert.match(
+      contactSheet,
+      /#review-1000:checked[^{}]*\{[^}]*width:\s*1000px/,
+    );
+    assert.match(contactSheet, /Bộ duyệt sơ đồ SRS Affiliate Benadep/);
+    assert.doesNotMatch(
+      contactSheet,
+      /visual contact sheet|deterministic SVG diagrams|desktop width/i,
     );
     for (const target of DIAGRAM_TARGETS) {
       assert.match(contactSheet, new RegExp(`data="\\./${target.filename}"`));
@@ -150,7 +182,21 @@ test('should report every generated-asset contract violation together', async ()
       firstPath,
       firstSvg
         .replace('<title id="diagram-title">', '<title-missing>')
+        .replace('viewBox="0 0 1400 1800"', 'viewBox="0 0 1600 900"')
+        .replace('data-band-index="0"', 'data-band-missing="0"')
+        .replace('font-size="24"', 'font-size="23"')
+        .replace('data-edge-directory-code=', 'data-edge-directory-missing=')
+        .concat('…')
         .concat('<script href="https://example.com/x.js">TODO CN-999</script>'),
+    );
+    const contactPath = join(outputDir, 'contact-sheet.html');
+    const contactSheet = await readFile(contactPath, 'utf8');
+    await writeFile(
+      contactPath,
+      contactSheet
+        .replace('<html lang="vi">', '<html lang="en">')
+        .replace('aspect-ratio: 7 / 9', 'aspect-ratio: 16 / 9')
+        .replace('width: 700px', 'width: 701px'),
     );
     await writeFile(join(outputDir, 'unexpected.svg'), '<svg/>');
 
@@ -162,5 +208,14 @@ test('should report every generated-asset contract violation together', async ()
     assert.match(report, /external|https/i);
     assert.match(report, /placeholder|TODO/i);
     assert.match(report, /CN-999.*CN-001–CN-009/i);
+    assert.match(report, /viewBox.*1400 1800/i);
+    assert.match(report, /two.*band|2.*band/i);
+    assert.match(report, /font-size.*24|typography.*24/i);
+    assert.match(report, /ellipsis/i);
+    assert.match(report, /directory/i);
+    assert.match(report, /deterministic|renderer bytes/i);
+    assert.match(report, /lang="vi"|Vietnamese language/i);
+    assert.match(report, /aspect-ratio.*7.*9/i);
+    assert.match(report, /700px/i);
   });
 });

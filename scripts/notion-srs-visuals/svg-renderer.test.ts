@@ -263,9 +263,10 @@ test('should render one lossless footer directory entry per semantic edge', () =
 
 test('should render the Vietnamese legend and normative warning', () => {
   const svg = renderDiagram(FIXTURE);
-  assert.match(svg, />Luồng chính \/ điều hướng</);
-  assert.match(svg, />Bất đồng bộ \/ webhook</);
-  assert.match(svg, />Audit \/ bằng chứng</);
+  assert.match(
+    svg,
+    />Chú giải: → luồng chính \| ⇢ bất đồng bộ \/ webhook \| ⋯ audit \/ bằng chứng\. Danh mục: mã — ý nghĩa; đọc theo hàng\.</,
+  );
   assert.match(
     svg,
     />Hình minh họa; nội dung SRS chuẩn tắc vẫn là nguồn quyết định\.</,

@@ -778,7 +778,7 @@ git commit -m "feat(docs): render readable Vietnamese SRS diagrams"
 - Consumes: Vietnamese manifest/specs and portrait renderer.
 - Produces: deterministic 28-asset replacement set plus 700 px and 1000 px review contact sheets.
 
-- [ ] **Step 1: Write failing generation contracts**
+- [x] **Step 1: Write failing generation contracts**
 
 Update the old viewBox assertion to `0 0 1400 1800` and add:
 
@@ -792,17 +792,17 @@ assert.deepEqual(auditDiagramGeometry(layoutDiagram(spec)), []);
 
 Assert the contact sheet offers CSS review widths of exactly `700px` and `1000px` and retains 28 SVG objects.
 
-- [ ] **Step 2: Run generation tests and verify RED**
+- [x] **Step 2: Run generation tests and verify RED**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/generate.test.ts`
 
 Expected: FAIL on old viewBox/contact-sheet styling.
 
-- [ ] **Step 3: Update generator and validator**
+- [x] **Step 3: Update generator and validator**
 
 Update semantic title/description, viewBox, minimum typography, two-band metadata, Vietnamese-copy audit and geometry audit checks. Validate that every semantic edge has one stable code, code-only marker ownership is correct, and the footer contains exactly one lossless `{code} — {edge.label}` entry per edge in no more than four columns × six rows. Fail on overflow, truncation, or ellipsis. Keep size `< 200 KiB`, deterministic bytes, code-range validation, no external resources, no unsafe SVG, and no placeholders.
 
-- [ ] **Step 4: Regenerate and run automated validation**
+- [x] **Step 4: Regenerate and run automated validation**
 
 ```bash
 mise exec -- node scripts/notion-srs-visuals/generate.ts
@@ -815,11 +815,11 @@ git diff --check
 
 Expected: all tests PASS; generator reports 28; validator reports `28/28 valid`.
 
-- [ ] **Step 5: Review at Notion-equivalent widths**
+- [x] **Step 5: Review at Notion-equivalent widths**
 
 Rasterize every SVG at 700 px and 1000 px width with `rsvg-convert`, build two 4-column contact sheets using ImageMagick, and inspect all 28 diagrams. Reject any clipped Vietnamese text, unreadable code marker, wrong marker-to-owner association, overlapping chip/label, confusing reference pair, incomplete footer directory, directory entry truncation/ellipsis, or remaining English explanatory sentence.
 
-- [ ] **Step 6: Commit deterministic assets**
+- [x] **Step 6: Commit deterministic assets**
 
 ```bash
 git add scripts/notion-srs-visuals/generate.ts \

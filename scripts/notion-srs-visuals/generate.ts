@@ -3,6 +3,9 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { BACKEND_SPECS } from './backend-specs.ts';
+import { layoutDiagram } from './diagram-layout.ts';
+import { auditDiagramGeometry } from './geometry-audit.ts';
+import { auditVietnameseCopy } from './localization-policy.ts';
 import { DIAGRAM_TARGETS } from './manifest.ts';
 import { OVERVIEW_AND_TEST_SPECS } from './overview-and-test-specs.ts';
 import { escapeXml, renderDiagram } from './svg-renderer.ts';
@@ -14,6 +17,8 @@ const DIAGRAM_SPECS = [
   ...BACKEND_SPECS,
   ...UI_SPECS,
 ] as const satisfies readonly TDiagramSpec[];
+
+const MAX_SVG_BYTES = 200 * 1024;
 
 const getSpecsByKey = (): ReadonlyMap<string, TDiagramSpec> => {
   const specsByKey = new Map<string, TDiagramSpec>();
@@ -52,46 +57,119 @@ const renderContactSheet = (): string => {
   ).join('\n');
 
   return `<!doctype html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Benadep Affiliate SRS visual contact sheet</title>
+  <title>Bộ duyệt sơ đồ SRS Affiliate Benadep</title>
   <style>
     :root { color-scheme: light; font-family: ui-sans-serif, system-ui, sans-serif; }
-    body { margin: 0 auto; max-width: 1680px; padding: 32px; color: #17202a; background: #f4f6f8; }
+    body { margin: 0 auto; max-width: 1100px; padding: 32px; color: #17202a; background: #f4f6f8; }
     h1 { margin: 0 0 8px; font-size: 32px; }
-    .intro { margin: 0 0 32px; color: #4b5563; }
+    .intro { margin: 0 0 20px; color: #4b5563; }
+    .review-controls { display: flex; align-items: center; gap: 16px; margin: 0 0 32px; }
+    .review-controls label { font-weight: 700; cursor: pointer; }
     article { margin: 0 0 40px; padding: 24px; border: 1px solid #c9d1da; border-radius: 16px; background: #fff; }
     header { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; }
     h2 { margin: 0 0 16px; font-size: 24px; }
     header p { margin: 0 0 16px; color: #4b5563; }
-    object { display: block; width: 100%; aspect-ratio: 16 / 9; border: 1px solid #aeb8c4; background: #fff; }
+    object { display: block; max-width: 100%; aspect-ratio: 7 / 9; border: 1px solid #aeb8c4; background: #fff; }
+    #review-700:checked ~ main object { width: 700px; }
+    #review-1000:checked ~ main object { width: 1000px; }
   </style>
 </head>
 <body>
-  <h1>Benadep Affiliate SRS visual contact sheet</h1>
-  <p class="intro">28 deterministic SVG diagrams. Review at desktop width and 50% zoom before Notion placement.</p>
+  <h1>Bộ duyệt sơ đồ SRS Affiliate Benadep</h1>
+  <p class="intro">28 sơ đồ SVG tất định. Chọn chiều rộng duyệt để kiểm tra khả năng đọc trước khi đặt vào Notion.</p>
+  <div class="review-controls" role="group" aria-label="Chiều rộng duyệt sơ đồ">
+    <strong>Chiều rộng duyệt:</strong>
+    <label for="review-700">700 px</label>
+    <label for="review-1000">1000 px</label>
+  </div>
+  <input id="review-700" name="review-width" type="radio" checked>
+  <input id="review-1000" name="review-width" type="radio">
+  <main>
 ${diagrams}
+  </main>
 </body>
 </html>
 `;
 };
 
-export const generateAll = async (outputDir: string): Promise<void> => {
-  const specsByKey = getSpecsByKey();
-  await mkdir(outputDir, { recursive: true });
+const prepareSvgAssets = (
+  specsByKey: ReadonlyMap<string, TDiagramSpec>,
+): ReadonlyMap<string, string> => {
+  const errors = auditVietnameseCopy(DIAGRAM_TARGETS, DIAGRAM_SPECS).map(
+    (error) => `Vietnamese copy audit: ${error}`,
+  );
+  const assets = new Map<string, string>();
 
   for (const target of DIAGRAM_TARGETS) {
     const spec = specsByKey.get(target.key);
     if (!spec) {
-      throw new Error(`Missing diagram spec: ${target.key}`);
+      errors.push(`${target.filename}: missing diagram spec`);
+      continue;
     }
-    await writeFile(
-      resolve(outputDir, target.filename),
-      `${renderDiagram(spec)}\n`,
-      'utf8',
-    );
+
+    try {
+      const layout = layoutDiagram(spec);
+      errors.push(...auditDiagramGeometry(layout));
+      if (layout.viewBox.width !== 1400 || layout.viewBox.height !== 1800) {
+        errors.push(`${target.filename}: layout viewBox must be 1400 × 1800`);
+      }
+      if (layout.bands.length !== 2) {
+        errors.push(`${target.filename}: layout must contain exactly 2 bands`);
+      }
+      if (
+        layout.typography.title !== 46 ||
+        layout.typography.scope !== 24 ||
+        layout.typography.connector !== 22 ||
+        layout.typography.footer !== 22
+      ) {
+        errors.push(
+          `${target.filename}: typography contract must include 46/24/22`,
+        );
+      }
+      if (layout.footer.edgeItems.length !== spec.edges.length) {
+        errors.push(
+          `${target.filename}: edge directory must contain exactly one entry per semantic edge`,
+        );
+      }
+
+      const svg = `${renderDiagram(spec)}\n`;
+      if (Buffer.byteLength(svg) >= MAX_SVG_BYTES) {
+        errors.push(`${target.filename}: must be below 200 KiB`);
+      }
+      if (svg.includes('…')) {
+        errors.push(
+          `${target.filename}: visible copy must not use an ellipsis`,
+        );
+      }
+      assets.set(target.filename, svg);
+    } catch (error) {
+      errors.push(
+        `${target.filename}: generation audit failed (${error instanceof Error ? error.message : String(error)})`,
+      );
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(errors.join('\n'));
+  }
+  return assets;
+};
+
+export const generateAll = async (outputDir: string): Promise<void> => {
+  const specsByKey = getSpecsByKey();
+  const svgAssets = prepareSvgAssets(specsByKey);
+  await mkdir(outputDir, { recursive: true });
+
+  for (const target of DIAGRAM_TARGETS) {
+    const svg = svgAssets.get(target.filename);
+    if (!svg) {
+      throw new Error(`Missing rendered SVG: ${target.filename}`);
+    }
+    await writeFile(resolve(outputDir, target.filename), svg, 'utf8');
   }
 
   await writeFile(

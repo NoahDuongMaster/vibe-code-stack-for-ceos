@@ -1,275 +1,288 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Benadep Affiliate SRS visual contact sheet</title>
+  <title>Bộ duyệt sơ đồ SRS Affiliate Benadep</title>
   <style>
     :root { color-scheme: light; font-family: ui-sans-serif, system-ui, sans-serif; }
-    body { margin: 0 auto; max-width: 1680px; padding: 32px; color: #17202a; background: #f4f6f8; }
+    body { margin: 0 auto; max-width: 1100px; padding: 32px; color: #17202a; background: #f4f6f8; }
     h1 { margin: 0 0 8px; font-size: 32px; }
-    .intro { margin: 0 0 32px; color: #4b5563; }
+    .intro { margin: 0 0 20px; color: #4b5563; }
+    .review-controls { display: flex; align-items: center; gap: 16px; margin: 0 0 32px; }
+    .review-controls label { font-weight: 700; cursor: pointer; }
     article { margin: 0 0 40px; padding: 24px; border: 1px solid #c9d1da; border-radius: 16px; background: #fff; }
     header { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; }
     h2 { margin: 0 0 16px; font-size: 24px; }
     header p { margin: 0 0 16px; color: #4b5563; }
-    object { display: block; width: 100%; aspect-ratio: 16 / 9; border: 1px solid #aeb8c4; background: #fff; }
+    object { display: block; max-width: 100%; aspect-ratio: 7 / 9; border: 1px solid #aeb8c4; background: #fff; }
+    #review-700:checked ~ main object { width: 700px; }
+    #review-1000:checked ~ main object { width: 1000px; }
   </style>
 </head>
 <body>
-  <h1>Benadep Affiliate SRS visual contact sheet</h1>
-  <p class="intro">28 deterministic SVG diagrams. Review at desktop width and 50% zoom before Notion placement.</p>
+  <h1>Bộ duyệt sơ đồ SRS Affiliate Benadep</h1>
+  <p class="intro">28 sơ đồ SVG tất định. Chọn chiều rộng duyệt để kiểm tra khả năng đọc trước khi đặt vào Notion.</p>
+  <div class="review-controls" role="group" aria-label="Chiều rộng duyệt sơ đồ">
+    <strong>Chiều rộng duyệt:</strong>
+    <label for="review-700">700 px</label>
+    <label for="review-1000">1000 px</label>
+  </div>
+  <input id="review-700" name="review-width" type="radio" checked>
+  <input id="review-1000" name="review-width" type="radio">
+  <main>
 <article>
   <header>
-    <h2>System context &amp; actor map</h2>
-    <p><code>page-1-system-context</code> · SRS-BENA-AFF-US-001 actors and trust boundaries</p>
+    <h2>Bối cảnh hệ thống &amp; bản đồ tác nhân</h2>
+    <p><code>page-1-system-context</code> · SRS-BENA-AFF-US-001 — tác nhân và ranh giới tin cậy</p>
   </header>
-  <object data="./srs-page-1-system-context.svg" type="image/svg+xml" aria-label="System context showing Creator, Seller, MCN, Buyer, Operations, Benadep surfaces and external trust boundaries.">
-    <p>System context showing Creator, Seller, MCN, Buyer, Operations, Benadep surfaces and external trust boundaries.</p>
+  <object data="./srs-page-1-system-context.svg" type="image/svg+xml" aria-label="Sơ đồ bối cảnh hệ thống thể hiện Creator, Seller, MCN, Buyer, Operations, các bề mặt Benadep và ranh giới tin cậy bên ngoài.">
+    <p>Sơ đồ bối cảnh hệ thống thể hiện Creator, Seller, MCN, Buyer, Operations, các bề mặt Benadep và ranh giới tin cậy bên ngoài.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>End-to-end data, money &amp; evidence flow</h2>
-    <p><code>page-1-end-to-end</code> · SP-001–SP-084 overview</p>
+    <h2>Luồng dữ liệu, tiền &amp; bằng chứng đầu cuối</h2>
+    <p><code>page-1-end-to-end</code> · SP-001–SP-084 — tổng quan</p>
   </header>
-  <object data="./srs-page-1-end-to-end-flow.svg" type="image/svg+xml" aria-label="End-to-end flow from affiliate asset and click through attribution, order-line commission, ledger, reconciliation and payout.">
-    <p>End-to-end flow from affiliate asset and click through attribution, order-line commission, ledger, reconciliation and payout.</p>
+  <object data="./srs-page-1-end-to-end-flow.svg" type="image/svg+xml" aria-label="Luồng đầu cuối từ tài sản affiliate và lượt nhấp qua attribution, hoa hồng theo dòng đơn hàng, sổ cái, đối soát và payout.">
+    <p>Luồng đầu cuối từ tài sản affiliate và lượt nhấp qua attribution, hoa hồng theo dòng đơn hàng, sổ cái, đối soát và payout.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Identity, onboarding &amp; account lifecycle</h2>
+    <h2>Vòng đời định danh, onboarding &amp; tài khoản</h2>
     <p><code>2-01-backend</code> · CN-001–CN-009</p>
   </header>
-  <object data="./srs-2-01-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend lifecycle for affiliate application, identity, channel verification, review, activation, suspension and reverification.">
-    <p>Backend lifecycle for affiliate application, identity, channel verification, review, activation, suspension and reverification.</p>
+  <object data="./srs-2-01-backend-lifecycle.svg" type="image/svg+xml" aria-label="Sơ đồ vòng đời backend cho đăng ký affiliate, định danh, xác minh kênh, xét duyệt, kích hoạt, đình chỉ và xác minh lại.">
+    <p>Sơ đồ vòng đời backend cho đăng ký affiliate, định danh, xác minh kênh, xét duyệt, kích hoạt, đình chỉ và xác minh lại.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Dashboard, offers, commission discovery &amp; referral</h2>
+    <h2>Dashboard, ưu đãi, hoa hồng &amp; giới thiệu</h2>
     <p><code>2-02-backend</code> · CN-010–CN-019</p>
   </header>
-  <object data="./srs-2-02-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend lifecycle for offer discovery, eligibility, enrollment, asset creation, referral and performance aggregation.">
-    <p>Backend lifecycle for offer discovery, eligibility, enrollment, asset creation, referral and performance aggregation.</p>
+  <object data="./srs-2-02-backend-lifecycle.svg" type="image/svg+xml" aria-label="Luồng backend cho khám phá ưu đãi, kiểm tra điều kiện, tham gia, tạo tài sản, giới thiệu và tổng hợp hiệu suất.">
+    <p>Luồng backend cho khám phá ưu đãi, kiểm tra điều kiện, tham gia, tạo tài sản, giới thiệu và tổng hợp hiệu suất.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Link, product code, collection &amp; reporting</h2>
+    <h2>Link, mã sản phẩm, bộ sưu tập &amp; báo cáo</h2>
     <p><code>2-03-backend</code> · CN-020–CN-027</p>
   </header>
-  <object data="./srs-2-03-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend flow for tracked link, product code, collection publication, click evidence, conversion report and earning statement.">
-    <p>Backend flow for tracked link, product code, collection publication, click evidence, conversion report and earning statement.</p>
+  <object data="./srs-2-03-backend-lifecycle.svg" type="image/svg+xml" aria-label="Luồng backend cho link theo dõi, mã sản phẩm, xuất bản bộ sưu tập, bằng chứng lượt nhấp, báo cáo chuyển đổi và sao kê thu nhập.">
+    <p>Luồng backend cho link theo dõi, mã sản phẩm, xuất bản bộ sưu tập, bằng chứng lượt nhấp, báo cáo chuyển đổi và sao kê thu nhập.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Attribution, rate snapshot &amp; commission ledger</h2>
+    <h2>Attribution, snapshot tỷ lệ &amp; sổ cái hoa hồng</h2>
     <p><code>2-04-backend</code> · CN-028–CN-039</p>
   </header>
-  <object data="./srs-2-04-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend attribution flow from candidates and winner through immutable rate snapshot, order-line journal and adjustment.">
-    <p>Backend attribution flow from candidates and winner through immutable rate snapshot, order-line journal and adjustment.</p>
+  <object data="./srs-2-04-backend-lifecycle.svg" type="image/svg+xml" aria-label="Luồng attribution backend từ tập ứng viên và kết quả thắng qua snapshot tỷ lệ bất biến, bút toán dòng đơn hàng và điều chỉnh.">
+    <p>Luồng attribution backend từ tập ứng viên và kết quả thắng qua snapshot tỷ lệ bất biến, bút toán dòng đơn hàng và điều chỉnh.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Short Video Commerce lifecycle</h2>
+    <h2>Vòng đời thương mại Video ngắn</h2>
     <p><code>2-05-backend</code> · CN-040–CN-047</p>
   </header>
-  <object data="./srs-2-05-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend lifecycle for video upload, product tagging, publish, discovery, commerce evidence, moderation and appeal.">
-    <p>Backend lifecycle for video upload, product tagging, publish, discovery, commerce evidence, moderation and appeal.</p>
+  <object data="./srs-2-05-backend-lifecycle.svg" type="image/svg+xml" aria-label="Vòng đời backend cho tải Video, gắn sản phẩm, phát hành, khám phá, bằng chứng thương mại, kiểm duyệt và khiếu nại.">
+    <p>Vòng đời backend cho tải Video, gắn sản phẩm, phát hành, khám phá, bằng chứng thương mại, kiểm duyệt và khiếu nại.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>LIVE Commerce lifecycle</h2>
+    <h2>Vòng đời LIVE Commerce</h2>
     <p><code>2-06-backend</code> · CN-048–CN-052</p>
   </header>
-  <object data="./srs-2-06-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend lifecycle for LIVE schedule, preflight, ingest, active session, product pin, viewer commerce, replay and moderation.">
-    <p>Backend lifecycle for LIVE schedule, preflight, ingest, active session, product pin, viewer commerce, replay and moderation.</p>
+  <object data="./srs-2-06-backend-lifecycle.svg" type="image/svg+xml" aria-label="Vòng đời backend cho lịch LIVE, kiểm tra trước phiên, ingest, phiên đang hoạt động, ghim sản phẩm, giao dịch người xem, replay và kiểm duyệt.">
+    <p>Vòng đời backend cho lịch LIVE, kiểm tra trước phiên, ingest, phiên đang hoạt động, ghim sản phẩm, giao dịch người xem, replay và kiểm duyệt.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Seller PPS, rates &amp; creator contact</h2>
+    <h2>PPS người bán, tỷ lệ &amp; liên hệ Creator</h2>
     <p><code>2-07-backend</code> · CN-053–CN-056</p>
   </header>
-  <object data="./srs-2-07-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend lifecycle for seller PPS enrollment, commission rate versions, creator discovery and consent-scoped contact.">
-    <p>Backend lifecycle for seller PPS enrollment, commission rate versions, creator discovery and consent-scoped contact.</p>
+  <object data="./srs-2-07-backend-lifecycle.svg" type="image/svg+xml" aria-label="Vòng đời backend cho người bán tham gia PPS, phiên bản tỷ lệ hoa hồng, khám phá Creator và liên hệ theo phạm vi đồng ý.">
+    <p>Vòng đời backend cho người bán tham gia PPS, phiên bản tỷ lệ hoa hồng, khám phá Creator và liên hệ theo phạm vi đồng ý.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>PPP, collaboration, sample &amp; seller affiliate</h2>
+    <h2>PPP, cộng tác, hàng mẫu &amp; Seller Affiliate</h2>
     <p><code>2-08-backend</code> · CN-057–CN-065</p>
   </header>
-  <object data="./srs-2-08-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend lifecycle for proposal, contract version, funded fee, sample shipment, deliverable review and release.">
-    <p>Backend lifecycle for proposal, contract version, funded fee, sample shipment, deliverable review and release.</p>
+  <object data="./srs-2-08-backend-lifecycle.svg" type="image/svg+xml" aria-label="Vòng đời backend cho đề xuất, phiên bản hợp đồng, phí đã cấp vốn, vận chuyển hàng mẫu, xét duyệt sản phẩm bàn giao và giải ngân.">
+    <p>Vòng đời backend cho đề xuất, phiên bản hợp đồng, phí đã cấp vốn, vận chuyển hàng mẫu, xét duyệt sản phẩm bàn giao và giải ngân.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>MCN roster, RBAC &amp; revenue split</h2>
+    <h2>MCN roster, RBAC &amp; phân chia doanh thu</h2>
     <p><code>2-09-backend</code> · CN-066–CN-072</p>
   </header>
-  <object data="./srs-2-09-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend lifecycle for MCN application, membership, roles, campaign assignment, revenue split and settlement.">
-    <p>Backend lifecycle for MCN application, membership, roles, campaign assignment, revenue split and settlement.</p>
+  <object data="./srs-2-09-backend-lifecycle.svg" type="image/svg+xml" aria-label="Vòng đời backend cho đăng ký MCN, thành viên, vai trò, phân công chiến dịch, chia doanh thu và quyết toán.">
+    <p>Vòng đời backend cho đăng ký MCN, thành viên, vai trò, phân công chiến dịch, chia doanh thu và quyết toán.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Reconciliation, payout, tax &amp; remediation</h2>
+    <h2>Đối soát, payout, thuế &amp; khắc phục</h2>
     <p><code>2-10-backend</code> · CN-073–CN-077</p>
   </header>
-  <object data="./srs-2-10-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend flow for tax and payment verification, wallet, statements, reconciliation, holds, retries and corrections.">
-    <p>Backend flow for tax and payment verification, wallet, statements, reconciliation, holds, retries and corrections.</p>
+  <object data="./srs-2-10-backend-lifecycle.svg" type="image/svg+xml" aria-label="Luồng backend cho xác minh thuế và thanh toán, ví, sao kê, đối soát, tạm giữ, thử lại và điều chỉnh.">
+    <p>Luồng backend cho xác minh thuế và thanh toán, ví, sao kê, đối soát, tạm giữ, thử lại và điều chỉnh.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Fraud, enforcement &amp; appeals</h2>
+    <h2>Gian lận, enforcement &amp; khiếu nại</h2>
     <p><code>2-11-backend</code> · CN-078–CN-082</p>
   </header>
-  <object data="./srs-2-11-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend lifecycle for fraud report, case triage, evidence graph, decision, enforcement, appeal and recall.">
-    <p>Backend lifecycle for fraud report, case triage, evidence graph, decision, enforcement, appeal and recall.</p>
+  <object data="./srs-2-11-backend-lifecycle.svg" type="image/svg+xml" aria-label="Vòng đời backend cho báo cáo gian lận, phân loại vụ việc, đồ thị bằng chứng, quyết định, enforcement, khiếu nại và thu hồi.">
+    <p>Vòng đời backend cho báo cáo gian lận, phân loại vụ việc, đồ thị bằng chứng, quyết định, enforcement, khiếu nại và thu hồi.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>External distribution &amp; YouTube Shopping</h2>
+    <h2>Phân phối ngoài nền tảng &amp; YouTube Shopping</h2>
     <p><code>2-12-backend</code> · CN-083–CN-084</p>
   </header>
-  <object data="./srs-2-12-backend-lifecycle.svg" type="image/svg+xml" aria-label="Backend flow for external property verification, OAuth, catalog feed sync, product tagging and channel reporting.">
-    <p>Backend flow for external property verification, OAuth, catalog feed sync, product tagging and channel reporting.</p>
+  <object data="./srs-2-12-backend-lifecycle.svg" type="image/svg+xml" aria-label="Luồng backend cho xác minh tài sản bên ngoài, OAuth, đồng bộ catalog feed, gắn sản phẩm và báo cáo theo kênh.">
+    <p>Luồng backend cho xác minh tài sản bên ngoài, OAuth, đồng bộ catalog feed, gắn sản phẩm và báo cáo theo kênh.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Identity and onboarding UI navigation</h2>
+    <h2>Điều hướng UI định danh &amp; onboarding</h2>
     <p><code>3-01-ui</code> · MH-001–MH-005</p>
   </header>
-  <object data="./srs-3-01-ui-navigation.svg" type="image/svg+xml" aria-label="UI navigation across affiliate center, application, channel verification, settings and admin review screens.">
-    <p>UI navigation across affiliate center, application, channel verification, settings and admin review screens.</p>
+  <object data="./srs-3-01-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI giữa trung tâm affiliate, biểu mẫu đăng ký, xác minh kênh, cài đặt và màn hình xét duyệt quản trị.">
+    <p>Điều hướng UI giữa trung tâm affiliate, biểu mẫu đăng ký, xác minh kênh, cài đặt và màn hình xét duyệt quản trị.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Dashboard, offer and referral UI navigation</h2>
+    <h2>Điều hướng UI dashboard, ưu đãi &amp; giới thiệu</h2>
     <p><code>3-02-ui</code> · MH-006–MH-011</p>
   </header>
-  <object data="./srs-3-02-ui-navigation.svg" type="image/svg+xml" aria-label="UI navigation across affiliate dashboard, product marketplace, offer detail, invitations, referral and offer management.">
-    <p>UI navigation across affiliate dashboard, product marketplace, offer detail, invitations, referral and offer management.</p>
+  <object data="./srs-3-02-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI giữa dashboard affiliate, marketplace sản phẩm, chi tiết ưu đãi, lời mời, giới thiệu và quản lý ưu đãi.">
+    <p>Điều hướng UI giữa dashboard affiliate, marketplace sản phẩm, chi tiết ưu đãi, lời mời, giới thiệu và quản lý ưu đãi.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Link, collection and reporting UI navigation</h2>
+    <h2>Điều hướng UI link, bộ sưu tập &amp; báo cáo</h2>
     <p><code>3-03-ui</code> · MH-012–MH-017</p>
   </header>
-  <object data="./srs-3-03-ui-navigation.svg" type="image/svg+xml" aria-label="UI navigation across link builder, code generator, collection manager, public collection and financial reports.">
-    <p>UI navigation across link builder, code generator, collection manager, public collection and financial reports.</p>
+  <object data="./srs-3-03-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI giữa trình tạo link, trình tạo mã, quản lý bộ sưu tập, bộ sưu tập công khai và báo cáo tài chính.">
+    <p>Điều hướng UI giữa trình tạo link, trình tạo mã, quản lý bộ sưu tập, bộ sưu tập công khai và báo cáo tài chính.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Attribution and ledger UI navigation</h2>
+    <h2>Điều hướng UI attribution &amp; ledger</h2>
     <p><code>3-04-ui</code> · MH-018–MH-021</p>
   </header>
-  <object data="./srs-3-04-ui-navigation.svg" type="image/svg+xml" aria-label="UI navigation across conversion attribution detail, seller rate simulator, creator ledger and attribution explorer.">
-    <p>UI navigation across conversion attribution detail, seller rate simulator, creator ledger and attribution explorer.</p>
+  <object data="./srs-3-04-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI giữa chi tiết attribution chuyển đổi, mô phỏng tỷ lệ người bán, ledger Creator và trình khám phá attribution.">
+    <p>Điều hướng UI giữa chi tiết attribution chuyển đổi, mô phỏng tỷ lệ người bán, ledger Creator và trình khám phá attribution.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Short Video Commerce UI navigation</h2>
+    <h2>Điều hướng UI thương mại Video ngắn</h2>
     <p><code>3-05-ui</code> · MH-022–MH-026</p>
   </header>
-  <object data="./srs-3-05-ui-navigation.svg" type="image/svg+xml" aria-label="Mobile-first UI navigation across video feed, composer, product picker, detail sheet, moderation and appeal.">
-    <p>Mobile-first UI navigation across video feed, composer, product picker, detail sheet, moderation and appeal.</p>
+  <object data="./srs-3-05-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI ưu tiên mobile giữa feed Video, trình soạn nội dung, bộ chọn sản phẩm, bảng chi tiết, kiểm duyệt và khiếu nại.">
+    <p>Điều hướng UI ưu tiên mobile giữa feed Video, trình soạn nội dung, bộ chọn sản phẩm, bảng chi tiết, kiểm duyệt và khiếu nại.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>LIVE Commerce UI navigation</h2>
+    <h2>Điều hướng UI LIVE Commerce</h2>
     <p><code>3-06-ui</code> · MH-027–MH-031</p>
   </header>
-  <object data="./srs-3-06-ui-navigation.svg" type="image/svg+xml" aria-label="Mobile-first UI navigation across LIVE discovery, setup, host console, viewer room, replay and moderation.">
-    <p>Mobile-first UI navigation across LIVE discovery, setup, host console, viewer room, replay and moderation.</p>
+  <object data="./srs-3-06-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI ưu tiên mobile giữa khám phá LIVE, thiết lập, bảng điều khiển Host, phòng Viewer, replay và kiểm duyệt.">
+    <p>Điều hướng UI ưu tiên mobile giữa khám phá LIVE, thiết lập, bảng điều khiển Host, phòng Viewer, replay và kiểm duyệt.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Seller PPS and creator contact UI navigation</h2>
+    <h2>Điều hướng UI Seller PPS &amp; liên hệ Creator</h2>
     <p><code>3-07-ui</code> · MH-032–MH-035</p>
   </header>
-  <object data="./srs-3-07-ui-navigation.svg" type="image/svg+xml" aria-label="UI navigation across PPS enrollment, commission rate configuration, creator directory and contact consent.">
-    <p>UI navigation across PPS enrollment, commission rate configuration, creator directory and contact consent.</p>
+  <object data="./srs-3-07-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI giữa đăng ký PPS, cấu hình tỷ lệ hoa hồng, danh bạ Creator và đồng ý liên hệ.">
+    <p>Điều hướng UI giữa đăng ký PPS, cấu hình tỷ lệ hoa hồng, danh bạ Creator và đồng ý liên hệ.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>PPP collaboration UI navigation</h2>
+    <h2>Điều hướng UI cộng tác PPP</h2>
     <p><code>3-08-ui</code> · MH-036–MH-040</p>
   </header>
-  <object data="./srs-3-08-ui-navigation.svg" type="image/svg+xml" aria-label="UI navigation across collaboration inbox, contract editor, sample tracker, deliverable review and seller affiliate dashboard.">
-    <p>UI navigation across collaboration inbox, contract editor, sample tracker, deliverable review and seller affiliate dashboard.</p>
+  <object data="./srs-3-08-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI giữa hộp thư cộng tác, trình sửa hợp đồng, theo dõi hàng mẫu, xét duyệt sản phẩm bàn giao và dashboard Seller Affiliate.">
+    <p>Điều hướng UI giữa hộp thư cộng tác, trình sửa hợp đồng, theo dõi hàng mẫu, xét duyệt sản phẩm bàn giao và dashboard Seller Affiliate.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>MCN and agency UI navigation</h2>
+    <h2>Điều hướng UI MCN &amp; agency</h2>
     <p><code>3-09-ui</code> · MH-041–MH-045</p>
   </header>
-  <object data="./srs-3-09-ui-navigation.svg" type="image/svg+xml" aria-label="UI navigation across MCN application, roster invitations, sub-account RBAC, campaign assignments and settlement reports.">
-    <p>UI navigation across MCN application, roster invitations, sub-account RBAC, campaign assignments and settlement reports.</p>
+  <object data="./srs-3-09-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI giữa đăng ký MCN, lời mời roster, RBAC tài khoản phụ, phân công chiến dịch và báo cáo quyết toán.">
+    <p>Điều hướng UI giữa đăng ký MCN, lời mời roster, RBAC tài khoản phụ, phân công chiến dịch và báo cáo quyết toán.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Payout, tax and reconciliation UI navigation</h2>
+    <h2>Điều hướng UI payout, thuế &amp; đối soát</h2>
     <p><code>3-10-ui</code> · MH-046–MH-050</p>
   </header>
-  <object data="./srs-3-10-ui-navigation.svg" type="image/svg+xml" aria-label="UI navigation across creator wallet, tax and payment setup, statements, payout remediation and finance reconciliation.">
-    <p>UI navigation across creator wallet, tax and payment setup, statements, payout remediation and finance reconciliation.</p>
+  <object data="./srs-3-10-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI giữa ví Creator, thiết lập thuế và thanh toán, sao kê, khắc phục payout và đối soát tài chính.">
+    <p>Điều hướng UI giữa ví Creator, thiết lập thuế và thanh toán, sao kê, khắc phục payout và đối soát tài chính.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Fraud, enforcement and appeal UI navigation</h2>
+    <h2>Điều hướng UI gian lận, enforcement &amp; khiếu nại</h2>
     <p><code>3-11-ui</code> · MH-051–MH-055</p>
   </header>
-  <object data="./srs-3-11-ui-navigation.svg" type="image/svg+xml" aria-label="UI navigation across fraud report, risk queue, case graph, enforcement appeal and policy recall console.">
-    <p>UI navigation across fraud report, risk queue, case graph, enforcement appeal and policy recall console.</p>
+  <object data="./srs-3-11-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI giữa báo cáo gian lận, hàng đợi rủi ro, đồ thị vụ việc, khiếu nại enforcement và bảng điều khiển thu hồi chính sách.">
+    <p>Điều hướng UI giữa báo cáo gian lận, hàng đợi rủi ro, đồ thị vụ việc, khiếu nại enforcement và bảng điều khiển thu hồi chính sách.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>External distribution UI navigation</h2>
+    <h2>Điều hướng UI phân phối ngoài nền tảng</h2>
     <p><code>3-12-ui</code> · MH-056–MH-059</p>
   </header>
-  <object data="./srs-3-12-ui-navigation.svg" type="image/svg+xml" aria-label="UI navigation across property registry, YouTube OAuth connection, external product feed health and channel reports.">
-    <p>UI navigation across property registry, YouTube OAuth connection, external product feed health and channel reports.</p>
+  <object data="./srs-3-12-ui-navigation.svg" type="image/svg+xml" aria-label="Điều hướng UI giữa sổ đăng ký tài sản, kết nối YouTube OAuth, tình trạng feed sản phẩm bên ngoài và báo cáo kênh.">
+    <p>Điều hướng UI giữa sổ đăng ký tài sản, kết nối YouTube OAuth, tình trạng feed sản phẩm bên ngoài và báo cáo kênh.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Requirement traceability chain</h2>
-    <p><code>page-4-traceability</code> · SP → CN → QT → MH/non-UI → KT → evidence</p>
+    <h2>Chuỗi truy vết yêu cầu</h2>
+    <p><code>page-4-traceability</code> · SP → CN → QT → MH/non-UI → KT → bằng chứng</p>
   </header>
-  <object data="./srs-page-4-traceability.svg" type="image/svg+xml" aria-label="Traceability chain from observable Shopee outcome through SRS requirements and test cases to evidence and validation gates.">
-    <p>Traceability chain from observable Shopee outcome through SRS requirements and test cases to evidence and validation gates.</p>
+  <object data="./srs-page-4-traceability.svg" type="image/svg+xml" aria-label="Chuỗi truy vết từ kết quả Shopee quan sát được qua yêu cầu SRS và ca kiểm thử đến bằng chứng cùng cổng xác thực.">
+    <p>Chuỗi truy vết từ kết quả Shopee quan sát được qua yêu cầu SRS và ca kiểm thử đến bằng chứng cùng cổng xác thực.</p>
   </object>
 </article>
 <article>
   <header>
-    <h2>Test and evidence release gate</h2>
-    <p><code>page-4-release-gate</code> · KT-001–KT-120 and release evidence</p>
+    <h2>Cổng kiểm thử, bằng chứng &amp; phát hành</h2>
+    <p><code>page-4-release-gate</code> · KT-001–KT-120 và bằng chứng phát hành</p>
   </header>
-  <object data="./srs-page-4-release-evidence-gate.svg" type="image/svg+xml" aria-label="Release gate combining capability, golden, algorithm, security, accessibility, finance and source-code evidence.">
-    <p>Release gate combining capability, golden, algorithm, security, accessibility, finance and source-code evidence.</p>
+  <object data="./srs-page-4-release-evidence-gate.svg" type="image/svg+xml" aria-label="Cổng phát hành kết hợp bằng chứng capability, golden, thuật toán, bảo mật, khả năng tiếp cận, tài chính và source code.">
+    <p>Cổng phát hành kết hợp bằng chứng capability, golden, thuật toán, bảo mật, khả năng tiếp cận, tài chính và source code.</p>
   </object>
 </article>
+  </main>
 </body>
 </html>

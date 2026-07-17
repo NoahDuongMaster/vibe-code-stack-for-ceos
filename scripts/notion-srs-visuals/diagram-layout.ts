@@ -1405,23 +1405,18 @@ export const layoutDiagram = (spec: TDiagramSpec): TDiagramLayout => {
     TYPOGRAPHY.scope,
     30,
   );
-  const legendValues = [
-    'Luồng chính / điều hướng',
-    'Bất đồng bộ / webhook',
-    'Audit / bằng chứng',
-  ];
   const footerColumnGap = 16;
   const footerColumnWidth = (1304 - footerColumnGap * 3) / 4;
   const footerColumnX = (index: number): number =>
     48 + index * (footerColumnWidth + footerColumnGap);
-  const legendItems = legendValues.map((value, index) =>
+  const legendItems = [
     layoutText(
-      value,
-      { x: footerColumnX(index), y: 1610, width: footerColumnWidth },
+      'Chú giải: → luồng chính | ⇢ bất đồng bộ / webhook | ⋯ audit / bằng chứng. Danh mục: mã — ý nghĩa; đọc theo hàng.',
+      { x: 48, y: 1610, width: 1304 },
       TYPOGRAPHY.footer,
       22,
     ),
-  );
+  ];
   if (spec.edges.length > 24) {
     throw new Error(
       `${spec.key}: footer edge directory supports at most twenty-four entries`,
