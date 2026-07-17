@@ -1,8 +1,14 @@
 export type TDiagramKind = 'overview' | 'backend' | 'ui' | 'test';
 export type TVersion = '0.2' | '0.4' | '0.5';
 export type TTone = 'creator' | 'seller' | 'mcn' | 'ops' | 'money' | 'system';
-export type TBadge = 'Existing' | 'Extend' | 'New' | 'Field-validation gate';
+export type TBadge = 'Hiện có' | 'Mở rộng' | 'Mới' | 'Cổng xác thực thực địa';
 export type TEdgeStyle = 'solid' | 'dashed' | 'dotted';
+
+export type TLegacyVisualCopy = Readonly<{
+  title: string;
+  alt: string;
+  caption: string;
+}>;
 
 export type TDiagramTarget = Readonly<{
   key: string;
@@ -14,9 +20,11 @@ export type TDiagramTarget = Readonly<{
   codeRange: string;
   previousVersion: Exclude<TVersion, '0.5'>;
   nextVersion: '0.5';
+  currentVersion: '0.5';
   insertBefore: string;
   alt: string;
   caption: string;
+  legacy: TLegacyVisualCopy;
   relatedPageUrl?: string;
 }>;
 

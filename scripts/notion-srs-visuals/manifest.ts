@@ -1,15 +1,163 @@
 import type { TDiagramTarget } from './types.ts';
 
-const visualCaption = (scope: string): string =>
+type TLocalizedVisualCopy = Readonly<{
+  title: string;
+  alt: string;
+  codeRange?: string;
+}>;
+
+const VIETNAMESE_COPY_BY_KEY: Readonly<Record<string, TLocalizedVisualCopy>> = {
+  'page-1-system-context': {
+    title: 'Bối cảnh hệ thống & bản đồ tác nhân',
+    codeRange: 'SRS-BENA-AFF-US-001 — tác nhân và ranh giới tin cậy',
+    alt: 'Sơ đồ bối cảnh hệ thống thể hiện Creator, Seller, MCN, Buyer, Operations, các bề mặt Benadep và ranh giới tin cậy bên ngoài.',
+  },
+  'page-1-end-to-end': {
+    title: 'Luồng dữ liệu, tiền & bằng chứng đầu cuối',
+    codeRange: 'SP-001–SP-084 — tổng quan',
+    alt: 'Luồng đầu cuối từ tài sản affiliate và lượt nhấp qua attribution, hoa hồng theo dòng đơn hàng, sổ cái, đối soát và payout.',
+  },
+  '2-01-backend': {
+    title: 'Vòng đời định danh, onboarding & tài khoản',
+    alt: 'Sơ đồ vòng đời backend cho đăng ký affiliate, định danh, xác minh kênh, xét duyệt, kích hoạt, đình chỉ và xác minh lại.',
+  },
+  '2-02-backend': {
+    title: 'Dashboard, ưu đãi, hoa hồng & giới thiệu',
+    alt: 'Luồng backend cho khám phá ưu đãi, kiểm tra điều kiện, tham gia, tạo tài sản, giới thiệu và tổng hợp hiệu suất.',
+  },
+  '2-03-backend': {
+    title: 'Link, mã sản phẩm, bộ sưu tập & báo cáo',
+    alt: 'Luồng backend cho link theo dõi, mã sản phẩm, xuất bản bộ sưu tập, bằng chứng lượt nhấp, báo cáo chuyển đổi và sao kê thu nhập.',
+  },
+  '2-04-backend': {
+    title: 'Attribution, snapshot tỷ lệ & sổ cái hoa hồng',
+    alt: 'Luồng attribution backend từ tập ứng viên và kết quả thắng qua snapshot tỷ lệ bất biến, bút toán dòng đơn hàng và điều chỉnh.',
+  },
+  '2-05-backend': {
+    title: 'Vòng đời thương mại Video ngắn',
+    alt: 'Vòng đời backend cho tải Video, gắn sản phẩm, phát hành, khám phá, bằng chứng thương mại, kiểm duyệt và khiếu nại.',
+  },
+  '2-06-backend': {
+    title: 'Vòng đời LIVE Commerce',
+    alt: 'Vòng đời backend cho lịch LIVE, kiểm tra trước phiên, ingest, phiên đang hoạt động, ghim sản phẩm, giao dịch người xem, replay và kiểm duyệt.',
+  },
+  '2-07-backend': {
+    title: 'PPS người bán, tỷ lệ & liên hệ Creator',
+    alt: 'Vòng đời backend cho người bán tham gia PPS, phiên bản tỷ lệ hoa hồng, khám phá Creator và liên hệ theo phạm vi đồng ý.',
+  },
+  '2-08-backend': {
+    title: 'PPP, cộng tác, hàng mẫu & Seller Affiliate',
+    alt: 'Vòng đời backend cho đề xuất, phiên bản hợp đồng, phí đã cấp vốn, vận chuyển hàng mẫu, xét duyệt sản phẩm bàn giao và giải ngân.',
+  },
+  '2-09-backend': {
+    title: 'MCN roster, RBAC & phân chia doanh thu',
+    alt: 'Vòng đời backend cho đăng ký MCN, thành viên, vai trò, phân công chiến dịch, chia doanh thu và quyết toán.',
+  },
+  '2-10-backend': {
+    title: 'Đối soát, payout, thuế & khắc phục',
+    alt: 'Luồng backend cho xác minh thuế và thanh toán, ví, sao kê, đối soát, tạm giữ, thử lại và điều chỉnh.',
+  },
+  '2-11-backend': {
+    title: 'Gian lận, enforcement & khiếu nại',
+    alt: 'Vòng đời backend cho báo cáo gian lận, phân loại vụ việc, đồ thị bằng chứng, quyết định, enforcement, khiếu nại và thu hồi.',
+  },
+  '2-12-backend': {
+    title: 'Phân phối ngoài nền tảng & YouTube Shopping',
+    alt: 'Luồng backend cho xác minh tài sản bên ngoài, OAuth, đồng bộ catalog feed, gắn sản phẩm và báo cáo theo kênh.',
+  },
+  '3-01-ui': {
+    title: 'Điều hướng UI định danh & onboarding',
+    alt: 'Điều hướng UI giữa trung tâm affiliate, biểu mẫu đăng ký, xác minh kênh, cài đặt và màn hình xét duyệt quản trị.',
+  },
+  '3-02-ui': {
+    title: 'Điều hướng UI dashboard, ưu đãi & giới thiệu',
+    alt: 'Điều hướng UI giữa dashboard affiliate, marketplace sản phẩm, chi tiết ưu đãi, lời mời, giới thiệu và quản lý ưu đãi.',
+  },
+  '3-03-ui': {
+    title: 'Điều hướng UI link, bộ sưu tập & báo cáo',
+    alt: 'Điều hướng UI giữa trình tạo link, trình tạo mã, quản lý bộ sưu tập, bộ sưu tập công khai và báo cáo tài chính.',
+  },
+  '3-04-ui': {
+    title: 'Điều hướng UI attribution & ledger',
+    alt: 'Điều hướng UI giữa chi tiết attribution chuyển đổi, mô phỏng tỷ lệ người bán, ledger Creator và trình khám phá attribution.',
+  },
+  '3-05-ui': {
+    title: 'Điều hướng UI thương mại Video ngắn',
+    alt: 'Điều hướng UI ưu tiên mobile giữa feed Video, trình soạn nội dung, bộ chọn sản phẩm, bảng chi tiết, kiểm duyệt và khiếu nại.',
+  },
+  '3-06-ui': {
+    title: 'Điều hướng UI LIVE Commerce',
+    alt: 'Điều hướng UI ưu tiên mobile giữa khám phá LIVE, thiết lập, bảng điều khiển Host, phòng Viewer, replay và kiểm duyệt.',
+  },
+  '3-07-ui': {
+    title: 'Điều hướng UI Seller PPS & liên hệ Creator',
+    alt: 'Điều hướng UI giữa đăng ký PPS, cấu hình tỷ lệ hoa hồng, danh bạ Creator và đồng ý liên hệ.',
+  },
+  '3-08-ui': {
+    title: 'Điều hướng UI cộng tác PPP',
+    alt: 'Điều hướng UI giữa hộp thư cộng tác, trình sửa hợp đồng, theo dõi hàng mẫu, xét duyệt sản phẩm bàn giao và dashboard Seller Affiliate.',
+  },
+  '3-09-ui': {
+    title: 'Điều hướng UI MCN & agency',
+    alt: 'Điều hướng UI giữa đăng ký MCN, lời mời roster, RBAC tài khoản phụ, phân công chiến dịch và báo cáo quyết toán.',
+  },
+  '3-10-ui': {
+    title: 'Điều hướng UI payout, thuế & đối soát',
+    alt: 'Điều hướng UI giữa ví Creator, thiết lập thuế và thanh toán, sao kê, khắc phục payout và đối soát tài chính.',
+  },
+  '3-11-ui': {
+    title: 'Điều hướng UI gian lận, enforcement & khiếu nại',
+    alt: 'Điều hướng UI giữa báo cáo gian lận, hàng đợi rủi ro, đồ thị vụ việc, khiếu nại enforcement và bảng điều khiển thu hồi chính sách.',
+  },
+  '3-12-ui': {
+    title: 'Điều hướng UI phân phối ngoài nền tảng',
+    alt: 'Điều hướng UI giữa sổ đăng ký tài sản, kết nối YouTube OAuth, tình trạng feed sản phẩm bên ngoài và báo cáo kênh.',
+  },
+  'page-4-traceability': {
+    title: 'Chuỗi truy vết yêu cầu',
+    codeRange: 'SP → CN → QT → MH/non-UI → KT → bằng chứng',
+    alt: 'Chuỗi truy vết từ kết quả Shopee quan sát được qua yêu cầu SRS và ca kiểm thử đến bằng chứng cùng cổng xác thực.',
+  },
+  'page-4-release-gate': {
+    title: 'Cổng kiểm thử, bằng chứng & phát hành',
+    codeRange: 'KT-001–KT-120 và bằng chứng phát hành',
+    alt: 'Cổng phát hành kết hợp bằng chứng capability, golden, thuật toán, bảo mật, khả năng tiếp cận, tài chính và source code.',
+  },
+};
+
+const legacyVisualCaption = (scope: string): string =>
   `${scope}. Solid=request/navigation; dashed=async; dotted=audit/evidence. Visual aid only; normative text remains authoritative.`;
 
+const vietnameseVisualCaption = (scope: string): string =>
+  `${scope}. Đường liền biểu thị yêu cầu hoặc điều hướng; đường đứt biểu thị xử lý bất đồng bộ; đường chấm biểu thị audit hoặc bằng chứng. Hình minh họa; nội dung SRS chuẩn tắc vẫn là nguồn quyết định.`;
+
 const target = (
-  value: Omit<TDiagramTarget, 'nextVersion' | 'caption'>,
-): TDiagramTarget => ({
-  ...value,
-  nextVersion: '0.5',
-  caption: visualCaption(value.codeRange),
-});
+  value: Omit<
+    TDiagramTarget,
+    'nextVersion' | 'currentVersion' | 'caption' | 'legacy'
+  >,
+): TDiagramTarget => {
+  const localized = VIETNAMESE_COPY_BY_KEY[value.key];
+  if (!localized) {
+    throw new Error(`Missing Vietnamese visual copy for ${value.key}`);
+  }
+  const codeRange = localized.codeRange ?? value.codeRange;
+
+  return {
+    ...value,
+    title: localized.title,
+    codeRange,
+    alt: localized.alt,
+    nextVersion: '0.5',
+    currentVersion: '0.5',
+    caption: vietnameseVisualCaption(codeRange),
+    legacy: {
+      title: value.title,
+      alt: value.alt,
+      caption: legacyVisualCaption(value.codeRange),
+    },
+  };
+};
 
 export const DIAGRAM_TARGETS = [
   target({
