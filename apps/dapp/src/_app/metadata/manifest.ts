@@ -1,14 +1,15 @@
 import type { MetadataRoute } from 'next';
+import { APP_DESCRIPTION, APP_NAME } from '@/_app/metadata/app-metadata';
 
 export const createManifest = (): MetadataRoute.Manifest => ({
-  name: 'AI-First Next.js Boilerplate',
-  short_name: 'AI-First Next.js',
-  description:
-    'Production-ready Next.js 16 boilerplate with Feature-Sliced Design v2.1, built for AI-assisted development.',
+  name: APP_NAME,
+  short_name: APP_NAME,
+  description: APP_DESCRIPTION,
   start_url: '/',
   display: 'standalone',
-  background_color: '#ffffff',
-  theme_color: '#000000',
+  background_color: '#071018',
+  theme_color: '#071018',
+  categories: ['finance', 'utilities'],
   icons: [
     {
       src: '/icon-192x192.png',

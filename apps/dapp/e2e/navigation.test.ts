@@ -1,14 +1,19 @@
 import { expect, test } from '@playwright/test';
+import { installMarketApiMock } from '@root/e2e/fixtures/markets';
 
 test.describe('Navigation & Core Pages', () => {
   test('home page renders without JS errors', async ({ page }) => {
+    await installMarketApiMock(page);
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') errors.push(msg.text());
     });
 
     await page.goto('/');
-    await expect(page).toHaveTitle(/AI-First Next\.js Boilerplate/i);
+    await expect(page).toHaveTitle(/Vibe Markets/i);
+    await expect(
+      page.getByRole('heading', { name: 'Market matrix' }),
+    ).toBeVisible();
     expect(errors).toHaveLength(0);
   });
 
@@ -27,6 +32,7 @@ test.describe('Navigation & Core Pages', () => {
   });
 
   test('page has no broken image references', async ({ page }) => {
+    await installMarketApiMock(page);
     const failedImages: string[] = [];
     page.on('response', (response) => {
       const url = response.url();
@@ -47,12 +53,14 @@ test.describe('Navigation & Core Pages', () => {
   });
 
   test('page has accessible heading structure', async ({ page }) => {
+    await installMarketApiMock(page);
     await page.goto('/');
     const h1 = page.getByRole('heading', { level: 1 });
     await expect(h1).toBeVisible();
   });
 
   test('interactive elements are keyboard-navigable', async ({ page }) => {
+    await installMarketApiMock(page);
     await page.goto('/');
     await page.keyboard.press('Tab');
     const focused = page.locator(':focus');

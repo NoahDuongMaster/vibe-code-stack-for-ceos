@@ -3,9 +3,9 @@ import { env } from '@/shared/config';
 
 const baseUrl = env.client.NEXT_PUBLIC_BASE_URL;
 
-const APP_NAME = 'AI-First Next.js Boilerplate';
+const APP_NAME = 'Vibe Markets';
 const APP_DESCRIPTION =
-  'Production-ready Next.js 16 boilerplate with Feature-Sliced Design v2.1, built for AI-assisted development with Claude, Cursor, Copilot, and more.';
+  'A live crypto market command deck powered by typed ConnectRPC data and an interactive WebGL scene.';
 
 const META_DATA_DEFAULT: Metadata = {
   applicationName: APP_NAME,
@@ -16,16 +16,16 @@ const META_DATA_DEFAULT: Metadata = {
   creator: 'Noah Duong',
   description: APP_DESCRIPTION,
   keywords: [
-    'nextjs boilerplate',
-    'ai-first development',
-    'feature-sliced design',
-    'nextjs 16',
-    'typescript',
-    'panda css',
-    'ark ui',
-    'tanstack query',
-    'zustand',
-    'react 19',
+    'crypto market dashboard',
+    'cryptocurrency prices',
+    'WebGL market visualization',
+    'ConnectRPC',
+    'Three.js',
+    'React Three Fiber',
+    'Next.js 16',
+    'React 19',
+    'TypeScript',
+    'TanStack Query',
   ],
   title: {
     default: APP_NAME,
@@ -69,10 +69,8 @@ const VIEWPORT_DEFAULT: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#000000' },
-  ],
+  colorScheme: 'dark',
+  themeColor: '#071018',
 };
 
 export { APP_DESCRIPTION, APP_NAME, META_DATA_DEFAULT, VIEWPORT_DEFAULT };

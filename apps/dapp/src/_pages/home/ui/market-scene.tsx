@@ -12,6 +12,7 @@ import {
 import type { TMarket } from '@/_pages/home/model/market.schema';
 import type { TMarketSceneNode } from '@/_pages/home/model/market-scene.mapper';
 import { MarketSceneFallback } from '@/_pages/home/ui/market-scene-fallback';
+import { MARKET_SCENE_SHELL_STYLE } from '@/_pages/home/ui/market-scene-shell';
 import { useMarketSceneActivity } from '@/_pages/home/ui/use-market-scene-activity';
 import { css } from '@/styled-system/css';
 
@@ -188,18 +189,7 @@ export function MarketScene({
     markets.find(({ id }) => id === activeMarketId) ?? markets[0];
 
   return (
-    <div
-      ref={containerRef}
-      className={css({
-        position: 'relative',
-        minH: { base: '80', lg: '112' },
-        overflow: 'hidden',
-        bgColor: 'rgba(7, 16, 24, 0.72)',
-        borderWidth: '1px',
-        borderColor: 'rgba(103, 232, 249, 0.18)',
-        rounded: '2xl',
-      })}
-    >
+    <div ref={containerRef} className={MARKET_SCENE_SHELL_STYLE}>
       <Canvas
         aria-hidden="true"
         dpr={[1, 1.5]}
