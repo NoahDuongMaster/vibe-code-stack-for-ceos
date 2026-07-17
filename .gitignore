@@ -57,6 +57,10 @@ tsconfig.tsbuildinfo
 .claude/settings.local.json
 .claude/projects/
 
+# mise local settings (user-specific, not shared)
+mise.local.toml
+mise.*.local.toml
+
 # Sentry sourcemaps
 .sentryclirc
 # Added by code-review-graph

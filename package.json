@@ -44,7 +44,7 @@
     "build:web": "turbo run build --filter=@apps/dapp",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "test": "turbo run test",
+    "test": "node --test scripts/check-toolchain.test.mjs && turbo run test",
     "test:coverage": "turbo run test:coverage --filter=@apps/dapp",
     "test:e2e": "pnpm --filter @apps/dapp test:e2e",
     "deploy:web": "turbo run deploy --filter=@apps/dapp",

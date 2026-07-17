@@ -1,0 +1,99 @@
+min_version = "2026.7.7"
+
+[tools]
+node = "22"
+pnpm = "11.2.2"
+
+[settings]
+lockfile = true
+
+[tasks.install]
+description = "Install dependencies from the committed pnpm lockfile"
+run = "pnpm install --frozen-lockfile"
+
+[tasks.dev]
+description = "Start all application workspaces"
+run = "pnpm dev"
+
+[tasks."dev:web"]
+description = "Start the dapp"
+run = "pnpm dev:web"
+
+[tasks."dev:admin"]
+description = "Start the admin SPA"
+run = "pnpm dev:admin"
+
+[tasks."dev:landing"]
+description = "Start the landing site"
+run = "pnpm dev:landing"
+
+[tasks."dev:api"]
+description = "Start trading-rpc"
+run = "pnpm dev:api"
+
+[tasks."dev:gateway"]
+description = "Start the API gateway"
+run = "pnpm dev:gateway"
+
+[tasks."dev:backend"]
+description = "Start both backend services"
+run = "pnpm dev:backend"
+
+[tasks.format]
+description = "Format repository files"
+run = "pnpm format"
+
+[tasks.check]
+description = "Apply Biome fixes and formatting"
+run = "pnpm check"
+
+[tasks."check:ci"]
+description = "Run the read-only Biome gate"
+run = "pnpm check:ci"
+
+[tasks.typecheck]
+description = "Run strict TypeScript checks"
+run = "pnpm typecheck"
+
+[tasks.lint]
+description = "Run lint and architecture checks"
+run = "pnpm lint"
+
+[tasks.test]
+description = "Run repository unit tests"
+run = "pnpm test"
+
+[tasks."test:e2e"]
+description = "Run dapp Playwright tests"
+run = "pnpm test:e2e"
+
+[tasks.build]
+description = "Run production builds"
+run = "pnpm build"
+
+[tasks."toolchain:check"]
+description = "Verify active Node.js and pnpm versions"
+run = "node scripts/check-toolchain.mjs"
+
+[tasks.verify]
+description = "Run every definition-of-done gate sequentially"
+run = """
+set -eu
+pnpm typecheck
+pnpm check:ci
+pnpm lint
+pnpm test
+pnpm build
+"""
+
+[tasks."docker:start"]
+description = "Start the full Docker development environment"
+run = "make start-development"
+
+[tasks."docker:stop"]
+description = "Stop the full Docker development environment"
+run = "make stop-development"
+
+[tasks."docker:check"]
+description = "Validate Docker definitions"
+run = "make check-docker"
