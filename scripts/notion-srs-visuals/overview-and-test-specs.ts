@@ -28,6 +28,7 @@ export const OVERVIEW_AND_TEST_SPECS = [
     columns: [
       {
         title: 'Tác nhân',
+        allowVisualReorder: true,
         nodes: [
           {
             id: 'context-creator',
@@ -286,7 +287,7 @@ export const OVERVIEW_AND_TEST_SPECS = [
       {
         from: 'context-assets',
         to: 'context-audit',
-        label: 'bằng chứng phiên bản tài sản',
+        label: 'chứng cứ phiên bản asset',
         style: 'dotted',
       },
       {
@@ -316,7 +317,7 @@ export const OVERVIEW_AND_TEST_SPECS = [
       {
         from: 'context-payment',
         to: 'context-audit',
-        label: 'bằng chứng kết quả nhà cung cấp',
+        label: 'kết quả provider',
         style: 'dotted',
       },
     ],
@@ -499,7 +500,7 @@ export const OVERVIEW_AND_TEST_SPECS = [
       {
         from: 'e2e-approved',
         to: 'e2e-held',
-        label: 'cổng rủi ro, thuế hoặc thanh toán',
+        label: 'cổng rủi ro/thuế/thanh toán',
         style: 'solid',
       },
       {
@@ -559,7 +560,7 @@ export const OVERVIEW_AND_TEST_SPECS = [
       {
         from: 'e2e-held',
         to: 'e2e-evidence',
-        label: 'tham chiếu tạm giữ và khiếu nại',
+        label: 'tạm giữ / khiếu nại',
         style: 'dotted',
       },
       {
@@ -690,13 +691,13 @@ export const OVERVIEW_AND_TEST_SPECS = [
       {
         from: 'trace-observation',
         to: 'trace-field-validation',
-        label: 'tuyên bố nội bộ không quan sát được',
+        label: 'nội bộ không quan sát',
         style: 'dotted',
       },
       {
         from: 'trace-field-validation',
         to: 'trace-evidence',
-        label: 'bằng chứng thực địa đã xác thực',
+        label: 'thực địa đã xác thực',
         style: 'dotted',
       },
     ],
@@ -823,7 +824,7 @@ export const OVERVIEW_AND_TEST_SPECS = [
       {
         from: 'release-wcag',
         to: 'release-code',
-        label: 'bằng chứng khả năng tiếp cận',
+        label: 'khả năng tiếp cận',
         style: 'dotted',
       },
       {

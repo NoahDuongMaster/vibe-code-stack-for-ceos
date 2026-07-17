@@ -39,6 +39,7 @@ export type TDiagramNode = Readonly<{
 export type TDiagramColumn = Readonly<{
   title: string;
   nodes: readonly TDiagramNode[];
+  allowVisualReorder?: true;
 }>;
 
 export type TDiagramEdge = Readonly<{
@@ -55,4 +56,113 @@ export type TDiagramSpec = Readonly<{
   scope: string;
   columns: readonly TDiagramColumn[];
   edges: readonly TDiagramEdge[];
+}>;
+
+export type TRect = Readonly<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}>;
+
+export type TPoint = Readonly<{ x: number; y: number }>;
+
+export type TSegment = Readonly<{ from: TPoint; to: TPoint }>;
+
+export type TLayoutText = Readonly<{
+  rect: TRect;
+  lines: readonly string[];
+  fontSize: number;
+  lineHeight: number;
+  align: 'start' | 'middle' | 'end';
+}>;
+
+export type TReferenceKind =
+  | 'handoff'
+  | 'jump'
+  | 'return'
+  | 'evidence'
+  | 'async'
+  | 'same-column-reference';
+
+export type TLayoutPath = Readonly<{
+  edge: TDiagramEdge;
+  code: string;
+  kind: 'forward-lane' | 'same-column-rail';
+  lane: string;
+  segments: readonly TSegment[];
+  label: TLayoutText;
+}>;
+
+export type TLayoutReference = Readonly<{
+  edge: TDiagramEdge;
+  kind: TReferenceKind;
+  code: string;
+  endpoints: readonly [
+    Readonly<{
+      role: 'source';
+      nodeId: string;
+      chipRect: TRect;
+      label: TLayoutText;
+    }>,
+    Readonly<{
+      role: 'target';
+      nodeId: string;
+      chipRect: TRect;
+      label: TLayoutText;
+    }>,
+  ];
+}>;
+
+export type TDiagramLayout = Readonly<{
+  key: string;
+  viewBox: Readonly<{ width: 1400; height: 1800 }>;
+  typography: Readonly<{
+    title: 46;
+    subtitle: 30;
+    scope: 24;
+    band: 30;
+    column: 26;
+    nodeTitle: 30;
+    nodeDetail: 24;
+    badge: 20;
+    connector: 22;
+    footer: 22;
+  }>;
+  header: Readonly<{
+    title: TLayoutText;
+    subtitle: TLayoutText;
+    scope: TLayoutText;
+  }>;
+  bands: readonly Readonly<{
+    index: 0 | 1;
+    columnIndexes: readonly number[];
+    rect: TRect;
+  }>[];
+  columns: readonly Readonly<{
+    index: number;
+    bandIndex: 0 | 1;
+    rect: TRect;
+    title: TLayoutText;
+  }>[];
+  nodes: readonly Readonly<{
+    node: TDiagramNode;
+    bandIndex: 0 | 1;
+    columnIndex: number;
+    rect: TRect;
+    title: TLayoutText;
+    detail: TLayoutText;
+    badge?: Readonly<{ rect: TRect; text: string }>;
+  }>[];
+  paths: readonly TLayoutPath[];
+  references: readonly TLayoutReference[];
+  footer: Readonly<{
+    legendItems: readonly TLayoutText[];
+    edgeItems: readonly Readonly<{
+      code: string;
+      edge: TDiagramEdge;
+      text: TLayoutText;
+    }>[];
+    warning: TLayoutText;
+  }>;
 }>;

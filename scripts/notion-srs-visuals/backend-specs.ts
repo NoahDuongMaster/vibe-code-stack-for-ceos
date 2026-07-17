@@ -144,12 +144,7 @@ export const BACKEND_SPECS = [
         'bằng chứng khắc phục',
         'dotted',
       ),
-      edge(
-        'native-parity-gate',
-        'evidence',
-        'bằng chứng cổng phát hành',
-        'dotted',
-      ),
+      edge('native-parity-gate', 'evidence', 'cổng phát hành', 'dotted'),
     ],
   ),
   spec(
@@ -340,7 +335,7 @@ export const BACKEND_SPECS = [
       edge('collection', 'resolver', 'chọn sản phẩm'),
       edge('resolver', 'click-proof', 'nguồn hợp lệ'),
       edge('click-proof', 'conversion', 'sự kiện dòng đơn hàng', 'dashed'),
-      edge('conversion', 'reports', 'dòng đơn hàng đã attribution', 'dashed'),
+      edge('conversion', 'reports', 'order line đã attribution', 'dashed'),
       edge('reports', 'earnings', 'chi tiết thu nhập'),
       edge('resolver', '2-03-backend-remediation', 'không hợp lệ hoặc hết hạn'),
       edge('reports', 'report-evidence', 'bằng chứng truy vấn', 'dotted'),
@@ -792,7 +787,7 @@ export const BACKEND_SPECS = [
         node(
           'sample',
           'CN-059 Sample / Hàng mẫu',
-          'Vòng đời vận chuyển hàng mẫu PPP mới tái sử dụng adapter giao hàng/theo dõi, không dùng dòng fulfillment thương mại khi chưa có ADR.',
+          'Vận chuyển hàng mẫu PPP mới tái dùng adapter giao hàng/theo dõi; không dùng fulfillment thương mại nếu thiếu ADR.',
           'seller',
           'Mới',
         ),
@@ -1039,7 +1034,7 @@ export const BACKEND_SPECS = [
       edge(
         'provider-payout',
         '2-10-backend-remediation',
-        'thất bại hoặc có bút toán bù trừ',
+        'thất bại / bút toán bù trừ',
       ),
       edge('statement', 'payout-evidence', 'bằng chứng sao kê', 'dotted'),
       edge(
@@ -1211,7 +1206,7 @@ export const BACKEND_SPECS = [
       edge(
         'catalog-sync',
         'channel-report',
-        'sự kiện thương mại ngoài nền tảng',
+        'thương mại ngoài nền tảng',
         'dashed',
       ),
       edge('oauth', '2-12-backend-remediation', 'thu hồi hoặc hết hạn'),
