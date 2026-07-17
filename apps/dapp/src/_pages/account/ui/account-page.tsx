@@ -1,7 +1,7 @@
+import { AccountSession } from '@/_pages/account/ui/account-session';
 import { getPublicSession } from '@/entities/session/index.server';
 import { css } from '@/styled-system/css';
 import { flex } from '@/styled-system/patterns';
-import { AccountSession } from './account-session';
 
 /**
  * Session is read server-side (iron-session is already available here) and

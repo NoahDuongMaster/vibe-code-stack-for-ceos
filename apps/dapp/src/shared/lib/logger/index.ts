@@ -1,1 +1,1 @@
-export { createTaggedLogger, logger } from './logger';
+export { createTaggedLogger, logger } from '@/shared/lib/logger/logger';

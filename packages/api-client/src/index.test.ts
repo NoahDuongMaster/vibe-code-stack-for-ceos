@@ -58,7 +58,11 @@ describe('createApiClient', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       expect(input.toString()).toBe(HEALTH_URL);
       return new Response(
-        JSON.stringify({ status: 'ok', service: 'api-node', runtime: 'node' }),
+        JSON.stringify({
+          status: 'ok',
+          service: 'trading-rpc',
+          runtime: 'node',
+        }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
     });
@@ -69,7 +73,7 @@ describe('createApiClient', () => {
 
     expect(res).toMatchObject({
       status: 'ok',
-      service: 'api-node',
+      service: 'trading-rpc',
       runtime: 'node',
     });
   });
@@ -97,7 +101,7 @@ describe('createApiClient', () => {
         return new Response(
           JSON.stringify({
             status: 'ok',
-            service: 'api-node',
+            service: 'trading-rpc',
             runtime: 'test',
           }),
           { status: 200, headers: { 'content-type': 'application/json' } },

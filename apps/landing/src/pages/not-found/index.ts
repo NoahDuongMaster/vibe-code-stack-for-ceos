@@ -1,1 +1,1 @@
-export { default as NotFoundPage } from './ui/not-found-page.astro';
+export { default as NotFoundPage } from '@/pages/not-found/ui/not-found-page.astro';

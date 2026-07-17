@@ -11,7 +11,7 @@ describe('GET /api/mock', () => {
 
   it('should 404 in production regardless of query params', async () => {
     vi.stubEnv('NODE_ENV', 'production');
-    const { getMock: GET } = await import('@/_app/get-mock-route');
+    const { getMock: GET } = await import('@/_app/routes/get-mock-route');
 
     const res = await GET(new NextRequest(`${MOCK_URL}?delay=99999999999`));
 
@@ -20,7 +20,7 @@ describe('GET /api/mock', () => {
 
   it('should clamp an oversized delay instead of holding the request open', async () => {
     vi.stubEnv('NODE_ENV', 'development');
-    const { getMock: GET } = await import('@/_app/get-mock-route');
+    const { getMock: GET } = await import('@/_app/routes/get-mock-route');
     vi.useFakeTimers();
 
     const promise = GET(new NextRequest(`${MOCK_URL}?delay=99999999999`));
@@ -36,7 +36,7 @@ describe('GET /api/mock', () => {
 
   it('should treat a negative or non-numeric delay as zero', async () => {
     vi.stubEnv('NODE_ENV', 'development');
-    const { getMock: GET } = await import('@/_app/get-mock-route');
+    const { getMock: GET } = await import('@/_app/routes/get-mock-route');
 
     const res = await GET(new NextRequest(`${MOCK_URL}?delay=not-a-number`));
 

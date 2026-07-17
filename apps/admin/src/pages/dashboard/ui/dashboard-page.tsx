@@ -1,7 +1,7 @@
 import { useUsers } from '@/entities/user';
+import { HealthStatus } from '@/pages/dashboard/ui/health-status';
 import { css } from '@/styled-system/css';
 import { flex, grid } from '@/styled-system/patterns';
-import { HealthStatus } from './health-status';
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (

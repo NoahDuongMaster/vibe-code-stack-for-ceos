@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-runtime_user=${TRADING_RPC_RUNTIME_USER:-apinode}
+runtime_user=${TRADING_RPC_RUNTIME_USER:-trading-rpc}
 runtime_uid=${TRADING_RPC_RUNTIME_UID:-1001}
 runtime_gid=${TRADING_RPC_RUNTIME_GID:-1001}
 runtime_secret_dir=${TRADING_RPC_RUNTIME_SECRET_DIR:-/run/trading-rpc/secrets}

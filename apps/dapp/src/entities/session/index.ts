@@ -2,7 +2,7 @@ export {
   SESSION_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
   SESSION_QUERY_KEY,
-} from './model/session.constants';
+} from '@/entities/session/model/session.constants';
 export {
   type TServerSessionData,
   type TServerSessionUser,
@@ -10,4 +10,4 @@ export {
   type TSessionUser,
   ZSessionData,
   ZSessionUser,
-} from './model/session.schema';
+} from '@/entities/session/model/session.schema';

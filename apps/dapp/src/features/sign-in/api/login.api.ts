@@ -1,7 +1,7 @@
+import { AuthError } from '@/features/sign-in/model/login.error';
+import type { TLoginInput } from '@/features/sign-in/model/login.schema';
 import { FetchError, xhr } from '@/shared/api';
 import { API_ROUTES } from '@/shared/routes';
-import { AuthError } from '../model/login.error';
-import type { TLoginInput } from '../model/login.schema';
 
 /**
  * Signs in through the app's same-origin BFF route, which owns the httpOnly

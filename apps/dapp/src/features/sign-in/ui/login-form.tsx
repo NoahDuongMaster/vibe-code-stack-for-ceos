@@ -3,12 +3,15 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import {
+  type TLoginInput,
+  ZLoginInput,
+} from '@/features/sign-in/model/login.schema';
+import { useLogin } from '@/features/sign-in/model/use-login';
 import { isSafeRedirectPath } from '@/shared/lib/url';
 import { WEB_ROUTES } from '@/shared/routes';
 import { css } from '@/styled-system/css';
 import { flex } from '@/styled-system/patterns';
-import { type TLoginInput, ZLoginInput } from '../model/login.schema';
-import { useLogin } from '../model/use-login';
 
 const inputStyle = css({
   px: '3',

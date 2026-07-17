@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures/base';
+import { expect, test } from '@root/e2e/fixtures/base';
 
 // Matches .env.sample locally / the CI env block in .github/workflows/playwright.yml.
 const EMAIL = process.env.DEMO_AUTH_EMAIL ?? 'admin@example.com';

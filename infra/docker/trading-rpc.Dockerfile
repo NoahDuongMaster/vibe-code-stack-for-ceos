@@ -1,5 +1,5 @@
 # Monorepo-aware build. Build context is the repo root:
-#   docker build -f infra/docker/trading-rpc.Dockerfile -t api-node .
+#   docker build -f infra/docker/trading-rpc.Dockerfile -t trading-rpc .
 FROM postgres:18.4-alpine3.24@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15 AS postgres-tools
 
 FROM node:22-slim AS base
@@ -36,9 +36,9 @@ RUN pnpm --filter @services/trading-rpc build
 FROM base AS prod-deps
 WORKDIR /prod
 ARG INCLUDE_PRETTY_LOGGER=false
-COPY services/trading-rpc/package.json ./api-node-package.json
+COPY services/trading-rpc/package.json ./trading-rpc-package.json
 RUN INCLUDE_PRETTY_LOGGER="$INCLUDE_PRETTY_LOGGER" node -e "\
-  const pkg = JSON.parse(require('node:fs').readFileSync('./api-node-package.json', 'utf8')); \
+  const pkg = JSON.parse(require('node:fs').readFileSync('./trading-rpc-package.json', 'utf8')); \
   const externals = [ \
     '@sentry/node', 'fastify', '@fastify/cors', '@fastify/rate-limit', \
     '@nestjs/common', '@nestjs/core', '@nestjs/microservices', \
@@ -50,7 +50,7 @@ RUN INCLUDE_PRETTY_LOGGER="$INCLUDE_PRETTY_LOGGER" node -e "\
     name, pkg.dependencies[name] ?? pkg.devDependencies[name] \
   ])); \
   require('node:fs').writeFileSync('package.json', JSON.stringify({ \
-    name: 'api-node-runtime', private: true, dependencies \
+    name: 'trading-rpc-runtime', private: true, dependencies \
   })); \
   require('node:fs').writeFileSync('pnpm-workspace.yaml', \
     'allowBuilds:\n  protobufjs: true\n'); \
@@ -62,12 +62,12 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-RUN addgroup --system --gid 1001 apinode && \
-    adduser --system --uid 1001 apinode
+RUN addgroup --system --gid 1001 trading-rpc && \
+    adduser --system --uid 1001 trading-rpc
 
-COPY --from=prod-deps --chown=apinode:apinode /prod/node_modules ./node_modules
-COPY --from=builder --chown=apinode:apinode /app/services/trading-rpc/dist ./dist
-COPY --from=builder --chown=apinode:apinode /app/services/trading-rpc/package.json ./package.json
+COPY --from=prod-deps --chown=trading-rpc:trading-rpc /prod/node_modules ./node_modules
+COPY --from=builder --chown=trading-rpc:trading-rpc /app/services/trading-rpc/dist ./dist
+COPY --from=builder --chown=trading-rpc:trading-rpc /app/services/trading-rpc/package.json ./package.json
 COPY --from=postgres-tools /usr/local/bin/gosu /usr/local/bin/gosu
 COPY --chmod=0755 infra/docker/trading-rpc-entrypoint.sh /usr/local/bin/trading-rpc-entrypoint.sh
 

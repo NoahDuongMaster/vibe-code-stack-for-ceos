@@ -1,6 +1,6 @@
+import { useHealth } from '@/pages/dashboard/model/use-health';
 import { css } from '@/styled-system/css';
 import { flex } from '@/styled-system/patterns';
-import { useHealth } from '../model/use-health';
 
 export function HealthStatus() {
   const { data, isLoading, isError } = useHealth();

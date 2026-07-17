@@ -4,7 +4,7 @@
  * layer (features/*) stays agnostic of how it's hosted.
  */
 export interface ApiConfig {
-  /** Identifies the service in Health responses (e.g. 'gateway', 'api-node'). */
+  /** Identifies the service in Health responses (e.g. 'gateway', 'trading-rpc'). */
   serviceName: string;
   /** Runtime label echoed back to clients (e.g. 'node', 'cloudflare-workers'). */
   runtime: string;

@@ -1,1 +1,1 @@
-export { getCurrentSession as GET } from '@/_app/get-current-session-route';
+export { getCurrentSession as GET } from '@/_app/routes/index.server';

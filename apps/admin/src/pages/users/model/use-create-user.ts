@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createUser, USERS_QUERY_KEY } from '@/entities/user';
-import type { TCreateUserInput } from './create-user.schema';
+import type { TCreateUserInput } from '@/pages/users/model/create-user.schema';
 
 export function useCreateUser() {
   const queryClient = useQueryClient();

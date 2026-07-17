@@ -1,1 +1,1 @@
-export { logger } from './logger';
+export { logger } from '@/shared/lib/logger/logger';

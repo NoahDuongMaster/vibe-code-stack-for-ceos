@@ -1,7 +1,7 @@
+import { UserForm } from '@/pages/users/ui/user-form';
+import { UsersTable } from '@/pages/users/ui/users-table';
 import { css } from '@/styled-system/css';
 import { flex, grid } from '@/styled-system/patterns';
-import { UserForm } from './user-form';
-import { UsersTable } from './users-table';
 
 export function UsersPage() {
   return (

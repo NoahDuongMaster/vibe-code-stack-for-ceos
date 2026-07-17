@@ -52,6 +52,24 @@ and the tunnel connector:
 make start-development
 ```
 
+To start one application service and only its declared Compose dependencies,
+use the matching target:
+
+```bash
+make start-dapp-development
+make start-admin-development
+make start-landing-development
+make start-api-gateway-development
+make start-trading-rpc-development
+```
+
+`admin` and `api-gateway` follow the Compose dependency graph through
+`cloudflared`, `trading-rpc`, and PostgreSQL, so they require the same
+Cloudflare credentials as the full stack. `dapp`, `landing`, and `trading-rpc`
+do not synchronize unrelated Cloudflare credentials. The shared development
+workspace image is built automatically for `admin`, `landing`, and
+`api-gateway`; this does not start the dapp container.
+
 | Runtime | Local URL |
 | --- | --- |
 | dapp | `http://localhost:3000` |

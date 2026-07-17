@@ -1,2 +1,2 @@
-export type { RoutePath } from './routes';
-export { ROUTES } from './routes';
+export type { RoutePath } from '@/shared/routes/routes';
+export { ROUTES } from '@/shared/routes/routes';

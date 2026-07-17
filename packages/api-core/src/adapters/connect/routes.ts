@@ -12,7 +12,10 @@ import type { ApiConfig } from '../../shared/config';
 export function createRoutes(config: ApiConfig) {
   return (router: ConnectRouter) => {
     router.service(ApiService, {
-      health: healthHandler(config),
+      health: healthHandler({
+        serviceName: config.serviceName,
+        runtime: config.runtime,
+      }),
     });
   };
 }

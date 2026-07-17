@@ -1,6 +1,6 @@
+import { LoginForm } from '@/pages/login/ui/login-form';
 import { css } from '@/styled-system/css';
 import { flex } from '@/styled-system/patterns';
-import { LoginForm } from './login-form';
 
 export function LoginPage() {
   return (

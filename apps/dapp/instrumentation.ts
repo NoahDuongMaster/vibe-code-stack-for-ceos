@@ -1,4 +1,4 @@
 export {
   onRequestError,
   register,
-} from './src/_app/instrumentation/index.server';
+} from '@/_app/instrumentation/index.server';

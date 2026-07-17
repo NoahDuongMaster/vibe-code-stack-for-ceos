@@ -27,4 +27,13 @@ export default defineConfig([
       'fsd/typo-in-layer-name': 'off',
     },
   },
+  {
+    files: ['./src/features/**', './src/entities/**'],
+    rules: {
+      // The valid consumers of these slices live in underscored `_pages` and
+      // `_app` layers that Steiger 0.5 cannot include in its reference count.
+      // ESLint still enforces their direction and Public API boundaries.
+      'fsd/insignificant-slice': 'off',
+    },
+  },
 ]);

@@ -1,5 +1,5 @@
 import { useShallow } from 'zustand/react/shallow';
-import { useSessionStore } from './session.store';
+import { useSessionStore } from '@/entities/session/model/session.store';
 
 /** Read-only view of the auth session + sign-out action. */
 export const useSession = () =>

@@ -1,4 +1,4 @@
 'use client';
 
-export { AppToaster } from './toaster';
-export { toaster } from './toaster.store';
+export { AppToaster } from '@/shared/ui/toaster';
+export { toaster } from '@/shared/ui/toaster.store';

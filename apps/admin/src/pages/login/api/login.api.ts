@@ -1,7 +1,7 @@
 import type { TAuthSession } from '@/entities/session';
+import { AuthError } from '@/pages/login/model/auth.error';
+import type { TLoginInput } from '@/pages/login/model/login.schema';
 import { ENABLE_MOCK_AUTH } from '@/shared/config';
-import { AuthError } from '../model/auth.error';
-import type { TLoginInput } from '../model/login.schema';
 
 /**
  * ── Mock auth (integration seam) ─────────────────────────────────────────────

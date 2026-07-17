@@ -1,1 +1,1 @@
-export { useMediaQuery } from './use-media-query';
+export { useMediaQuery } from '@/shared/lib/media-query/use-media-query';

@@ -1,10 +1,10 @@
 'use client';
 
+import { useLogout } from '@/_pages/account/model/use-logout';
 import type { TSessionData } from '@/entities/session';
 import { useSession } from '@/entities/session/index.client';
 import { css } from '@/styled-system/css';
 import { flex } from '@/styled-system/patterns';
-import { useLogout } from '../model/use-logout';
 
 /**
  * Account-owned session UI. `initialSession` seeds the entity query so the

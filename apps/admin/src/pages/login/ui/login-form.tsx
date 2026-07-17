@@ -1,12 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  type TLoginInput,
+  ZLoginInput,
+} from '@/pages/login/model/login.schema';
+import { useLogin } from '@/pages/login/model/use-login';
 import { ROUTES } from '@/shared/routes';
 import { Button, toast } from '@/shared/ui';
 import { css } from '@/styled-system/css';
 import { flex } from '@/styled-system/patterns';
-import { type TLoginInput, ZLoginInput } from '../model/login.schema';
-import { useLogin } from '../model/use-login';
 
 const labelCss = css({
   display: 'block',

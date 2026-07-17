@@ -1,1 +1,1 @@
-export { createRobotsResponse } from './create-robots-response';
+export { createRobotsResponse } from '@/app/seo/create-robots-response';

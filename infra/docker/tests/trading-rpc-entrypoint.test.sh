@@ -16,14 +16,14 @@ EOF
 chmod +x "$tmp/gosu"
 
 TRADING_RPC_RUNTIME_UID="$(id -u)" TRADING_RPC_RUNTIME_GID="$(id -g)" \
-TRADING_RPC_RUNTIME_USER=apinode GOSU_BIN="$tmp/gosu" \
+TRADING_RPC_RUNTIME_USER=trading-rpc GOSU_BIN="$tmp/gosu" \
 TRADING_RPC_DATABASE_URL_SOURCE_FILE="$tmp/source" \
 TRADING_RPC_RUNTIME_DIR="$tmp/runtime" \
 TRADING_RPC_RUNTIME_SECRET_DIR="$tmp/runtime/secrets" \
 GOSU_ARGUMENTS="$tmp/arguments" DATABASE_URL_FILE_OUTPUT="$tmp/database-file" \
   "$ROOT/infra/docker/trading-rpc-entrypoint.sh" node dist/index.js
 
-assert_eq "$(cat "$tmp/arguments")" 'apinode node dist/index.js'
+assert_eq "$(cat "$tmp/arguments")" 'trading-rpc node dist/index.js'
 assert_eq "$(cat "$tmp/database-file")" "$tmp/runtime/secrets/database-url"
 assert_file_mode "$tmp/runtime" 700
 assert_file_mode "$tmp/runtime/secrets" 700

@@ -1,1 +1,1 @@
-export { default as SiteShell } from './ui/site-shell.astro';
+export { default as SiteShell } from '@/widgets/site-shell/ui/site-shell.astro';

@@ -1,5 +1,25 @@
+import { readdirSync } from 'node:fs';
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import nextTypescript from 'eslint-config-next/typescript';
+
+const absoluteImportSelectors = [
+  {
+    selector: 'ImportDeclaration[source.value=/^\\./]',
+    message: 'Use an absolute workspace alias instead of a relative import.',
+  },
+  {
+    selector: 'ExportNamedDeclaration[source.value=/^\\./]',
+    message: 'Use an absolute workspace alias instead of a relative export.',
+  },
+  {
+    selector: 'ExportAllDeclaration[source.value=/^\\./]',
+    message: 'Use an absolute workspace alias instead of a relative export.',
+  },
+  {
+    selector: 'ImportExpression[source.value=/^\\./]',
+    message: 'Use an absolute workspace alias instead of a relative import.',
+  },
+];
 
 const sliceInternalPatterns = [
   '@/features/*/**',
@@ -16,6 +36,39 @@ const sliceInternalPatterns = [
   '@/shared/lib/*/**',
 ];
 
+const pageSliceNames = readdirSync(new URL('./src/_pages', import.meta.url), {
+  withFileTypes: true,
+})
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name);
+
+const pageSliceConfigs = pageSliceNames.map((sliceName) => ({
+  files: [`src/_pages/${sliceName}/**/*.{ts,tsx}`],
+  rules: {
+    'no-restricted-imports': [
+      'error',
+      {
+        patterns: [
+          {
+            group: [
+              '@/_app/**',
+              ...pageSliceNames
+                .filter((candidate) => candidate !== sliceName)
+                .flatMap((candidate) => [
+                  `@/_pages/${candidate}`,
+                  `@/_pages/${candidate}/**`,
+                ]),
+              ...sliceInternalPatterns,
+            ],
+            message:
+              'Page slices must not import the App layer, sibling Page slices, or lower-layer internals.',
+          },
+        ],
+      },
+    ],
+  },
+}));
+
 const eslintConfig = [
   {
     ignores: [
@@ -23,13 +76,18 @@ const eslintConfig = [
       '.next/',
       'coverage/',
       'graphify-out/',
-      'e2e/',
-      'src/__test__/',
       'src/styled-system/',
     ],
   },
   ...nextCoreWebVitals,
   ...nextTypescript,
+  {
+    files: ['**/*.{js,mjs,cjs,ts,tsx}'],
+    ignores: ['next-env.d.ts'],
+    rules: {
+      'no-restricted-syntax': ['error', ...absoluteImportSelectors],
+    },
+  },
   {
     files: [
       'app/**/*.{ts,tsx}',
@@ -49,6 +107,8 @@ const eslintConfig = [
                 '@/_pages/*/**',
                 '!@/_pages/*/index.server',
                 '@/_app/*/**',
+                '!@/_app/*/index.client',
+                '!@/_app/*/index.server',
                 '!@/_app/styles/index.css',
                 ...sliceInternalPatterns,
               ],
@@ -85,24 +145,13 @@ const eslintConfig = [
     },
   },
   {
-    // `_pages` avoids activating Next's legacy Pages Router. Same-slice
-    // imports stay relative; cross-slice and higher-layer imports are blocked.
-    files: ['src/_pages/**/*.{ts,tsx}'],
+    files: ['e2e/**/*.{ts,tsx}', 'src/__test__/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['@/_app/**', '@/_pages/**', ...sliceInternalPatterns],
-              message:
-                'Page slices must not import the App layer, sibling Page slices, or lower-layer internals.',
-            },
-          ],
-        },
-      ],
+      '@typescript-eslint/no-unused-vars': 'off',
+      'react-hooks/rules-of-hooks': 'off',
     },
   },
+  ...pageSliceConfigs,
 ];
 
 export default eslintConfig;

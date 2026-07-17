@@ -1,1 +1,1 @@
-export { formatDate } from './date';
+export { formatDate } from '@/shared/lib/date/date';

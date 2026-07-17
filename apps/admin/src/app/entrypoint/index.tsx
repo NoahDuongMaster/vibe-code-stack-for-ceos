@@ -1,4 +1,4 @@
-import '@/app/styles/global.css';
+import '@/app/styles';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';

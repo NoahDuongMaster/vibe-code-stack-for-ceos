@@ -1,3 +1,3 @@
 import 'server-only';
 
-export { AccountPage } from './ui/account-page';
+export { AccountPage } from '@/_pages/account/ui/account-page';

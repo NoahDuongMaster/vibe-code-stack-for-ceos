@@ -1,1 +1,1 @@
-export { handleProxy } from './proxy';
+export { handleProxy } from '@/_app/proxy/proxy';

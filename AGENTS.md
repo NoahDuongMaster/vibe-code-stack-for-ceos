@@ -56,35 +56,34 @@ Everything else (naming, testing, git, security) applies repo-wide.
 ## Commands
 
 ```bash
-mise install                  # install locked Node.js 22 + pnpm 11.2.2
-mise run install              # pnpm install --frozen-lockfile
+mise setup                    # install locked tools + frozen dependencies
 
-mise run dev                  # all apps
-mise run dev:web | dev:admin | dev:landing | dev:api    # one app
+mise dev                      # all apps
+mise dev:web | dev:admin | dev:landing | dev:api    # one app
 
-mise run typecheck            # tsc --noEmit, all 8 workspaces
-mise run check:ci             # Biome (read-only), whole repo
-mise run lint                 # ESLint / Biome / buf / architecture checks
-mise run test                 # toolchain tests + Vitest, all workspaces
-mise run build                # production builds
-mise run check                # Biome auto-fix + format
-mise run verify               # all definition-of-done gates, sequentially
+mise typecheck                # tsc --noEmit, all 8 workspaces
+mise check:ci                 # Biome (read-only), whole repo
+mise lint                     # ESLint / Biome / buf / architecture checks
+mise test                     # toolchain tests + Vitest, all workspaces
+mise build                    # production builds
+mise check                    # Biome auto-fix + format
+mise verify                   # all definition-of-done gates, sequentially
 
-# Direct pnpm remains supported for targeted execution.
+# pnpm is internal; use it directly only for targeted commands without a mise task.
 pnpm --filter @apps/dapp test                                   # one workspace
 pnpm --filter @apps/dapp exec vitest run <path-to-test-file>    # one test file
-pnpm test:e2e                 # Playwright (apps/dapp/e2e/); needs browsers installed
+mise test:e2e                 # Playwright (apps/dapp/e2e/); needs browsers installed
 ```
 
 ## Definition of done
 
 Run these before declaring any task complete. CI runs exactly the same gates.
 
-- [ ] `mise run typecheck` — zero errors
-- [ ] `mise run check:ci` — zero errors
-- [ ] `mise run lint` — zero errors
-- [ ] `mise run test` — all pass; new logic has tests
-- [ ] `mise run build` — if you touched build-relevant code or config
+- [ ] `mise typecheck` — zero errors
+- [ ] `mise check:ci` — zero errors
+- [ ] `mise lint` — zero errors
+- [ ] `mise test` — all pass; new logic has tests
+- [ ] `mise build` — if you touched build-relevant code or config
 
 Deploys are CI-gated only (`.github/workflows/deploy.yml`; `develop` → staging,
 `main` → production). NEVER deploy from a local machine.
@@ -126,7 +125,9 @@ legacy Pages Router while preserving the canonical layer roles.
 1. Imports point downward only. Same-layer slices are isolated and MUST NOT
    import each other.
 2. Every slice and every `_app`/`shared` segment exposes a Public API. External
-   consumers never deep-import internals; imports inside one slice are relative.
+   consumers never deep-import internals. All frontend-local module specifiers,
+   including imports inside one slice, use absolute aliases (`@/` for `src/` and
+   dapp-only `@root/` when a source module must reach the workspace root).
 3. Server-only exports use `index.server.ts`; client-only exports use
    `index.client.ts`. Never mix a `server-only` module into a client API.
 4. Segments are purpose-named (`api`, `model`, `ui`, `config`), never
@@ -164,8 +165,8 @@ to make the folder tree look complete.
 
 1. Slices on the same layer are isolated and MUST NOT import each other.
 2. Every slice and every `app`/`shared` segment exposes a Public API (`index.ts`);
-   external consumers never deep-import internals. Same-slice imports are
-   relative.
+   external consumers never deep-import internals. Same-slice imports also use
+   the absolute `@/` alias; relative frontend imports/exports are rejected.
 3. Segment names describe purpose (`ui`, `api`, `model`, `config`), never file
    essence (`components`, `hooks`, `types`, `services`, `utils`). Focused Shared
    libraries use `shared/lib/[purpose]/index.ts`.
@@ -188,7 +189,8 @@ has reusable user interactions or domain entities.
 
 1. Imports point downward only. Slices on the same layer never import each other.
 2. Every slice and every `app`/`shared` segment exposes an `index.ts` Public API;
-   external consumers never deep-import internals.
+   external consumers never deep-import internals. All local Astro/TypeScript
+   module specifiers use the absolute `@/` alias, including same-slice imports.
 3. Segment names describe purpose (`ui`, `model`, `config`, `seo`, `styles`),
    never file essence (`components`, `hooks`, `types`, `data`).
 4. `astro/pages/` contains thin framework entrypoints only. Page composition
@@ -388,16 +390,18 @@ export const login = (input: TLoginInput): Promise<void> =>
 export const useLogin = () => useMutation({ mutationFn: login })
 
 // features/sign-in/index.ts — minimal client public API
-export { LoginForm } from './ui/login-form'
+export { LoginForm } from '@/features/sign-in/ui/login-form'
 
 // features/sign-in/index.server.ts — separate server-only public API
 import 'server-only'
-export { verifyCredentials } from './model/verify-credentials.server'
+export { verifyCredentials } from '@/features/sign-in/model/verify-credentials.server'
 ```
 
 Import order: React/Next → external packages → `@/shared/*` → `@/entities/*` →
-`@/features/*` → `@/widgets/*` → `@/_pages/*` → `@/_app/*` → relative →
-styles. `import type` last.
+`@/features/*` → `@/widgets/*` → `@/_pages/*` → `@/_app/*` → `@root/*` →
+styles. Frontend source, tests, and framework entrypoints never use relative
+module specifiers; framework-generated files are the only exception. `import type`
+last.
 
 ## Error handling
 
@@ -465,12 +469,12 @@ off-format commits/branches are rejected locally.
 - Commit header (Conventional Commits): `type(scope)[!]: description`
   - Types: `build|chore|ci|docs|feat|fix|hotfix|perf|refactor|release|revert|style|test`
   - Scope: optional, lowercase — use the workspace or area you touched, e.g.
-    `(dapp)`, `(admin)`, `(landing)`, `(api-node)`, `(gateway)`, `(protocol)`, `(infra)`
+    `(dapp)`, `(admin)`, `(landing)`, `(trading-rpc)`, `(gateway)`, `(protocol)`, `(infra)`
   - `!` after type/scope marks a breaking change
   - Keep the header ≤ 100 chars (soft limit — hook only warns)
   - `Merge/Revert/fixup!/squash!` headers bypass validation
   - Examples: `feat(dapp): add user profile page` ·
-    `fix(api-node): handle empty echo payload` ·
+    `fix(trading-rpc): handle empty echo payload` ·
     `refactor!: drop the legacy RPC client`
 - Branch: `type(scope)/short-kebab-description` — lowercase kebab; scope
   optional. Examples: `feat(dapp)/user-profile`, `chore/upgrade-turborepo`.
@@ -531,6 +535,7 @@ off-format commits/branches are rejected locally.
 | `console.log` | `logger` from `@/shared/lib/logger` |
 | Hardcoded URLs | `API_ROUTES` / `WEB_ROUTES` from `@/shared/routes` |
 | Deep slice imports from another slice/framework file | the slice Public API |
+| Relative frontend import/export | the configured `@/` or `@root/` alias |
 | Cross-slice imports on the same layer | compose above or extract downward |
 | `any` / `as any` | `unknown` + type guard |
 | `process.env.X` directly | validated env config module |

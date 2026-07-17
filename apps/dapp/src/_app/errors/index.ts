@@ -1,4 +1,4 @@
 'use client';
 
-export { ErrorPage } from './error-page';
-export { GlobalErrorPage } from './global-error-page';
+export { ErrorPage } from '@/_app/errors/error-page';
+export { GlobalErrorPage } from '@/_app/errors/global-error-page';

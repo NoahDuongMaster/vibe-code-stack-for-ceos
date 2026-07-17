@@ -5,7 +5,7 @@ import { ApiService, TradingService } from '@packages/protocol';
 /**
  * End-to-end type-safe client for the backend API (Connect RPC).
  *
- * Point it at any service that serves ApiService (api-node, api-gateway, …).
+ * Point it at any service that serves ApiService (trading-rpc, api-gateway, …).
  * Every call is typed from the proto contract — no drift, gRPC-compatible:
  *
  *   const client = createApiClient('http://localhost:3001')

@@ -1,21 +1,24 @@
-import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createJiti } from 'jiti';
 import type { NextConfig } from 'next';
 
-const jiti = createJiti(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
+const jiti = createJiti(fileURLToPath(import.meta.url), {
+  tsconfigPaths: fileURLToPath(new URL('tsconfig.json', import.meta.url)),
+});
 
 // `jiti.import` actually executes the module (unlike the previous
 // `jiti.esmResolve`, which only resolves its file path and never runs it —
 // so env validation silently never ran at build time). Executing it here
 // triggers `createEnv()`'s validation as a real build-time gate, and also
 // gives us the validated values to use below instead of raw `process.env`.
-const { env } = await jiti.import<
-  typeof import('./src/shared/config/index.ts')
->('./src/shared/config/index.ts');
+const { env } = await jiti.import<typeof import('@/shared/config/index.ts')>(
+  fileURLToPath(new URL('src/shared/config/index.ts', import.meta.url)),
+);
 
-const pkg = require('./package.json') as { version: string };
+const pkg = JSON.parse(
+  readFileSync(new URL('package.json', import.meta.url), 'utf8'),
+) as { version: string };
 
 const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'on' },

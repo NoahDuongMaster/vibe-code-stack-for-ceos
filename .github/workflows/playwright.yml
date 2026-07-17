@@ -36,9 +36,6 @@ jobs:
       - name: Setup toolchain
         uses: ./.github/actions/setup-toolchain
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Get installed Playwright version
         id: playwright-version
         run: |

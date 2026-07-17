@@ -1,1 +1,1 @@
-export { onRouterTransitionStart } from './src/_app/instrumentation/index.client';
+export { onRouterTransitionStart } from '@/_app/instrumentation/index.client';

@@ -1,1 +1,5 @@
-export { isSafeRedirectPath, isValidOrigin, sanitizeUrl } from './url';
+export {
+  isSafeRedirectPath,
+  isValidOrigin,
+  sanitizeUrl,
+} from '@/shared/lib/url/url';

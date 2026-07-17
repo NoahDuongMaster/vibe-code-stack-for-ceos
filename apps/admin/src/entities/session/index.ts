@@ -1,4 +1,7 @@
-export type { TAuthSession, TAuthUser } from './model/session.schema';
-export { ZAuthUser } from './model/session.schema';
-export { useSessionStore } from './model/session.store';
-export { useSession } from './model/use-session';
+export type {
+  TAuthSession,
+  TAuthUser,
+} from '@/entities/session/model/session.schema';
+export { ZAuthUser } from '@/entities/session/model/session.schema';
+export { useSessionStore } from '@/entities/session/model/session.store';
+export { useSession } from '@/entities/session/model/use-session';

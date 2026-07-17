@@ -34,7 +34,7 @@ export const env = ZEnv.parse({
     : undefined,
 });
 
-/** Base URL of the backend serving ApiService (api-node or api-gateway). */
+/** Base URL of the backend serving ApiService (trading-rpc or api-gateway). */
 export const API_URL = env.API_URL;
 
 /** Whether the page-local mock login is allowed to authenticate anyone. */

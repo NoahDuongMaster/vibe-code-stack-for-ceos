@@ -2,13 +2,16 @@ import 'server-only';
 
 import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
-import { env } from '@/shared/config';
 import {
   SESSION_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
-} from '../model/session.constants';
-import { toPublicSession } from '../model/session.mapper';
-import type { TServerSessionData, TSessionData } from '../model/session.schema';
+} from '@/entities/session/model/session.constants';
+import { toPublicSession } from '@/entities/session/model/session.mapper';
+import type {
+  TServerSessionData,
+  TSessionData,
+} from '@/entities/session/model/session.schema';
+import { env } from '@/shared/config';
 
 const SAMPLE_SESSION_SECRET = 'dev-session-secret-min-32-chars!!';
 

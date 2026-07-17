@@ -3,11 +3,11 @@ import type { Instrumentation } from 'next';
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    await import('../../../sentry.server.config');
+    await import('@root/sentry.server.config');
   }
 
   if (process.env.NEXT_RUNTIME === 'edge') {
-    await import('../../../sentry.edge.config');
+    await import('@root/sentry.edge.config');
   }
 }
 

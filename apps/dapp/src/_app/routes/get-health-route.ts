@@ -1,5 +1,5 @@
+import pkg from '@root/package.json';
 import { NextResponse } from 'next/server';
-import pkg from '../../package.json';
 
 // Health check endpoint — IETF RFC 9457 (Problem Details) compatible.
 // Response shape follows the draft Health Check Response Format for HTTP APIs.

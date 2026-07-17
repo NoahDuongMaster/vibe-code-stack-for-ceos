@@ -1,3 +1,3 @@
 'use client';
 
-export { useSession } from './model/session.query';
+export { useSession } from '@/entities/session/model/session.query';

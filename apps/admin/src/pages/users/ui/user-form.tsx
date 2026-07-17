@@ -1,14 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { Button, toast } from '@/shared/ui';
-import { css } from '@/styled-system/css';
-import { flex } from '@/styled-system/patterns';
 import {
   type TCreateUserInput,
   USER_ROLES,
   ZCreateUserInput,
-} from '../model/create-user.schema';
-import { useCreateUser } from '../model/use-create-user';
+} from '@/pages/users/model/create-user.schema';
+import { useCreateUser } from '@/pages/users/model/use-create-user';
+import { Button, toast } from '@/shared/ui';
+import { css } from '@/styled-system/css';
+import { flex } from '@/styled-system/patterns';
 
 const labelCss = css({
   display: 'block',

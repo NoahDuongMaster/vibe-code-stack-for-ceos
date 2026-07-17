@@ -16,8 +16,7 @@
   },
   "dependencies": {
     "@connectrpc/connect": "^2.1.2",
-    "@packages/protocol": "workspace:*",
-    "zod": "4.4.3"
+    "@packages/protocol": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

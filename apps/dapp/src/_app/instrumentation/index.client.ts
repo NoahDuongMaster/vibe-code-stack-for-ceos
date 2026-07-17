@@ -1,1 +1,1 @@
-export { onRouterTransitionStart } from './instrumentation.client';
+export { onRouterTransitionStart } from '@/_app/instrumentation/instrumentation.client';

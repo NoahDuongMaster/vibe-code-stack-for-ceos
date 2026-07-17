@@ -1,5 +1,5 @@
+import { APP_DESCRIPTION, APP_NAME } from '@/_app/metadata/app-metadata';
 import { env } from '@/shared/config';
-import { APP_DESCRIPTION, APP_NAME } from './app-metadata';
 
 type TJsonLdProps = {
   data: Record<string, unknown>;

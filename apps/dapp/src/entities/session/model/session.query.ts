@@ -1,9 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchSession } from '../api/session.api';
-import { SESSION_QUERY_KEY } from './session.constants';
-import type { TSessionData } from './session.schema';
+import { fetchSession } from '@/entities/session/api/session.api';
+import { SESSION_QUERY_KEY } from '@/entities/session/model/session.constants';
+import type { TSessionData } from '@/entities/session/model/session.schema';
 
 export const useSession = (initialData?: TSessionData) =>
   useQuery({

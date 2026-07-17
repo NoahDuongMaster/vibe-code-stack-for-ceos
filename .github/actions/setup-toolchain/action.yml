@@ -1,5 +1,5 @@
-name: Setup mise toolchain
-description: Install the locked project tools and restore the pnpm store
+name: Setup mise project
+description: Install the locked project tools, restore the pnpm store, and install dependencies
 
 runs:
   using: composite
@@ -10,10 +10,6 @@ runs:
         version: 2026.7.7
         install_args: --locked
         cache: true
-
-    - name: Verify toolchain contract
-      shell: bash
-      run: mise run toolchain:check
 
     - name: Resolve pnpm store path
       id: pnpm-store
@@ -27,3 +23,11 @@ runs:
         key: ${{ runner.os }}-${{ runner.arch }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
         restore-keys: |
           ${{ runner.os }}-${{ runner.arch }}-pnpm-
+
+    - name: Install dependencies
+      shell: bash
+      run: mise run setup
+
+    - name: Verify toolchain contract
+      shell: bash
+      run: mise run toolchain:check

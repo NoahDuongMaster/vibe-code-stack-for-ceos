@@ -44,9 +44,6 @@ jobs:
       - name: Setup toolchain
         uses: ./.github/actions/setup-toolchain
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Build dapp
         run: pnpm --filter @apps/dapp build
         env:
@@ -110,9 +107,6 @@ jobs:
 
       - name: Setup toolchain
         uses: ./.github/actions/setup-toolchain
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Build dapp
         run: pnpm --filter @apps/dapp build

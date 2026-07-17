@@ -1,4 +1,7 @@
 import 'server-only';
 
-export { type TLoginInput, ZLoginInput } from './model/login.schema';
-export { verifyCredentials } from './model/verify-credentials.server';
+export {
+  type TLoginInput,
+  ZLoginInput,
+} from '@/features/sign-in/model/login.schema';
+export { verifyCredentials } from '@/features/sign-in/model/verify-credentials.server';

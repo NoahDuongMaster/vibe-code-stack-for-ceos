@@ -8,8 +8,8 @@ import {
   TriangleAlertIcon,
   XIcon,
 } from 'lucide-react';
+import { toaster } from '@/shared/ui/toaster.store';
 import { css } from '@/styled-system/css';
-import { toaster } from './toaster.store';
 
 const iconMap = {
   success: CircleCheckIcon,

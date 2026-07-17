@@ -52,12 +52,12 @@ cat >&2 <<EOF
       <type>[(scope)][!]: <description>
 
   type   : ${types}
-  scope  : optional, e.g. (dapp), (api-node)
+  scope  : optional, e.g. (dapp), (trading-rpc)
   !      : optional, marks a breaking change
 
   Examples:
       feat(dapp): add user profile page
-      fix(api-node): handle empty echo payload
+      fix(trading-rpc): handle empty echo payload
       refactor!: drop the legacy RPC client
       docs: update the README
 

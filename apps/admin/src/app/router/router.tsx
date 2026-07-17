@@ -1,17 +1,11 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
+import { RequireAuth } from '@/app/router/require-auth';
+import { RouteError } from '@/app/router/route-error';
 import { ROUTES } from '@/shared/routes';
 import { css } from '@/styled-system/css';
 import { flex } from '@/styled-system/patterns';
-import { RequireAuth } from './require-auth';
-import { RouteError } from './route-error';
 
-// Route-level code splitting — each page (and the authenticated shell itself)
-// ships as its own chunk. AppLayout in particular pulls in @ark-ui/react,
-// lucide-react, and nuqs — none of which an unauthenticated visitor on
-// /login should ever download. Because RequireAuth returns <Navigate>
-// without rendering its children when unauthenticated, this lazy chunk is
-// never even requested for that visitor.
 const AppShell = lazy(() =>
   import('@/widgets/app-shell').then((module) => ({
     default: module.AppShell,

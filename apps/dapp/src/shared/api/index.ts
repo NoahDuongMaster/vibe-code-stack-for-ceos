@@ -1,1 +1,1 @@
-export { FetchError, xhr } from './xhr';
+export { FetchError, xhr } from '@/shared/api/xhr';

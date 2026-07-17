@@ -1,4 +1,4 @@
-import type { TUser, TUserDraft } from '../model/user.schema';
+import type { TUser, TUserDraft } from '@/entities/user/model/user.schema';
 
 /**
  * ── In-memory data source (the integration seam) ─────────────────────────────

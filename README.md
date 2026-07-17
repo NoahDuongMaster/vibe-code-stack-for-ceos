@@ -252,28 +252,27 @@ This isn't linting — it's structural understanding of your codebase.
 ## ⚡ Quick Start
 
 Install and activate [mise](https://mise.jdx.dev/installing-mise.html) first.
-The repository keeps `.nvmrc` and direct pnpm scripts for compatibility, but
-mise is the primary toolchain and task entrypoint.
+Mise is the repository's supported toolchain and command interface. pnpm stays
+under the hood for dependency resolution and workspace execution.
 
 ```bash
 # Clone
 git clone https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos.git
 cd vibe-code-stack-for-ceos
 
-# Install the locked Node.js/pnpm toolchain and dependencies
-mise install
-mise run install
+# Install the locked Node.js/pnpm toolchain and frozen dependencies
+mise setup
 
 # Start the whole company
-mise run dev
+mise dev
 
 # …or one department
-mise run dev:web        # Next.js app      → http://localhost:3000
-mise run dev:admin      # React admin SPA
-mise run dev:landing    # Astro landing
-mise run dev:api        # Connect-RPC Node backend
-mise run dev:gateway    # Gateway → real development VPC → trading-rpc
-mise run dev:backend    # Gateway VPC mode + direct local trading-rpc process
+mise dev:web        # Next.js app      → http://localhost:3000
+mise dev:admin      # React admin SPA
+mise dev:landing    # Astro landing
+mise dev:api        # Connect-RPC Node backend
+mise dev:gateway    # Gateway → real development VPC → trading-rpc
+mise dev:backend    # Gateway VPC mode + direct local trading-rpc process
 ```
 
 ### Development gateway → trading-rpc through Workers VPC
@@ -283,7 +282,7 @@ development binding:
 
 ```bash
 make start-vpc-development
-mise run dev:gateway
+mise dev:gateway
 
 # In a second terminal
 curl -sS -X POST http://127.0.0.1:8787/trading.v1.TradingService/GetMarkets \
@@ -292,7 +291,7 @@ curl -sS -X POST http://127.0.0.1:8787/trading.v1.TradingService/GetMarkets \
   --data '{"coinIds":["bitcoin","ethereum"],"vsCurrency":"usd"}'
 ```
 
-`mise run dev:gateway` selects `env.development` from `wrangler.jsonc`; Worker code
+`mise dev:gateway` selects `env.development` from `wrangler.jsonc`; Worker code
 runs locally while `TRADING_RPC.fetch()` executes through Cloudflare's remote
 VPC binding. The binding is mandatory in every environment; the gateway fails
 closed when it is absent and never falls back to a direct URL.
@@ -322,6 +321,13 @@ dedicated `trading-rpc` image, the official PostgreSQL 18 image, and
 ```bash
 # Development: five apps + PostgreSQL + cloudflared
 make start-development
+
+# Development: one app/service plus its declared dependencies
+make start-dapp-development
+make start-admin-development
+make start-landing-development
+make start-api-gateway-development
+make start-trading-rpc-development
 
 # Follow or stop the complete development stack
 make logs-development
@@ -379,21 +385,21 @@ Declared in `apps/dapp/src/shared/config/env.ts` with Zod validation. Never use 
 
 | Command (repo root)                                                                  | What it does                                                |
 | ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| `mise run install`                                                                   | Install dependencies from the committed pnpm lockfile       |
-| `mise run dev`                                                                       | Start every app through Turborepo                            |
-| `mise run dev:web` / `dev:admin` / `dev:landing` / `dev:api` / `dev:gateway`         | Start one workspace                                         |
-| `mise run dev:backend`                                                               | Start the local gateway and trading-rpc together             |
-| `mise run build`                                                                     | Build every workspace                                       |
-| `mise run typecheck`                                                                 | Run TypeScript checks across all workspaces                  |
-| `mise run lint`                                                                      | Run ESLint, Biome, buf, and architecture checks              |
-| `mise run check` / `check:ci` / `format`                                             | Apply Biome fixes / run the read-only gate / format files    |
-| `mise run test`                                                                      | Run toolchain and workspace unit tests                       |
-| `mise run test:e2e`                                                                  | Run dapp Playwright tests                                    |
-| `mise run verify`                                                                    | Run every definition-of-done gate sequentially               |
-| `mise run docker:start` / `docker:stop` / `docker:check`                             | Operate or validate the Docker development environment       |
+| `mise setup`                                                                         | Install the locked toolchain and frozen dependencies         |
+| `mise dev`                                                                           | Start every app through Turborepo                            |
+| `mise dev:web` / `dev:admin` / `dev:landing` / `dev:api` / `dev:gateway`             | Start one workspace                                         |
+| `mise dev:backend`                                                                   | Start the local gateway and trading-rpc together             |
+| `mise build`                                                                         | Build every workspace                                       |
+| `mise typecheck`                                                                     | Run TypeScript checks across all workspaces                  |
+| `mise lint`                                                                          | Run ESLint, Biome, buf, and architecture checks              |
+| `mise check` / `check:ci` / `format`                                                 | Apply Biome fixes / run the read-only gate / format files    |
+| `mise test`                                                                          | Run toolchain and workspace unit tests                       |
+| `mise test:e2e`                                                                      | Run dapp Playwright tests                                    |
+| `mise verify`                                                                        | Run every definition-of-done gate sequentially               |
+| `mise docker:start` / `docker:stop` / `docker:check`                                 | Operate or validate the Docker development environment       |
 
-Direct pnpm scripts remain supported for ecosystem tooling and targeted
-workspace commands. Deployment remains GitHub Actions-only.
+Use direct pnpm only for targeted workspace commands that have no mise task.
+Deployment remains GitHub Actions-only.
 
 ---
 
@@ -426,7 +432,7 @@ workspace commands. Deployment remains GitHub Actions-only.
 1. Fork the repo
 2. Create a branch: `feat(scope)/short-description` (Conventional Commits, lowercase kebab)
 3. Follow the handbook: [`AGENTS.md`](AGENTS.md)
-4. Pass the gates: `mise run verify`
+4. Pass the gates: `mise verify`
 5. Open a PR
 
 Yes — your AI agent can do all five steps. That's the point. 🎩

@@ -4,6 +4,25 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+const absoluteImportSelectors = [
+  {
+    selector: 'ImportDeclaration[source.value=/^\\./]',
+    message: 'Use an absolute workspace alias instead of a relative import.',
+  },
+  {
+    selector: 'ExportNamedDeclaration[source.value=/^\\./]',
+    message: 'Use an absolute workspace alias instead of a relative export.',
+  },
+  {
+    selector: 'ExportAllDeclaration[source.value=/^\\./]',
+    message: 'Use an absolute workspace alias instead of a relative export.',
+  },
+  {
+    selector: 'ImportExpression[source.value=/^\\./]',
+    message: 'Use an absolute workspace alias instead of a relative import.',
+  },
+];
+
 export default tseslint.config(
   // Generated / build output — never lint.
   { ignores: ['dist/**', 'src/styled-system/**'] },
@@ -23,45 +42,7 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       // Biome already governs unused imports/vars; avoid duplicate noise here.
       '@typescript-eslint/no-unused-vars': 'off',
-    },
-  },
-  {
-    // Steiger owns FSD layer direction; ESLint prevents bypassing slice and
-    // segment Public APIs. Same-slice internals use relative imports.
-    files: [
-      'src/app/**/*.{ts,tsx}',
-      'src/pages/**/*.{ts,tsx}',
-      'src/widgets/**/*.{ts,tsx}',
-      'src/features/**/*.{ts,tsx}',
-      'src/entities/**/*.{ts,tsx}',
-      'src/shared/**/*.{ts,tsx}',
-    ],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: [
-                '@/app/*/**',
-                '!@/app/styles/global.css',
-                '@/pages/*/**',
-                '@/widgets/*/**',
-                '@/features/*/**',
-                '@/entities/*/**',
-                '@/shared/api/**',
-                '@/shared/config/**',
-                '@/shared/model/**',
-                '@/shared/routes/**',
-                '@/shared/ui/**',
-                '@/shared/lib/*/**',
-              ],
-              message:
-                'Consume FSD slices and Shared/App segments through their Public API; use relative imports inside the same slice.',
-            },
-          ],
-        },
-      ],
+      'no-restricted-syntax': ['error', ...absoluteImportSelectors],
     },
   },
 );

@@ -7,16 +7,10 @@ export default defineConfig([
     ignores: ['src/**/*.d.ts'],
   },
   {
-    files: [
-      './src/pages/**',
-      './src/widgets/feature-overview/**',
-      './src/widgets/marketing-hero/**',
-      './src/widgets/site-shell/**',
-      './src/widgets/tech-stack/**',
-    ],
+    files: ['./src/pages/**', './src/widgets/site-shell/**'],
     rules: {
-      // Astro route wrappers live outside the FSD root. The home-only widgets
-      // are independent page blocks, so a single in-root consumer is valid.
+      // Astro route wrappers live outside the FSD root, so Page slices and the
+      // shared route shell intentionally have no in-root consumer.
       'fsd/insignificant-slice': 'off',
     },
   },

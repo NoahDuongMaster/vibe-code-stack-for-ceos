@@ -12,7 +12,7 @@ describe('getHealth', () => {
   });
 
   it('should delegate to the Connect RPC client health() call', async () => {
-    const response = { status: 'ok', service: 'api-node', runtime: 'node' };
+    const response = { status: 'ok', service: 'trading-rpc', runtime: 'node' };
     health.mockResolvedValue(response);
 
     const { getHealth } = await import('@/pages/dashboard/api/health.api');

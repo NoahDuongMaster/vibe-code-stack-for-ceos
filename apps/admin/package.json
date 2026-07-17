@@ -9,7 +9,7 @@
     "preview": "rsbuild preview",
     "deploy": "wrangler pages deploy dist",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src && pnpm lint:architecture",
+    "lint": "eslint rsbuild.config.ts src && pnpm lint:architecture",
     "lint:architecture": "steiger ./src --fail-on-warnings",
     "test": "vitest run",
     "test:watch": "vitest",

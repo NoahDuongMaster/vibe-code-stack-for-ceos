@@ -1,8 +1,8 @@
 import { Code, ConnectError, type Interceptor } from '@connectrpc/connect';
 import { createApiClient } from '@packages/api-client';
+import { emitUnauthenticated } from '@/shared/api/auth-events';
+import { getAuthToken } from '@/shared/api/auth-token';
 import { API_URL } from '@/shared/config';
-import { emitUnauthenticated } from './auth-events';
-import { getAuthToken } from './auth-token';
 
 // Attaches the current session token (if any) to every RPC, and signals
 // `shared/api/auth-events` when the backend rejects it as unauthenticated —

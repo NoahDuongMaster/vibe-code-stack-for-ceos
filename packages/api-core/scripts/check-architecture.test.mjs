@@ -99,3 +99,58 @@ test('rejects imports between api-core feature slices', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('rejects a feature without a Public API index', async () => {
+  const root = await createFixture({
+    'features/alpha/alpha.service.ts': "export const alpha = 'alpha';\n",
+  });
+
+  try {
+    const result = runChecker(root);
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /features\/alpha is missing its Public API index\.ts/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('rejects transport dependencies from a root feature service', async () => {
+  const root = await createFixture({
+    'features/alpha/index.ts': "export { alpha } from './alpha.service.js';\n",
+    'features/alpha/alpha.service.ts':
+      "import { ConnectError } from '@connectrpc/connect';\nexport const alpha = new ConnectError('alpha');\n",
+  });
+
+  try {
+    const result = runChecker(root);
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /features\/alpha\/alpha\.service\.ts imports forbidden runtime dependency "@connectrpc\/connect"/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('rejects runtime globals from a root feature service without imports', async () => {
+  const root = await createFixture({
+    'features/alpha/index.ts': "export { alpha } from './alpha.service.js';\n",
+    'features/alpha/alpha.service.ts':
+      "export const alpha = new Request('https://example.com');\n",
+  });
+
+  try {
+    const result = runChecker(root);
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /features\/alpha\/alpha\.service\.ts references forbidden runtime identifier "Request"/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

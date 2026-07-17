@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getHealth } from '../api/health.api';
+import { getHealth } from '@/pages/dashboard/api/health.api';
 
 /** Polls backend health via TanStack Query (server-state parity with dapp). */
 export const useHealth = () =>

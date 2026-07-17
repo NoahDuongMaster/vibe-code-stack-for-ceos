@@ -1,1 +1,4 @@
-export { camelizeKeys, snakifyKeys } from './case-conversion';
+export {
+  camelizeKeys,
+  snakifyKeys,
+} from '@/shared/lib/case-conversion/case-conversion';

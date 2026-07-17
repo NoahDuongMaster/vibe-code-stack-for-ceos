@@ -1,6 +1,6 @@
+import pkg from '@root/package.json';
 import * as Sentry from '@sentry/nextjs';
 import { env } from '@/shared/config';
-import pkg from '../../../package.json';
 
 Sentry.init({
   dsn: env.client.NEXT_PUBLIC_SENTRY_DSN ?? undefined,

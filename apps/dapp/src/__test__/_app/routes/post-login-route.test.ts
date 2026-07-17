@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { postLogin as POST } from '@/_app/post-login-route';
+import { postLogin as POST } from '@/_app/routes/post-login-route';
 import { getMutableSession } from '@/entities/session/index.server';
 import { verifyCredentials } from '@/features/sign-in/index.server';
 

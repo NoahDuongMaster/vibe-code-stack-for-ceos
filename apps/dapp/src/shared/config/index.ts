@@ -1,1 +1,1 @@
-export { env } from './env';
+export { env } from '@/shared/config/env';

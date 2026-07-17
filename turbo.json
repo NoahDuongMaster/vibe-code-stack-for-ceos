@@ -8,6 +8,7 @@
     "pnpm-workspace.yaml"
   ],
   "globalEnv": ["NODE_ENV", "CI"],
+  "globalPassThroughEnv": ["MISE_TASK_NAME"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

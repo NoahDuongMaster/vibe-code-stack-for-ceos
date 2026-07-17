@@ -27,6 +27,11 @@ const isInside = (path, directory) =>
 const isTestFile = (path) => /(?:^|\.)test\.tsx?$/.test(path);
 const isAllowedTestPackage = (specifier) =>
   TEST_ONLY_PACKAGES.has(specifier) || specifier.startsWith('@vitest/');
+const matchesPackage = (specifier, packages) =>
+  packages.some(
+    (dependency) =>
+      specifier === dependency || specifier.startsWith(`${dependency}/`),
+  );
 
 const collectTypeScriptFiles = async (root, directory = root) => {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -68,8 +73,6 @@ const inspectInnerLayer = ({
   filePath,
   feature,
   localImport,
-  runtimeIdentifiers,
-  source,
   specifier,
   testFile,
   violations,
@@ -98,7 +101,14 @@ const inspectInnerLayer = ({
       `${filePath} imports forbidden runtime dependency "${specifier}"`,
     );
   }
+};
 
+const inspectRuntimeIdentifiers = ({
+  filePath,
+  runtimeIdentifiers,
+  source,
+  violations,
+}) => {
   const forbiddenRuntimeIdentifier = runtimeIdentifiers.find((identifier) =>
     new RegExp(`\\b${identifier}\\b`).test(source),
   );
@@ -107,6 +117,14 @@ const inspectInnerLayer = ({
       `${filePath} references forbidden runtime identifier "${forbiddenRuntimeIdentifier}"`,
     );
   }
+};
+
+const isFeatureRootPureFile = (feature, suffixes) => {
+  const modulePath = withoutExtension(feature.relativePath);
+  return (
+    !modulePath.includes('/') &&
+    suffixes.some((suffix) => modulePath.endsWith(suffix))
+  );
 };
 
 const inspectSharedBoundary = ({
@@ -137,6 +155,9 @@ export const checkBackendArchitecture = async ({
   allowedApplicationRoots = ['shared'],
   forbiddenFeatureOuterRoots = ['adapters', 'config', 'infra', 'platform'],
   forbiddenRootRuntimeModules = ['adapters', 'config', 'index', 'platform'],
+  featureRootForbiddenPackages = [],
+  featureRootPureFileSuffixes = [],
+  requireFeaturePublicApi = true,
   runtimeIdentifiers = DEFAULT_RUNTIME_IDENTIFIERS,
   sharedRoot = 'shared',
   sharedForbiddenLocalRoots = ['adapters', 'features'],
@@ -145,12 +166,33 @@ export const checkBackendArchitecture = async ({
   const absoluteRoot = resolve(root);
   const violations = [];
   const files = await collectTypeScriptFiles(absoluteRoot);
+  const filePaths = files.map((file) =>
+    normalize(relative(absoluteRoot, file)),
+  );
+  const fileModules = new Set(filePaths.map(withoutExtension));
+  const features = new Map();
+
+  for (const filePath of filePaths) {
+    const feature = readFeature(filePath, featureRoot);
+    if (feature) features.set(feature.name, feature);
+  }
+
+  if (requireFeaturePublicApi) {
+    for (const feature of features.values()) {
+      if (!fileModules.has(`${feature.path}/index`)) {
+        violations.push(`${feature.path} is missing its Public API index.ts`);
+      }
+    }
+  }
 
   for (const file of files) {
     const filePath = normalize(relative(absoluteRoot, file));
     const source = await readFile(file, 'utf8');
     const sourceFeature = readFeature(filePath, featureRoot);
     const testFile = isTestFile(filePath);
+    const featureRootPureFile =
+      sourceFeature !== null &&
+      isFeatureRootPureFile(sourceFeature, featureRootPureFileSuffixes);
 
     for (const match of source.matchAll(IMPORT_PATTERN)) {
       const specifier = match[1];
@@ -185,12 +227,21 @@ export const checkBackendArchitecture = async ({
           filePath,
           feature: sourceFeature,
           localImport,
-          runtimeIdentifiers,
-          source,
           specifier,
           testFile,
           violations,
         });
+
+        if (
+          featureRootPureFile &&
+          !localImport &&
+          !(testFile && isAllowedTestPackage(specifier)) &&
+          matchesPackage(specifier, featureRootForbiddenPackages)
+        ) {
+          violations.push(
+            `${filePath} imports forbidden runtime dependency "${specifier}"`,
+          );
+        }
 
         const layer = sourceFeature.relativePath.split('/')[0];
         if (
@@ -233,6 +284,22 @@ export const checkBackendArchitecture = async ({
           sharedForbiddenLocalRoots,
           sharedForbiddenPackages,
           specifier,
+          violations,
+        });
+      }
+    }
+
+    if (sourceFeature) {
+      const layer = sourceFeature.relativePath.split('/')[0];
+      if (
+        layer === 'domain' ||
+        layer === 'application' ||
+        featureRootPureFile
+      ) {
+        inspectRuntimeIdentifiers({
+          filePath,
+          runtimeIdentifiers,
+          source,
           violations,
         });
       }

@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "test": "pnpm build && node --test test/routes.test.mjs",
     "preview": "astro preview",
     "deploy": "wrangler deploy",
     "typecheck": "astro check",
-    "lint": "eslint astro src && pnpm lint:architecture",
+    "lint": "eslint astro.config.mjs astro src test && pnpm lint:architecture",
     "lint:architecture": "steiger ./src --fail-on-warnings"
   },
   "dependencies": {

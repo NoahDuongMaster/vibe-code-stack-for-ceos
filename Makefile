@@ -4,6 +4,7 @@ DOCKER_COMPOSE_DEV := $(DOCKER_COMPOSE) -f $(DOCKER_DIR)/compose.dev.yaml
 DOCKER_COMPOSE_STAGING := $(DOCKER_COMPOSE) -f $(DOCKER_DIR)/compose.staging.yaml
 DOCKER_COMPOSE_PROD := $(DOCKER_COMPOSE) -f $(DOCKER_DIR)/compose.prod.yaml
 DOCKER_DEV_PROFILES := --profile dev --profile vpc
+DOCKER_DEV_SERVICE_UP := $(DOCKER_COMPOSE_DEV) $(DOCKER_DEV_PROFILES) up -d --build
 DOCKER_PROD_PROFILES := --profile vpc --profile backup
 CLOUDFLARE_TUNNEL_TOKEN_FILE ?= $(abspath $(DOCKER_DIR)/secrets/cloudflare-tunnel-token)
 CLOUDFLARE_API_TOKEN_FILE ?= $(abspath $(DOCKER_DIR)/secrets/cloudflare-api-token)
@@ -20,6 +21,10 @@ test-postgres-backup-scripts:
 .PHONY: test-postgres-backup-integration
 test-postgres-backup-integration:
 	@bash infra/docker/postgres/tests/backup-integration.sh
+
+.PHONY: test-development-service-targets
+test-development-service-targets:
+	@bash infra/docker/tests/development-service-targets.test.sh
 
 .PHONY: db-backup-info
 db-backup-info: ## Show pgBackRest backup sets and archived WAL metadata.
@@ -80,9 +85,33 @@ db-restore-drill: ## Run the serialized latest-PITR restore drill and publish ev
 build-development: ## Build all images used by the full development stack.
 	$(DOCKER_COMPOSE_DEV) $(DOCKER_DEV_PROFILES) build
 
+.PHONY: build-workspace-development
+build-workspace-development: ## Build the shared development workspace image.
+	$(DOCKER_COMPOSE_DEV) build dapp
+
 .PHONY: start-development
 start-development: check-vpc-tunnel-token sync-cloudflare-api-token build-development ## Start all five apps plus PostgreSQL and cloudflared.
 	$(DOCKER_COMPOSE_DEV) $(DOCKER_DEV_PROFILES) up -d
+
+.PHONY: start-dapp-development
+start-dapp-development: ## Start only dapp and its declared dependencies.
+	$(DOCKER_DEV_SERVICE_UP) dapp
+
+.PHONY: start-admin-development
+start-admin-development: check-vpc-tunnel-token sync-cloudflare-api-token build-workspace-development ## Start only admin and its declared dependencies.
+	$(DOCKER_DEV_SERVICE_UP) admin
+
+.PHONY: start-landing-development
+start-landing-development: build-workspace-development ## Start only landing and its declared dependencies.
+	$(DOCKER_DEV_SERVICE_UP) landing
+
+.PHONY: start-api-gateway-development
+start-api-gateway-development: check-vpc-tunnel-token sync-cloudflare-api-token build-workspace-development ## Start only api-gateway and its declared dependencies.
+	$(DOCKER_DEV_SERVICE_UP) api-gateway
+
+.PHONY: start-trading-rpc-development
+start-trading-rpc-development: ## Start only trading-rpc and its declared dependencies.
+	$(DOCKER_DEV_SERVICE_UP) trading-rpc
 
 .PHONY: stop-development
 stop-development: ## Stop the full development stack.
@@ -152,7 +181,7 @@ stop-production: ## Stop the production docker container.
 	$(DOCKER_COMPOSE_PROD) $(DOCKER_PROD_PROFILES) down
 
 .PHONY: check-docker
-check-docker: ## Validate Compose overlays, Dockerfiles, and the single-source layout.
+check-docker: test-development-service-targets ## Validate Compose overlays, Dockerfiles, and the single-source layout.
 	@set -eu; \
 	for target in db-backup-info db-backup-now db-backup-check db-backup-verify \
 		db-backup-health db-restore-latest db-restore-at db-restore-drill \

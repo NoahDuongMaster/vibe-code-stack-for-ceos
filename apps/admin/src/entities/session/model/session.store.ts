@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import type {
+  TAuthSession,
+  TAuthUser,
+} from '@/entities/session/model/session.schema';
 import { setAuthToken } from '@/shared/api';
-import type { TAuthSession, TAuthUser } from './session.schema';
 
 type SessionState = {
   token: string | null;

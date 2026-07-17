@@ -1,2 +1,2 @@
-export { Button } from './button';
-export { AppToaster, toast } from './toaster';
+export { Button } from '@/shared/ui/button';
+export { AppToaster, toast } from '@/shared/ui/toaster';

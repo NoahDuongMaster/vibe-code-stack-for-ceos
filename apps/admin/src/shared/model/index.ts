@@ -1,1 +1,1 @@
-export { useUiStore } from './ui.store';
+export { useUiStore } from '@/shared/model/ui.store';
