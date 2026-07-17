@@ -126,6 +126,9 @@ test('should generate 28 safe, bounded SVGs and a complete contact sheet', async
       contactSheet.match(/<object\b[^>]*type="image\/svg\+xml"/g)?.length,
       28,
     );
+    assert.match(contactSheet, /<fieldset class="review-controls">/);
+    assert.match(contactSheet, /<legend>Chiều rộng duyệt:<\/legend>/);
+    assert.doesNotMatch(contactSheet, /role="group"/);
     assert.match(contactSheet, /<html lang="vi">/);
     assert.match(contactSheet, /aspect-ratio:\s*7\s*\/\s*9/);
     assert.match(
