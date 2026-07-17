@@ -840,7 +840,7 @@ git commit -m "docs: regenerate Vietnamese affiliate SRS diagrams"
 - Consumes: validated SVG content, Vietnamese/legacy target copy, current Notion v0.5 pages.
 - Produces: 28 Vietnamese inline image blocks with unchanged per-page image counts.
 
-- [ ] **Step 1: Preflight all pages without mutation**
+- [x] **Step 1: Preflight all pages without mutation**
 
 Fetch all 26 pages and assert per target:
 
@@ -852,7 +852,7 @@ Fetch all 26 pages and assert per target:
 
 Also assert 59 MH headings, 59 component contracts and 470 component rows.
 
-- [ ] **Step 2: Replace sequentially**
+- [x] **Step 2: Replace sequentially**
 
 For each target:
 
@@ -866,7 +866,7 @@ For each target:
 
 Never upload the next target until the current replacement passes read-back.
 
-- [ ] **Step 3: Audit all 27 pages**
+- [x] **Step 3: Audit all 27 pages**
 
 Fetch master plus 26 children and assert:
 
@@ -878,7 +878,7 @@ Fetch master plus 26 children and assert:
 - 26 child pages, 59 MH headings, 59 component contracts and 470 rows remain;
 - every page and master still reports version `0.5`.
 
-- [ ] **Step 4: Update the master 0.5 changelog row**
+- [x] **Step 4: Update the master 0.5 changelog row**
 
 Use targeted replacement to change the existing 0.5 description to:
 
@@ -887,6 +887,18 @@ Bổ sung và hiệu chỉnh 28 SVG kỹ thuật: Việt hóa toàn bộ nội d
 ```
 
 Fetch again and verify one updated row, current version `0.5`, one master infographic and 26 child pages.
+
+**Execution evidence (18/07/2026):** the initial 26-page preflight passed with
+28 legacy image blocks and 26 version markers. Notion `update_content` could not
+match an image block because `fetch` exposes a transient signed asset URL rather
+than the stored attachment source; the rejected probe made no mutation. The
+rollout therefore fetched each page, uploaded only its validated target SVGs,
+replaced only the target visual block(s) in the fetched content, used
+`replace_content`, and immediately compared the read-back page with the intended
+page after normalizing only the signed image URL. The final 27-page audit passed:
+28 replaced diagrams, 29 total visual blocks, zero legacy copy, 26 child version
+markers, 59 MH headings, 59 component contracts and 470 component rows. The
+master still has one infographic, 26 children and current version `0.5`.
 
 ### Task 8: Final audit and execution tracking
 
@@ -897,7 +909,7 @@ Fetch again and verify one updated row, current version `0.5`, one master infogr
 - Consumes: completed local assets and Notion replacements.
 - Produces: evidence-backed handoff with unrelated failures explicitly separated.
 
-- [ ] **Step 1: Run focused visual gates**
+- [x] **Step 1: Run focused visual gates**
 
 ```bash
 mise exec -- node --test scripts/notion-srs-visuals/*.test.ts
@@ -907,7 +919,7 @@ xmllint --noout docs/superpowers/assets/notion-srs-visuals/*.svg
 
 Expected: all PASS and `28/28 valid`.
 
-- [ ] **Step 2: Run repository gates**
+- [x] **Step 2: Run repository gates**
 
 ```bash
 mise typecheck
@@ -918,13 +930,25 @@ mise test
 
 Record the existing `trading-rpc` file-parallel teardown timeout separately if it reproduces. Do not edit that unrelated service/test in this task. `mise build` remains unnecessary because no app/build-relevant source changes.
 
-- [ ] **Step 3: Mark completed checkboxes and commit tracking**
+- [x] **Step 3: Mark completed checkboxes and commit tracking**
 
 ```bash
 git add docs/superpowers/plans/2026-07-18-notion-srs-vietnamese-legibility-redesign.md
 git commit -m "docs: complete Vietnamese SRS diagram rollout"
 ```
 
-- [ ] **Step 4: Report completion**
+- [x] **Step 4: Report completion**
 
 Report the master Notion link, 28/29 visual counts, version `0.5`, localization/geometry results, preserved 59/59/470 content counts, local/repository gate results, commit IDs, and confirmation that unrelated dirty-worktree changes were preserved.
+
+**Final gate evidence (18/07/2026):** focused visual tests passed `95/95`,
+validation reported `28/28 valid`, and `xmllint` accepted every SVG. Repository
+`mise typecheck` and `mise lint` passed. `mise check:ci` retained one unrelated
+pre-existing formatting failure in
+`apps/dapp/src/_pages/home/api/get-markets.api.ts`; the task-owned contact-sheet
+a11y finding was fixed with a semantic `fieldset`/`legend` and its targeted
+Biome check passed. `mise test` reproduced the documented unrelated
+`services/trading-rpc/src/adapters/http.adapter.test.ts` teardown timeout in the
+oversized-message and rate-limit cases (53/55 tests passed in that workspace;
+other completed workspaces passed). `mise build` was not required because no
+application or build-relevant source changed.
