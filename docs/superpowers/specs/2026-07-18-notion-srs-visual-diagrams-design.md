@@ -162,9 +162,9 @@ Sau upload, fetch lại 27 trang để xác nhận:
 
 ## 8. Versioning và rollback
 
-Sau khi toàn bộ visual qua validation, nâng master và 26 trang con từ v0.4 lên v0.5. Changelog v0.5 ghi rõ bổ sung 28 SVG technical diagrams, phạm vi placement và khẳng định không đổi functional baseline.
+Version trước thay đổi không đồng nhất: master và 12 Page 3 đang ở v0.4; Page 1, 12 Page 2 và Page 4 vẫn ghi v0.2. Sau khi toàn bộ visual qua validation, nâng master và cả 26 trang con lên v0.5 để loại bỏ sai lệch này. Changelog v0.5 ghi rõ bổ sung 28 SVG technical diagrams, đồng bộ page-level version, phạm vi placement và khẳng định không đổi functional baseline.
 
-Nếu một upload hoặc update thất bại, không tăng version và không ghi hoàn thành. Các trang đã chèn thành công được ghi nhận theo page ID để retry có kiểm soát; không replace toàn trang. Rollback là xóa đúng image block/caption vừa thêm và trả version về v0.4, không đụng tới nội dung SRS khác.
+Nếu một upload hoặc update thất bại, không tăng version và không ghi hoàn thành. Các trang đã chèn thành công được ghi nhận theo page ID để retry có kiểm soát; không replace toàn trang. Rollback là xóa đúng image block/caption vừa thêm và trả từng trang về version đã ghi nhận trước khi cập nhật (`0.4` cho master/Page 3; `0.2` cho Page 1/Page 2/Page 4), không đụng tới nội dung SRS khác.
 
 ## 9. Tiêu chí hoàn thành
 
