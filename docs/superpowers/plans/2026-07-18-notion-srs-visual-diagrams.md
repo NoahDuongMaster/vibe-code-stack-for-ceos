@@ -81,7 +81,7 @@ The expected `0.2` count is 16 diagram placements, not 14 pages: Page 1 and Page
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
-Run: `node --test scripts/notion-srs-visuals/manifest.test.ts`
+Run: `mise exec -- node --test scripts/notion-srs-visuals/manifest.test.ts`
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `manifest.ts`.
 
@@ -198,7 +198,7 @@ export const TARGET_BY_KEY = new Map(
 
 - [ ] **Step 5: Run the manifest test and verify GREEN**
 
-Run: `node --test scripts/notion-srs-visuals/manifest.test.ts`
+Run: `mise exec -- node --test scripts/notion-srs-visuals/manifest.test.ts`
 
 Expected: 4 tests PASS.
 
@@ -225,7 +225,7 @@ Create a fixture with two columns, creator/system nodes, and all three edge styl
 
 - [ ] **Step 2: Run the renderer test and verify RED**
 
-Run: `node --test scripts/notion-srs-visuals/svg-renderer.test.ts`
+Run: `mise exec -- node --test scripts/notion-srs-visuals/svg-renderer.test.ts`
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `svg-renderer.ts`.
 
@@ -349,7 +349,7 @@ The implementation must remain dependency-free and must throw descriptive errors
 
 - [ ] **Step 4: Run the renderer tests and verify GREEN**
 
-Run: `node --test scripts/notion-srs-visuals/svg-renderer.test.ts`
+Run: `mise exec -- node --test scripts/notion-srs-visuals/svg-renderer.test.ts`
 
 Expected: renderer tests PASS.
 
@@ -376,7 +376,7 @@ Assert four unique keys, all edge endpoints exist, no node contains any placehol
 
 - [ ] **Step 2: Run the focused spec test and verify RED**
 
-Run: `node --test scripts/notion-srs-visuals/specs.test.ts`
+Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: FAIL because the four specs do not exist.
 
@@ -395,7 +395,7 @@ Use dotted edges from every decision/financial node to evidence, dashed edges fo
 
 - [ ] **Step 4: Run the spec tests and verify GREEN**
 
-Run: `node --test scripts/notion-srs-visuals/specs.test.ts`
+Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: overview/test spec tests PASS.
 
@@ -422,7 +422,7 @@ Assert twelve keys; every subtitle includes the exact `CN` range from the manife
 
 - [ ] **Step 2: Run tests and verify RED**
 
-Run: `node --test scripts/notion-srs-visuals/specs.test.ts`
+Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: FAIL because `BACKEND_SPECS` is missing.
 
@@ -449,7 +449,7 @@ Badges are assigned from the source implementation map already present in each P
 
 - [ ] **Step 4: Run the full spec tests and verify GREEN**
 
-Run: `node --test scripts/notion-srs-visuals/specs.test.ts`
+Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: all overview, test, and backend spec tests PASS.
 
@@ -476,7 +476,7 @@ Assert twelve keys; every `MH` in each manifest range appears exactly once as a 
 
 - [ ] **Step 2: Run tests and verify RED**
 
-Run: `node --test scripts/notion-srs-visuals/specs.test.ts`
+Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: FAIL because `UI_SPECS` is missing.
 
@@ -503,7 +503,7 @@ Each UI spec uses a separate column for surface boundary (`Storefront`, `Vendor 
 
 - [ ] **Step 4: Run all spec tests and verify GREEN**
 
-Run: `node --test scripts/notion-srs-visuals/specs.test.ts`
+Run: `mise exec -- node --test scripts/notion-srs-visuals/specs.test.ts`
 
 Expected: all 28 spec contracts PASS.
 
@@ -539,7 +539,7 @@ Tests must assert:
 
 - [ ] **Step 2: Run generation tests and verify RED**
 
-Run: `node --test scripts/notion-srs-visuals/generate.test.ts`
+Run: `mise exec -- node --test scripts/notion-srs-visuals/generate.test.ts`
 
 Expected: FAIL because `generate.ts` and `validate.ts` do not exist.
 
@@ -554,9 +554,9 @@ Expected: FAIL because `generate.ts` and `validate.ts` do not exist.
 Run:
 
 ```bash
-node --test scripts/notion-srs-visuals/*.test.ts
-node scripts/notion-srs-visuals/generate.ts
-node scripts/notion-srs-visuals/validate.ts
+mise exec -- node --test scripts/notion-srs-visuals/*.test.ts
+mise exec -- node scripts/notion-srs-visuals/generate.ts
+mise exec -- node scripts/notion-srs-visuals/validate.ts
 xmllint --noout docs/superpowers/assets/notion-srs-visuals/*.svg
 ```
 
@@ -683,8 +683,8 @@ Expected: master and 26/26 child pages report 0.5; history order begins 0.5, 0.4
 - [ ] **Step 1: Run focused local validation**
 
 ```bash
-node --test scripts/notion-srs-visuals/*.test.ts
-node scripts/notion-srs-visuals/validate.ts
+mise exec -- node --test scripts/notion-srs-visuals/*.test.ts
+mise exec -- node scripts/notion-srs-visuals/validate.ts
 xmllint --noout docs/superpowers/assets/notion-srs-visuals/*.svg
 ```
 
