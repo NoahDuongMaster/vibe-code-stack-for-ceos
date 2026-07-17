@@ -116,3 +116,38 @@ test('should preserve all six money states in the end-to-end flow', () => {
     );
   }
 });
+
+test('should map MCN operations to the implemented storefront MCN surface', () => {
+  const context = OVERVIEW_AND_TEST_SPECS.find(
+    (spec) => spec.key === 'page-1-system-context',
+  );
+  assert.ok(context);
+
+  assert.ok(
+    context.edges.some(
+      (edge) => edge.from === 'context-mcn' && edge.to === 'context-storefront',
+    ),
+    'MCN must enter through the storefront surface',
+  );
+  assert.ok(
+    semanticText(context).includes('apps/storefront/src/app/mcn/*'),
+    'system context must retain the implemented MCN source path',
+  );
+  assert.equal(
+    context.edges.some(
+      (edge) => edge.from === 'context-mcn' && edge.to === 'context-vendor',
+    ),
+    false,
+    'MCN must not be mapped to Vendor Portal',
+  );
+});
+
+test('should describe field validation without implying access to secret ranking internals', () => {
+  for (const spec of OVERVIEW_AND_TEST_SPECS) {
+    assert.doesNotMatch(
+      semanticText(spec),
+      /secret[- ](?:ranking|algorithm)/i,
+      `${spec.key} must not imply access to secret ranking internals`,
+    );
+  }
+});

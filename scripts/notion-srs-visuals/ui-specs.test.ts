@@ -230,3 +230,254 @@ test('should keep responsive web outside Video and LIVE native parity closure', 
     );
   }
 });
+
+test('should connect every surface, state, remediation, and native gate to a meaningful transition', () => {
+  for (const spec of UI_SPECS) {
+    const connectedNodeIds = new Set(
+      spec.edges.flatMap((diagramEdge) => [diagramEdge.from, diagramEdge.to]),
+    );
+    const surfaceNodeIds =
+      spec.columns
+        .find((diagramColumn) => /surface boundary/i.test(diagramColumn.title))
+        ?.nodes.map((diagramNode) => diagramNode.id) ?? [];
+    const requiredNodeIds = spec.columns
+      .flatMap((diagramColumn) => diagramColumn.nodes)
+      .filter(
+        (diagramNode) =>
+          surfaceNodeIds.includes(diagramNode.id) ||
+          diagramNode.id.endsWith('-states') ||
+          diagramNode.id.endsWith('-remediation') ||
+          diagramNode.label === 'Native gate',
+      )
+      .map((diagramNode) => diagramNode.id);
+
+    for (const nodeId of requiredNodeIds) {
+      assert.ok(
+        connectedNodeIds.has(nodeId),
+        `${spec.key}: ${nodeId} must participate in a transition`,
+      );
+    }
+
+    assert.ok(
+      spec.edges.some(
+        (diagramEdge) =>
+          diagramEdge.from === `${spec.key.replace('-ui', '')}-api` &&
+          diagramEdge.to === `${spec.key.replace('-ui', '')}-states`,
+      ),
+      `${spec.key}: authoritative result must expose UI states`,
+    );
+    assert.ok(
+      spec.edges.some(
+        (diagramEdge) =>
+          diagramEdge.from === `${spec.key.replace('-ui', '')}-states` &&
+          diagramEdge.to === `${spec.key.replace('-ui', '')}-remediation`,
+      ),
+      `${spec.key}: failed or denied states must lead to remediation`,
+    );
+  }
+});
+
+test('should separate public Buyer or Viewer entry from authenticated creator tools', () => {
+  const expectations = {
+    '3-03-ui': {
+      publicEntry: '3-03-public-entry',
+      publicScreens: ['mh-015'],
+      authenticatedEntry: '3-03-auth-entry',
+      authenticatedScreens: ['mh-012', 'mh-016'],
+    },
+    '3-05-ui': {
+      publicEntry: '3-05-public-entry',
+      publicScreens: ['mh-022'],
+      authenticatedEntry: '3-05-auth-entry',
+      authenticatedScreens: ['mh-023'],
+    },
+    '3-06-ui': {
+      publicEntry: '3-06-public-entry',
+      publicScreens: ['mh-027', 'mh-030'],
+      authenticatedEntry: '3-06-auth-entry',
+      authenticatedScreens: ['mh-028'],
+    },
+  } as const;
+
+  for (const [key, expectation] of Object.entries(expectations)) {
+    const spec = UI_SPECS.find((item) => item.key === key);
+    assert.ok(spec, `${key}: missing spec`);
+    const nodes = spec.columns.flatMap((diagramColumn) => diagramColumn.nodes);
+    const publicEntry = nodes.find(
+      (diagramNode) => diagramNode.id === expectation.publicEntry,
+    );
+    const authenticatedEntry = nodes.find(
+      (diagramNode) => diagramNode.id === expectation.authenticatedEntry,
+    );
+    assert.match(
+      `${publicEntry?.label} ${publicEntry?.detail}`,
+      /public.*(?:buyer|viewer)|(?:buyer|viewer).*public/i,
+      `${key}: public Buyer/Viewer entry`,
+    );
+    assert.match(
+      `${authenticatedEntry?.label} ${authenticatedEntry?.detail}`,
+      /authenticated/i,
+      `${key}: authenticated creator entry`,
+    );
+
+    for (const screenId of expectation.publicScreens) {
+      assert.ok(
+        spec.edges.some(
+          (diagramEdge) =>
+            diagramEdge.from === expectation.publicEntry &&
+            diagramEdge.to === screenId,
+        ),
+        `${key}: public entry -> ${screenId}`,
+      );
+      const screen = nodes.find((diagramNode) => diagramNode.id === screenId);
+      assert.equal(screen?.tone, 'system', `${key}: ${screenId} public tone`);
+      assert.match(
+        `${screen?.label} ${screen?.detail}`,
+        /public|buyer|viewer/i,
+        `${key}: ${screenId} public audience`,
+      );
+    }
+
+    for (const screenId of expectation.authenticatedScreens) {
+      assert.ok(
+        spec.edges.some(
+          (diagramEdge) =>
+            diagramEdge.from === expectation.authenticatedEntry &&
+            diagramEdge.to === screenId,
+        ),
+        `${key}: authenticated entry -> ${screenId}`,
+      );
+    }
+  }
+
+  for (const [key, nodeIds] of Object.entries({
+    '3-05-ui': ['mh-022', 'mh-025'],
+    '3-06-ui': ['mh-027', 'mh-030'],
+  })) {
+    const spec = UI_SPECS.find((item) => item.key === key);
+    assert.ok(spec, `${key}: missing spec`);
+    const nodes = spec.columns.flatMap((diagramColumn) => diagramColumn.nodes);
+    for (const nodeId of nodeIds) {
+      const screen = nodes.find((diagramNode) => diagramNode.id === nodeId);
+      assert.equal(screen?.tone, 'system', `${key}: ${nodeId} Viewer tone`);
+      assert.match(
+        `${screen?.label} ${screen?.detail}`,
+        /buyer|viewer/i,
+        `${key}: ${nodeId} Buyer/Viewer copy`,
+      );
+    }
+  }
+});
+
+test('should expose seller catalog and admin moderation boundaries for Video and LIVE', () => {
+  for (const key of ['3-05-ui', '3-06-ui']) {
+    const spec = UI_SPECS.find((item) => item.key === key);
+    assert.ok(spec, `${key}: missing spec`);
+    const surfaceColumn = spec.columns.find((diagramColumn) =>
+      /surface boundary/i.test(diagramColumn.title),
+    );
+    assert.ok(surfaceColumn, `${key}: missing surface boundary`);
+    const labels = surfaceColumn.nodes.map((diagramNode) => diagramNode.label);
+    assert.ok(labels.includes('Vendor Portal'), `${key}: Vendor Portal`);
+    assert.ok(labels.includes('Medusa Admin'), `${key}: Medusa Admin`);
+  }
+
+  const video = UI_SPECS.find((item) => item.key === '3-05-ui');
+  const live = UI_SPECS.find((item) => item.key === '3-06-ui');
+  assert.ok(video);
+  assert.ok(live);
+  assert.ok(
+    video.edges.some(
+      (diagramEdge) =>
+        diagramEdge.from === '3-05-vendor' && diagramEdge.to === 'mh-024',
+    ),
+    '3-05-ui: seller catalog -> product picker',
+  );
+  assert.ok(
+    video.edges.some(
+      (diagramEdge) =>
+        diagramEdge.from === '3-05-admin' && diagramEdge.to === 'mh-026',
+    ),
+    '3-05-ui: admin moderation -> appeal',
+  );
+  assert.ok(
+    live.edges.some(
+      (diagramEdge) =>
+        diagramEdge.from === '3-06-vendor' && diagramEdge.to === 'mh-028',
+    ),
+    '3-06-ui: seller catalog -> host product tray setup',
+  );
+  assert.ok(
+    live.edges.some(
+      (diagramEdge) =>
+        diagramEdge.from === '3-06-admin' && diagramEdge.to === 'mh-031',
+    ),
+    '3-06-ui: admin moderation -> replay evidence',
+  );
+});
+
+test('should keep MCN tools in the storefront application unless an ADR changes the boundary', () => {
+  const spec = UI_SPECS.find((item) => item.key === '3-09-ui');
+  assert.ok(spec);
+  const surfaceText = spec.columns
+    .find((diagramColumn) => /surface boundary/i.test(diagramColumn.title))
+    ?.nodes.map((diagramNode) => `${diagramNode.label} ${diagramNode.detail}`)
+    .join(' ');
+  assert.ok(surfaceText);
+  assert.doesNotMatch(surfaceText, /Vendor Portal/i);
+  assert.match(surfaceText, /Storefront/i);
+  assert.match(surfaceText, /apps\/storefront\/src\/app\/mcn\/\*/i);
+  assert.match(surfaceText, /ADR/i);
+});
+
+test('should require ADR, implementation, and authenticated native evidence before parity closure', () => {
+  for (const key of ['3-05-ui', '3-06-ui']) {
+    const spec = UI_SPECS.find((item) => item.key === key);
+    assert.ok(spec, `${key}: missing spec`);
+    const nativeGate = spec.columns
+      .flatMap((diagramColumn) => diagramColumn.nodes)
+      .find((diagramNode) => diagramNode.label === 'Native gate');
+    assert.ok(nativeGate, `${key}: Native gate`);
+    assert.match(nativeGate.detail, /ADR/i, `${key}: ADR evidence`);
+    assert.match(
+      nativeGate.detail,
+      /implementation/i,
+      `${key}: implementation evidence`,
+    );
+    assert.match(
+      nativeGate.detail,
+      /authenticated/i,
+      `${key}: authenticated evidence`,
+    );
+    assert.ok(
+      spec.edges.some(
+        (diagramEdge) =>
+          diagramEdge.from === nativeGate.id ||
+          diagramEdge.to === nativeGate.id,
+      ),
+      `${key}: connected Native gate`,
+    );
+  }
+});
+
+test('should treat reversed as a compensating entry while preserving all six money terms', () => {
+  const spec = UI_SPECS.find((item) => item.key === '3-10-ui');
+  assert.ok(spec);
+  const wallet = spec.columns
+    .flatMap((diagramColumn) => diagramColumn.nodes)
+    .find((diagramNode) => diagramNode.id === 'mh-046');
+  assert.ok(wallet);
+  for (const moneyTerm of [
+    'estimated',
+    'approved',
+    'payable',
+    'paid',
+    'held',
+    'reversed',
+  ]) {
+    assert.match(wallet.detail, new RegExp(moneyTerm, 'i'));
+  }
+  assert.match(wallet.detail, /reversed.*compensating entry/i);
+  assert.match(wallet.detail, /not (?:a )?balance state|never (?:a )?balance/i);
+  assert.doesNotMatch(wallet.detail, /reversed balances?/i);
+});

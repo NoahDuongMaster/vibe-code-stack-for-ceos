@@ -76,6 +76,7 @@ const uiSpec = (
   if (!target) {
     throw new Error(`Unknown UI diagram target: ${key}`);
   }
+  const nodePrefix = key.replace(/-ui$/, '');
 
   return {
     key,
@@ -83,7 +84,19 @@ const uiSpec = (
     subtitle: target.codeRange,
     scope,
     columns,
-    edges,
+    edges: [
+      ...edges,
+      edge(
+        `${nodePrefix}-api`,
+        `${nodePrefix}-states`,
+        'loading / error / denied',
+      ),
+      edge(
+        `${nodePrefix}-states`,
+        `${nodePrefix}-remediation`,
+        'retry / permitted safe action',
+      ),
+    ],
   };
 };
 
@@ -157,6 +170,7 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     ],
     [
       edge('3-01-entry', 'mh-001', 'entry/auth'),
+      edge('3-01-storefront', 'mh-001', 'creator route'),
       edge('mh-001', 'mh-002', 'eligible → apply'),
       edge('mh-002', 'mh-003', 'submit → verify'),
       edge('mh-003', 'mh-004', 'verified → settings'),
@@ -251,6 +265,7 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     ],
     [
       edge('3-02-entry', 'mh-006', 'entry/auth'),
+      edge('3-02-storefront', 'mh-006', 'creator route'),
       edge('mh-006', 'mh-007', 'browse offers'),
       edge('mh-007', 'mh-008', 'select offer'),
       edge('3-02-entry', 'mh-009', 'invitation deep-link'),
@@ -268,12 +283,19 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     '3-03-ui',
     'Tracked link, product code, collection publication, conversion reporting, and earning or payment views.',
     [
-      surfaceBoundary('3-03', [
+      column('Surface boundary', [
         node(
-          '3-03-storefront',
-          'Storefront',
-          'Creator tools, public collection, PDP, and reporting routes.',
+          '3-03-auth-entry',
+          'Storefront — authenticated Creator',
+          'Authenticated entry/auth for creator asset tools and private reporting.',
           'creator',
+          'Extend',
+        ),
+        node(
+          '3-03-public-entry',
+          'Storefront — public Buyer',
+          'Public Buyer entry for collection or PDP resolution; no affiliate account required.',
+          'system',
           'Extend',
         ),
       ]),
@@ -303,8 +325,8 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
       column('Resolve & report', [
         node(
           'mh-015',
-          'MH-015 Public/PDP',
-          'Public collection or product destination with source context.',
+          'MH-015 Public Buyer/PDP',
+          'Public Buyer collection or product destination with source context.',
           'system',
           'Extend',
         ),
@@ -332,13 +354,14 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
       ),
     ],
     [
-      edge('3-03-entry', 'mh-012', 'link or code or collection'),
-      edge('3-03-entry', 'mh-013', 'code tool'),
-      edge('3-03-entry', 'mh-014', 'collection tool'),
+      edge('3-03-auth-entry', 'mh-012', 'link or code or collection'),
+      edge('3-03-auth-entry', 'mh-013', 'code tool'),
+      edge('3-03-auth-entry', 'mh-014', 'collection tool'),
+      edge('3-03-public-entry', 'mh-015', 'public resolve'),
       edge('mh-012', 'mh-015', 'resolve link'),
       edge('mh-013', 'mh-015', 'resolve code'),
       edge('mh-014', 'mh-015', 'publish collection'),
-      edge('3-03-entry', 'mh-016', 'reports'),
+      edge('3-03-auth-entry', 'mh-016', 'reports'),
       edge('mh-016', 'mh-017', 'earnings / payment'),
       edge('mh-015', '3-03-api', 'resolver result'),
       edge('mh-017', '3-03-api', 'financial query'),
@@ -414,6 +437,7 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     ],
     [
       edge('3-04-entry', 'mh-018', 'report row'),
+      edge('3-04-storefront', 'mh-018', 'creator report route'),
       edge('mh-018', 'mh-020', 'ledger detail'),
       edge('3-04-vendor', 'mh-019', 'seller config'),
       edge('3-04-admin', 'mh-021', 'admin evidence'),
@@ -428,28 +452,42 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     '3-05-ui',
     'Mobile-first Video discovery, creation, commerce detail, moderation, and appeal; native parity remains gated.',
     [
-      surfaceBoundary('3-05', [
+      column('Surface boundary', [
         node(
-          '3-05-storefront',
-          'Storefront',
-          'Responsive web feed, composer, detail sheet, and appeal routes.',
+          '3-05-auth-entry',
+          'Storefront — authenticated Creator',
+          'Authenticated entry/auth for composer, product tagging, and appeal routes.',
           'creator',
           'Extend',
         ),
         node(
-          '3-05-native',
-          'Native gate',
-          'Responsive web does not close native parity; validate on native app.',
+          '3-05-public-entry',
+          'Storefront — public Buyer/Viewer',
+          'Public Buyer/Viewer entry for the Video feed and commerce detail.',
           'system',
-          'Field-validation gate',
+          'Extend',
+        ),
+        node(
+          '3-05-vendor',
+          'Vendor Portal',
+          'Seller catalog eligibility supplies products to the creator picker.',
+          'seller',
+          'Extend',
+        ),
+        node(
+          '3-05-admin',
+          'Medusa Admin',
+          'Authorized moderation case, enforcement, and appeal boundary.',
+          'ops',
+          'Extend',
         ),
       ]),
       column('Discover & create', [
         node(
           'mh-022',
-          'MH-022 Video feed',
-          'Mobile-first feed with disclosure, product cue, and stable states.',
-          'creator',
+          'MH-022 Public Video feed',
+          'Mobile-first public Buyer/Viewer feed with disclosure, product cue, and stable states.',
+          'system',
           'New',
         ),
         node(
@@ -470,9 +508,9 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
       column('Commerce & enforcement', [
         node(
           'mh-025',
-          'MH-025 Detail sheet',
-          'Video detail, tagged product, voucher, and commerce action.',
-          'creator',
+          'MH-025 Buyer detail sheet',
+          'Buyer/Viewer video detail, tagged product, voucher, and commerce action.',
+          'system',
           'New',
         ),
         node(
@@ -481,6 +519,15 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
           'Enforcement reason, evidence upload, appeal status, and reference.',
           'ops',
           'New',
+        ),
+      ]),
+      column('Native closure', [
+        node(
+          '3-05-native',
+          'Native gate',
+          'Responsive web does not close native parity; require approved ADR, shipped implementation, and authenticated native evidence.',
+          'system',
+          'Field-validation gate',
         ),
       ]),
       authoritativeOutcome(
@@ -492,13 +539,22 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
       ),
     ],
     [
-      edge('3-05-entry', 'mh-022', 'entry/auth'),
+      edge('3-05-public-entry', 'mh-022', 'public Buyer/Viewer entry'),
       edge('mh-022', 'mh-025', 'open detail/product sheet'),
-      edge('3-05-entry', 'mh-023', 'create'),
+      edge('3-05-auth-entry', 'mh-023', 'authenticated create'),
       edge('mh-023', 'mh-024', 'pick product'),
+      edge('3-05-vendor', 'mh-024', 'seller eligible catalog'),
+      edge('3-05-admin', 'mh-026', 'moderation / appeal case'),
       edge('mh-024', '3-05-api', 'publish'),
       edge('3-05-remediation', 'mh-026', 'enforcement → appeal'),
       edge('mh-026', '3-05-api', 'submit appeal'),
+      edge('3-05-api', '3-05-native', 'implementation evidence', 'dashed'),
+      edge(
+        '3-05-native',
+        '3-05-audit',
+        'ADR + authenticated native proof',
+        'dotted',
+      ),
       edge('3-05-api', '3-05-audit', 'content and case evidence', 'dotted'),
     ],
   ),
@@ -506,28 +562,42 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     '3-06-ui',
     'Mobile-first LIVE discovery, host setup and console, viewer room, replay, reconnect, and enforcement.',
     [
-      surfaceBoundary('3-06', [
+      column('Surface boundary', [
         node(
-          '3-06-storefront',
-          'Storefront',
-          'Responsive web discovery, setup, host, viewer, and replay routes.',
+          '3-06-auth-entry',
+          'Storefront — authenticated Host',
+          'Authenticated entry/auth for LIVE setup and host-console routes.',
           'creator',
           'Extend',
         ),
         node(
-          '3-06-native',
-          'Native gate',
-          'Responsive web does not close native parity; validate on native app.',
+          '3-06-public-entry',
+          'Storefront — public Viewer',
+          'Public Viewer entry for LIVE discovery and direct viewer-room links.',
           'system',
-          'Field-validation gate',
+          'Extend',
+        ),
+        node(
+          '3-06-vendor',
+          'Vendor Portal',
+          'Seller catalog eligibility supplies products for the host tray.',
+          'seller',
+          'Extend',
+        ),
+        node(
+          '3-06-admin',
+          'Medusa Admin',
+          'Authorized LIVE moderation, ended-session, and replay evidence boundary.',
+          'ops',
+          'Extend',
         ),
       ]),
       column('Discover & host', [
         node(
           'mh-027',
-          'MH-027 Discovery',
-          'LIVE cards, schedule, host, disclosure, product cue, and state.',
-          'creator',
+          'MH-027 Public discovery',
+          'Public Viewer LIVE cards, schedule, host, disclosure, product cue, and state.',
+          'system',
           'New',
         ),
         node(
@@ -548,9 +618,9 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
       column('Watch & replay', [
         node(
           'mh-030',
-          'MH-030 Viewer room',
-          'Stream, product tray, pinned item, chat, reconnect, and checkout.',
-          'creator',
+          'MH-030 Public Viewer room',
+          'Public Viewer stream, product tray, pinned item, chat, reconnect, and checkout.',
+          'system',
           'New',
         ),
         node(
@@ -559,6 +629,15 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
           'Ended/replay state, product evidence, enforcement, and reference.',
           'ops',
           'New',
+        ),
+      ]),
+      column('Native closure', [
+        node(
+          '3-06-native',
+          'Native gate',
+          'Responsive web does not close native parity; require approved ADR, shipped implementation, and authenticated native evidence.',
+          'system',
+          'Field-validation gate',
         ),
       ]),
       authoritativeOutcome(
@@ -570,14 +649,24 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
       ),
     ],
     [
-      edge('3-06-entry', 'mh-027', 'entry/auth'),
+      edge('3-06-public-entry', 'mh-027', 'public discovery'),
+      edge('3-06-public-entry', 'mh-030', 'public viewer deep-link'),
       edge('mh-027', 'mh-030', 'join viewer room'),
-      edge('3-06-entry', 'mh-028', 'host'),
+      edge('3-06-auth-entry', 'mh-028', 'authenticated host'),
+      edge('3-06-vendor', 'mh-028', 'seller catalog / product tray'),
+      edge('3-06-admin', 'mh-031', 'moderation / replay evidence'),
       edge('mh-028', 'mh-029', 'preflight passed'),
       edge('mh-029', '3-06-api', 'host commands'),
       edge('mh-030', 'mh-031', 'replay/enforcement'),
       edge('mh-030', '3-06-api', 'viewer commerce'),
       edge('mh-031', '3-06-api', 'replay evidence'),
+      edge('3-06-api', '3-06-native', 'implementation evidence', 'dashed'),
+      edge(
+        '3-06-native',
+        '3-06-audit',
+        'ADR + authenticated native proof',
+        'dotted',
+      ),
       edge('3-06-api', '3-06-audit', 'session evidence', 'dotted'),
     ],
   ),
@@ -643,6 +732,7 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     ],
     [
       edge('3-07-entry', 'mh-032', 'seller entry/auth'),
+      edge('3-07-vendor', 'mh-032', 'seller PPS route'),
       edge('mh-032', 'mh-033', 'enrolled → configure'),
       edge('mh-033', 'mh-034', 'discover creators'),
       edge('mh-034', '3-07-api', 'internal chat'),
@@ -720,6 +810,7 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     ],
     [
       edge('3-08-entry', 'mh-036', 'entry/auth'),
+      edge('3-08-storefront', 'mh-036', 'creator collaboration route'),
       edge('mh-036', 'mh-037', 'open proposal'),
       edge('mh-037', 'mh-038', 'accepted / sample'),
       edge('mh-038', 'mh-039', 'received → deliver'),
@@ -736,9 +827,9 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     [
       surfaceBoundary('3-09', [
         node(
-          '3-09-vendor',
-          'Vendor Portal',
-          'MCN application, roster, role, campaign, and settlement routes.',
+          '3-09-storefront',
+          'Storefront',
+          'Canonical MCN boundary is apps/storefront/src/app/mcn/*; any move requires an approved ADR.',
           'mcn',
           'Extend',
         ),
@@ -799,6 +890,8 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     ],
     [
       edge('3-09-entry', 'mh-041', 'entry/auth'),
+      edge('3-09-storefront', 'mh-041', 'MCN storefront route'),
+      edge('3-09-admin', 'mh-041', 'verification oversight'),
       edge('mh-041', 'mh-042', 'approved → roster'),
       edge('mh-042', 'mh-043', 'membership → RBAC'),
       edge('mh-043', 'mh-044', 'authorized assignment'),
@@ -832,7 +925,7 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
         node(
           'mh-046',
           'MH-046 Wallet',
-          'Estimated, approved, payable, paid, held, and reversed balances.',
+          'Estimated, approved, payable, paid, and held are balance states; reversed is a compensating entry, not a balance state.',
           'money',
           'New',
         ),
@@ -877,6 +970,7 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     ],
     [
       edge('3-10-entry', 'mh-046', 'entry/auth'),
+      edge('3-10-storefront', 'mh-046', 'creator wallet route'),
       edge('mh-046', 'mh-047', 'setup required'),
       edge('mh-047', 'mh-048', 'verified → statement'),
       edge('3-10-entry', 'mh-049', 'notification deep-link'),
@@ -955,6 +1049,7 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     ],
     [
       edge('3-11-entry', 'mh-051', 'entry/auth'),
+      edge('3-11-storefront', 'mh-051', 'user report route'),
       edge('mh-051', 'mh-052', 'admin queue'),
       edge('mh-052', 'mh-053', 'open case graph'),
       edge('mh-053', 'mh-054', 'enforcement → user appeal'),
@@ -1027,6 +1122,7 @@ export const UI_SPECS: readonly TDiagramSpec[] = [
     ],
     [
       edge('3-12-entry', 'mh-056', 'entry/auth'),
+      edge('3-12-storefront', 'mh-056', 'creator property route'),
       edge('mh-056', 'mh-057', 'connect YouTube'),
       edge('mh-057', 'mh-058', 'authorized → feed sync'),
       edge('mh-058', 'mh-059', 'healthy feed → report'),

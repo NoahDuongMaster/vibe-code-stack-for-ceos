@@ -112,6 +112,13 @@ export const BACKEND_SPECS = [
           'creator',
           'New',
         ),
+        node(
+          'native-parity-gate',
+          'CN-004 Native parity gate',
+          'Parity closes only after an approved ADR, native implementation, and authenticated field evidence.',
+          'system',
+          'Field-validation gate',
+        ),
       ),
       column(
         'Evidence',
@@ -137,6 +144,7 @@ export const BACKEND_SPECS = [
         'remediation proof',
         'dotted',
       ),
+      edge('native-parity-gate', 'evidence', 'release-gate proof', 'dotted'),
     ],
   ),
   spec(
@@ -326,8 +334,9 @@ export const BACKEND_SPECS = [
       edge('code', 'resolver', 'resolve'),
       edge('collection', 'resolver', 'select product'),
       edge('resolver', 'click-proof', 'valid source'),
-      edge('click-proof', 'reports', 'aggregate', 'dashed'),
-      edge('conversion', 'earnings', 'order result', 'dashed'),
+      edge('click-proof', 'conversion', 'order-line event', 'dashed'),
+      edge('conversion', 'reports', 'attributed order line', 'dashed'),
+      edge('reports', 'earnings', 'earning detail'),
       edge('resolver', '2-03-backend-remediation', 'invalid or expired'),
       edge('reports', 'report-evidence', 'query proof', 'dotted'),
       edge('earnings', 'report-evidence', 'financial proof', 'dotted'),
@@ -335,7 +344,7 @@ export const BACKEND_SPECS = [
   ),
   spec(
     '2-04-backend',
-    'Replayable candidate selection, versioned attribution outcome, immutable rate snapshot, order-line journal, and safe appeal.',
+    'Replayable deterministic candidate selection, versioned attribution outcome, immutable rate snapshot, order-line journal, and safe appeal.',
     [
       column(
         'Observe',
@@ -359,14 +368,14 @@ export const BACKEND_SPECS = [
         node(
           'class',
           'CN-031–034 Class',
-          'Attribution class and precedence require field validation against observable outcomes.',
+          'Deterministic class and precedence use observable, versioned inputs and remain field-validation gated.',
           'system',
           'Field-validation gate',
         ),
         node(
           'winner',
           'Winner / version',
-          'Winner stores policy version and does not claim Shopee secret arbitration.',
+          'Winner stores the policy version, candidate reasons, and deterministic observable outcome.',
           'system',
           'New',
         ),
@@ -410,8 +419,9 @@ export const BACKEND_SPECS = [
       ),
     ],
     [
-      edge('touchpoints', 'class', 'eligible candidates'),
-      edge('candidates', 'winner', 'ranked outcome'),
+      edge('touchpoints', 'candidates', 'within window'),
+      edge('candidates', 'class', 'eligible set'),
+      edge('class', 'winner', 'deterministic outcome'),
       edge('winner', 'rate', 'winner version'),
       edge('rate', 'ledger', 'order-line snapshot'),
       edge('ledger', 'attribution-evidence', 'journal proof', 'dotted'),
@@ -440,7 +450,14 @@ export const BACKEND_SPECS = [
         ),
       ),
       column(
-        'Decorate',
+        'Moderate & decorate',
+        node(
+          'video-moderation',
+          'CN-045 Moderation',
+          'Pre-publish checks and post-publish actions return policy version, safe reason, scope, and reference.',
+          'ops',
+          'Extend',
+        ),
         node(
           'video-tags',
           'CN-042/044 Tags',
@@ -461,9 +478,16 @@ export const BACKEND_SPECS = [
         node(
           'video-publish',
           'Immutable publish',
-          'Publish creates an immutable version for CN-040 Feed/detail discovery.',
+          'Publish creates an immutable version of content, tags, and disclosure evidence.',
           'creator',
           'New',
+        ),
+        node(
+          'video-feed',
+          'CN-040 Feed / detail',
+          'Feed/detail extends community discovery with the immutable affiliate video version.',
+          'creator',
+          'Extend',
         ),
       ),
       column(
@@ -474,13 +498,6 @@ export const BACKEND_SPECS = [
           'Commerce click/order evidence links video, product, voucher, touchpoint, and order line.',
           'money',
           'New',
-        ),
-        node(
-          'video-moderation',
-          'CN-045 Moderation',
-          'Moderation returns policy version, safe reason, enforcement scope, and reference.',
-          'ops',
-          'Extend',
         ),
         node(
           '2-05-backend-remediation',
@@ -502,16 +519,20 @@ export const BACKEND_SPECS = [
       ),
     ],
     [
-      edge('video-draft', 'video-tags', 'transcoded draft'),
+      edge('video-draft', 'video-moderation', 'pre-publish check'),
+      edge('video-moderation', 'video-tags', 'approved draft'),
       edge('video-tags', 'video-publish', 'validated tags'),
-      edge('catalog-reference', 'video-publish', 'catalog status', 'dashed'),
-      edge('video-publish', 'video-commerce', 'discover and click'),
+      edge('catalog-reference', 'video-tags', 'catalog status', 'dashed'),
+      edge('video-publish', 'video-feed', 'published version'),
+      edge('video-feed', 'video-commerce', 'discover and click'),
       edge('video-commerce', 'video-evidence', 'order proof', 'dotted'),
       edge(
         'video-publish',
-        '2-05-backend-remediation',
-        'moderated or enforced',
+        'video-moderation',
+        'post-publish signal',
+        'dashed',
       ),
+      edge('video-moderation', '2-05-backend-remediation', 'action or appeal'),
       edge('video-moderation', 'video-evidence', 'decision proof', 'dotted'),
       edge(
         '2-05-backend-remediation',
@@ -589,8 +610,15 @@ export const BACKEND_SPECS = [
       column(
         'Evidence',
         node(
+          'live-recording',
+          'Recording / replay',
+          'Ended session starts recording processing; a ready recording becomes replay with moderation state.',
+          'system',
+          'New',
+        ),
+        node(
           'live-evidence',
-          'Replay evidence',
+          'Moderation evidence',
           'Replay/moderation evidence preserves stream version, chat action, commerce event, and reference.',
           'ops',
           'New',
@@ -599,12 +627,20 @@ export const BACKEND_SPECS = [
     ],
     [
       edge('live-prepare', 'live-metadata', 'preflight passed'),
-      edge('live-metadata', 'live-products', 'session active'),
-      edge('live-session', 'live-chat', 'realtime session', 'dashed'),
-      edge('live-products', 'live-conversion', 'viewer commerce'),
-      edge('live-chat', 'live-conversion', 'session context', 'dashed'),
-      edge('live-session', '2-06-backend-remediation', 'disconnect or end'),
+      edge('live-metadata', 'live-session', 'open session'),
+      edge('live-session', 'live-products', 'session active'),
+      edge('live-products', 'live-chat', 'active product context'),
+      edge('live-chat', 'live-conversion', 'viewer commerce', 'dashed'),
+      edge('live-session', '2-06-backend-remediation', 'disconnect'),
+      edge(
+        '2-06-backend-remediation',
+        'live-session',
+        'resume safely',
+        'dashed',
+      ),
+      edge('live-session', 'live-recording', 'session ended', 'dashed'),
       edge('live-conversion', 'live-evidence', 'conversion proof', 'dotted'),
+      edge('live-recording', 'live-evidence', 'replay proof', 'dotted'),
       edge(
         '2-06-backend-remediation',
         'live-evidence',
@@ -733,9 +769,9 @@ export const BACKEND_SPECS = [
         node(
           'sample',
           'CN-059 Sample',
-          'Sample shipment extends existing order, fulfillment, delivery, and return evidence.',
+          'New PPP sample shipment lifecycle reuses shipping/tracking adapters, not commerce fulfillment rows without an ADR.',
           'seller',
-          'Existing',
+          'New',
         ),
       ),
       column(
@@ -854,7 +890,7 @@ export const BACKEND_SPECS = [
     [
       edge('mcn-application', 'membership', 'approved agency'),
       edge('membership', 'mcn-rbac', 'accepted member'),
-      edge('mcn-rbac', 'mcn-revenue', 'authorized assignment'),
+      edge('mcn-rbac', 'mcn-assignment', 'authorized scope'),
       edge('mcn-assignment', 'mcn-revenue', 'campaign result', 'dashed'),
       edge('membership', '2-09-backend-remediation', 'leave or revoke'),
       edge('mcn-revenue', 'mcn-settlement', 'settle split', 'dashed'),
@@ -869,40 +905,68 @@ export const BACKEND_SPECS = [
   ),
   spec(
     '2-10-backend',
-    'Tax and payment gates, period wallet, immutable statement, provider payout, reconciliation, hold, retry, correction, and compensating evidence.',
+    'Approved earning accrual, open-period reconciliation, payee gates, held/payable allocation, immutable statement, provider payout, remediation, and compensating evidence.',
     [
       column(
-        'Verify payee',
+        'Accrue',
+        node(
+          'approved-earning',
+          'Approved earning',
+          'Approved affiliate journal entries enter an open reconciliation period before payee gating.',
+          'money',
+          'New',
+        ),
+        node(
+          'wallet-period',
+          'Open wallet / period',
+          'Wallet and open period summarize affiliate subledger balances without transferable stored value.',
+          'money',
+          'New',
+        ),
+      ),
+      column(
+        'Reconcile & gate',
+        node(
+          'reconciliation',
+          'Reconciliation',
+          'Order, refund, journal, and provider facts reconcile before the period is locked.',
+          'money',
+          'Extend',
+        ),
         node(
           'payment-gates',
           'CN-077 Payee gates',
-          'Identity/tax/payment gates consume provider status and masked references.',
+          'Identity/tax/payment gates consume masked provider status only after period reconciliation.',
           'money',
           'Extend',
         ),
       ),
       column(
-        'Close period',
+        'Classify allocation',
         node(
-          'wallet-period',
-          'Wallet / period',
-          'Wallet and period summarize affiliate subledger balances without transferable stored value.',
+          'held-payout',
+          'Held',
+          'Failed payee, risk, or minimum gate keeps the allocation held with a safe reason.',
+          'money',
+          'New',
+        ),
+        node(
+          'payable-payout',
+          'Payable',
+          'A cleared gate creates a funded payable allocation; it does not move money yet.',
           'money',
           'New',
         ),
       ),
       column(
-        'Issue statement',
+        'State, pay & recover',
         node(
           'statement',
           'CN-073 Statement',
-          'Statement snapshots payable lines, adjustments, withholding, and period totals.',
+          'Statement snapshots opening, earning, adjustments, withholding, payout allocation, and closing.',
           'money',
           'New',
         ),
-      ),
-      column(
-        'Pay & recover',
         node(
           'provider-payout',
           'Provider payout',
@@ -930,11 +994,16 @@ export const BACKEND_SPECS = [
       ),
     ],
     [
-      edge('payment-gates', 'wallet-period', 'gates clear'),
-      edge('wallet-period', 'statement', 'period close'),
-      edge('statement', 'provider-payout', 'payout instruction'),
+      edge('approved-earning', 'wallet-period', 'enter open period'),
+      edge('wallet-period', 'reconciliation', 'reconcile then lock'),
+      edge('reconciliation', 'payment-gates', 'locked period'),
+      edge('payment-gates', 'held-payout', 'blocked'),
+      edge('payment-gates', 'payable-payout', 'eligible'),
+      edge('held-payout', '2-10-backend-remediation', 'safe action'),
+      edge('payable-payout', 'statement', 'snapshot allocation'),
+      edge('statement', 'provider-payout', 'funded payout'),
       edge('provider-payout', 'payout-evidence', 'provider result', 'dashed'),
-      edge('statement', '2-10-backend-remediation', 'held or failed'),
+      edge('provider-payout', '2-10-backend-remediation', 'failed or reversed'),
       edge('statement', 'payout-evidence', 'statement proof', 'dotted'),
       edge(
         '2-10-backend-remediation',
@@ -1059,10 +1128,10 @@ export const BACKEND_SPECS = [
         'Synchronize & tag',
         node(
           'catalog-sync',
-          'Feed sync / tag',
-          'Catalog/feed sync reuses authoritative product state; external tag binds the affiliate asset.',
+          'YouTube feed / tag',
+          'New integration reuses authoritative catalog reads only; feed, eligibility sync, and tag lifecycle are affiliate-owned.',
           'seller',
-          'Existing',
+          'New',
         ),
       ),
       column(

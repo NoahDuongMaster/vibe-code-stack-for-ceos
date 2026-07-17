@@ -67,14 +67,15 @@ export const OVERVIEW_AND_TEST_SPECS = [
           {
             id: 'context-storefront',
             label: 'Storefront',
-            detail: 'Creator and buyer discovery, account, and reporting UI.',
+            detail:
+              'Creator, buyer, and MCN UI; MCN routes live at apps/storefront/src/app/mcn/*.',
             tone: 'creator',
             badge: 'Existing',
           },
           {
             id: 'context-vendor',
             label: 'Vendor Portal',
-            detail: 'Seller and MCN configuration and collaboration UI.',
+            detail: 'Seller configuration and collaboration UI.',
             tone: 'seller',
             badge: 'Extend',
           },
@@ -195,7 +196,7 @@ export const OVERVIEW_AND_TEST_SPECS = [
       },
       {
         from: 'context-mcn',
-        to: 'context-vendor',
+        to: 'context-storefront',
         label: 'manage roster',
         style: 'solid',
       },
@@ -362,7 +363,7 @@ export const OVERVIEW_AND_TEST_SPECS = [
             id: 'e2e-winner',
             label: 'Attribution winner',
             detail:
-              'Replayable winner and policy version, without secret-algorithm claims.',
+              'Replayable winner and policy version; unobservable internals remain field-validated.',
             tone: 'system',
             badge: 'Field-validation gate',
           },

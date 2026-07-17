@@ -182,6 +182,67 @@ const semanticText = (spec: (typeof BACKEND_SPECS)[number]): string =>
     .join(' ')
     .toLowerCase();
 
+const backendSpec = (key: string): (typeof BACKEND_SPECS)[number] => {
+  const spec = BACKEND_SPECS.find((item) => item.key === key);
+  assert.ok(spec, `${key} must exist`);
+  return spec;
+};
+
+const backendNode = (key: string, nodeId: string) => {
+  const found = backendSpec(key)
+    .columns.flatMap((column) => column.nodes)
+    .find((node) => node.id === nodeId);
+  assert.ok(found, `${key} must contain ${nodeId}`);
+  return found;
+};
+
+const isReachable = (
+  spec: (typeof BACKEND_SPECS)[number],
+  from: string,
+  to: string,
+): boolean => {
+  const adjacency = new Map<string, string[]>();
+  for (const edge of spec.edges) {
+    const destinations = adjacency.get(edge.from) ?? [];
+    destinations.push(edge.to);
+    adjacency.set(edge.from, destinations);
+  }
+
+  const pending = [from];
+  const visited = new Set<string>();
+  while (pending.length > 0) {
+    const current = pending.shift();
+    if (!current || visited.has(current)) {
+      continue;
+    }
+    if (current === to) {
+      return true;
+    }
+    visited.add(current);
+    pending.push(...(adjacency.get(current) ?? []));
+  }
+
+  return false;
+};
+
+const assertOrderedReachability = (
+  key: string,
+  orderedNodeIds: readonly string[],
+): void => {
+  const spec = backendSpec(key);
+  for (const nodeId of orderedNodeIds) {
+    backendNode(key, nodeId);
+  }
+  for (let index = 1; index < orderedNodeIds.length; index += 1) {
+    const from = orderedNodeIds[index - 1];
+    const to = orderedNodeIds[index];
+    assert.ok(
+      from && to && isReachable(spec, from, to),
+      `${key} must reach ${to} after ${from}`,
+    );
+  }
+};
+
 test('should define exactly the twelve approved backend keys', () => {
   const keys = BACKEND_SPECS.map((spec) => spec.key);
 
@@ -289,6 +350,116 @@ test('should include every approved lifecycle stage', () => {
       assert.ok(text.includes(term), `${spec.key} must include ${term}`);
     }
   }
+});
+
+test('should route every tracked asset through click, conversion, reporting, and earnings', () => {
+  for (const assetId of ['link', 'code', 'collection']) {
+    assertOrderedReachability('2-03-backend', [
+      assetId,
+      'resolver',
+      'click-proof',
+      'conversion',
+      'reports',
+      'earnings',
+      'report-evidence',
+    ]);
+  }
+});
+
+test('should resolve attribution in deterministic candidate order without secret-ranking claims', () => {
+  assertOrderedReachability('2-04-backend', [
+    'touchpoints',
+    'candidates',
+    'class',
+    'winner',
+    'rate',
+    'ledger',
+    'attribution-evidence',
+  ]);
+  assert.doesNotMatch(
+    semanticText(backendSpec('2-04-backend')),
+    /rank|secret/i,
+  );
+});
+
+test('should connect both pre-publish and post-publish video moderation paths', () => {
+  assertOrderedReachability('2-05-backend', [
+    'video-draft',
+    'video-moderation',
+    'video-tags',
+    'video-publish',
+    'video-feed',
+    'video-commerce',
+  ]);
+  assertOrderedReachability('2-05-backend', [
+    'video-publish',
+    'video-moderation',
+    '2-05-backend-remediation',
+    'video-evidence',
+  ]);
+});
+
+test('should open a live session before commerce and turn an ended session into replay evidence', () => {
+  assertOrderedReachability('2-06-backend', [
+    'live-prepare',
+    'live-metadata',
+    'live-session',
+    'live-products',
+    'live-chat',
+    'live-conversion',
+  ]);
+  assertOrderedReachability('2-06-backend', [
+    'live-session',
+    'live-recording',
+    'live-evidence',
+  ]);
+});
+
+test('should authorize an MCN assignment before its report, split, and settlement', () => {
+  assertOrderedReachability('2-09-backend', [
+    'mcn-application',
+    'membership',
+    'mcn-rbac',
+    'mcn-assignment',
+    'mcn-revenue',
+    'mcn-settlement',
+  ]);
+});
+
+test('should accrue earnings into an open period before payee gating and held/payable branches', () => {
+  assertOrderedReachability('2-10-backend', [
+    'approved-earning',
+    'wallet-period',
+    'reconciliation',
+    'payment-gates',
+    'held-payout',
+    '2-10-backend-remediation',
+    'payout-evidence',
+  ]);
+  assertOrderedReachability('2-10-backend', [
+    'approved-earning',
+    'wallet-period',
+    'reconciliation',
+    'payment-gates',
+    'payable-payout',
+    'statement',
+    'provider-payout',
+    'payout-evidence',
+  ]);
+});
+
+test('should describe source-fit truthfully for sample and YouTube feed/tag domains', () => {
+  assert.equal(backendNode('2-08-backend', 'sample').badge, 'New');
+  assert.equal(backendNode('2-12-backend', 'catalog-sync').badge, 'New');
+});
+
+test('should keep CN-004 parity open until native ADR, implementation, and authenticated evidence exist', () => {
+  const nativeGate = backendNode('2-01-backend', 'native-parity-gate');
+  assert.equal(nativeGate.badge, 'Field-validation gate');
+  assert.match(nativeGate.detail, /ADR/i);
+  assert.match(nativeGate.detail, /native implementation/i);
+  assert.match(nativeGate.detail, /authenticated field evidence/i);
+  assertOrderedReachability('2-01-backend', ['native-parity-gate', 'evidence']);
 });
 
 test('should render all twelve backend diagrams', () => {

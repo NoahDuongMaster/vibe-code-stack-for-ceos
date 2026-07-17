@@ -68,6 +68,66 @@ const column = (title: string, nodeCount: number): TDiagramColumn => ({
   })),
 });
 
+type TRect = Readonly<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}>;
+
+const nodeRect = (svg: string, nodeId: string): TRect => {
+  const match = svg.match(
+    new RegExp(
+      `<g data-node-id="${nodeId}"><rect x="([\\d.]+)" y="([\\d.]+)" width="([\\d.]+)" height="([\\d.]+)"`,
+    ),
+  );
+  assert.ok(match, `missing rendered node ${nodeId}`);
+
+  return {
+    x: Number(match[1]),
+    y: Number(match[2]),
+    width: Number(match[3]),
+    height: Number(match[4]),
+  };
+};
+
+const edgePath = (
+  svg: string,
+  from: string,
+  to: string,
+): { route: string; path: string } => {
+  const match = svg.match(
+    new RegExp(
+      `<path data-edge-from="${from}" data-edge-to="${to}" data-route="([^"]+)" d="([^"]+)"`,
+    ),
+  );
+  assert.ok(match, `missing rendered edge ${from} -> ${to}`);
+
+  return { route: match[1], path: match[2] };
+};
+
+const edgeLabelRect = (svg: string, from: string, to: string): TRect => {
+  const match = svg.match(
+    new RegExp(
+      `<g data-edge-label="true" data-edge-from="${from}" data-edge-to="${to}">[\\s\\S]*?<rect x="([\\d.]+)" y="([\\d.]+)" width="([\\d.]+)" height="([\\d.]+)"`,
+    ),
+  );
+  assert.ok(match, `missing rendered edge label ${from} -> ${to}`);
+
+  return {
+    x: Number(match[1]),
+    y: Number(match[2]),
+    width: Number(match[3]),
+    height: Number(match[4]),
+  };
+};
+
+const intersects = (left: TRect, right: TRect): boolean =>
+  left.x < right.x + right.width &&
+  left.x + left.width > right.x &&
+  left.y < right.y + right.height &&
+  left.y + left.height > right.y;
+
 test('should render a safe semantic SVG with all approved edge styles', () => {
   const svg = renderDiagram(FIXTURE);
 
@@ -121,7 +181,9 @@ test('should reserve a readable immediate label lane and paint a wrapped pill ab
 
   const laneLeft = Number(firstNode[1]) + Number(firstNode[2]);
   const laneRight = Number(secondNode[1]);
-  const labelGroup = svg.match(/<g data-edge-label="true">([\s\S]*?)<\/g>/);
+  const labelGroup = svg.match(
+    /<g data-edge-label="true"[^>]*>([\s\S]*?)<\/g>/,
+  );
   const labelPill = labelGroup?.[1].match(
     /<rect x="([\d.]+)"[^>]*width="([\d.]+)"[^>]*rx="10"[^>]*fill="#FFFFFF"/,
   );
@@ -135,7 +197,7 @@ test('should reserve a readable immediate label lane and paint a wrapped pill ab
       hasVisiblePill: Boolean(labelPill),
       labelUsesImmediateLane: pillLeft >= laneLeft && pillRight <= laneRight,
       paintedAfterNodes:
-        svg.indexOf('<g data-edge-label="true">') >
+        svg.indexOf('<g data-edge-label="true"') >
         svg.lastIndexOf('height="112" rx="16"'),
       wrappedLineCount,
     },
@@ -147,6 +209,120 @@ test('should reserve a readable immediate label lane and paint a wrapped pill ab
       wrappedLineCount: 2,
     },
   );
+});
+
+test('should route a same-column edge vertically outside both node rectangles', () => {
+  const svg = renderDiagram({
+    ...FIXTURE,
+    key: 'same-column-routing-fixture',
+    columns: [column('source', 2), column('adjacent', 1)],
+    edges: [
+      {
+        from: 'source-0',
+        to: 'source-1',
+        label: 'continue vertically',
+        style: 'solid',
+      },
+    ],
+  });
+  const source = nodeRect(svg, 'source-0');
+  const target = nodeRect(svg, 'source-1');
+  const adjacent = nodeRect(svg, 'adjacent-0');
+  const edge = edgePath(svg, 'source-0', 'source-1');
+  const label = edgeLabelRect(svg, 'source-0', 'source-1');
+  const coordinates = edge.path.match(/[\d.]+/g)?.map(Number) ?? [];
+  const sourceRight = source.x + source.width;
+
+  assert.equal(edge.route, 'same-column');
+  assert.match(
+    edge.path,
+    /^M [\d.]+ [\d.]+ C [\d.]+ [\d.]+, [\d.]+ [\d.]+, [\d.]+ [\d.]+$/,
+  );
+  assert.equal(coordinates[0], sourceRight);
+  assert.equal(coordinates.at(-2), target.x + target.width);
+  assert.ok(coordinates[2] > sourceRight);
+  assert.ok(coordinates[4] > sourceRight);
+  assert.ok(label.x >= sourceRight);
+  assert.ok(label.x + label.width <= adjacent.x);
+  assert.equal(intersects(label, source), false);
+  assert.equal(intersects(label, target), false);
+});
+
+test('should keep an adjacent back-edge path and label inside the shared column gap', () => {
+  const svg = renderDiagram({
+    ...FIXTURE,
+    key: 'adjacent-back-edge-routing-fixture',
+    columns: [column('destination', 1), column('source', 1)],
+    edges: [
+      {
+        from: 'source-0',
+        to: 'destination-0',
+        label: 'return safely',
+        style: 'solid',
+      },
+    ],
+  });
+  const destination = nodeRect(svg, 'destination-0');
+  const source = nodeRect(svg, 'source-0');
+  const edge = edgePath(svg, 'source-0', 'destination-0');
+  const label = edgeLabelRect(svg, 'source-0', 'destination-0');
+  const coordinates = edge.path.match(/[\d.]+/g)?.map(Number) ?? [];
+  const gapLeft = destination.x + destination.width;
+  const gapRight = source.x;
+
+  assert.equal(edge.route, 'back-adjacent');
+  assert.equal(coordinates[0], gapRight);
+  assert.equal(coordinates.at(-2), gapLeft);
+  assert.ok(coordinates[2] > gapLeft && coordinates[2] < gapRight);
+  assert.ok(coordinates[4] > gapLeft && coordinates[4] < gapRight);
+  assert.ok(label.x >= gapLeft);
+  assert.ok(label.x + label.width <= gapRight);
+  assert.equal(intersects(label, destination), false);
+  assert.equal(intersects(label, source), false);
+});
+
+test('should route a spanning back edge below intermediate nodes with its label', () => {
+  const svg = renderDiagram({
+    ...FIXTURE,
+    key: 'spanning-back-edge-routing-fixture',
+    columns: [
+      column('destination', 1),
+      column('intermediate', 1),
+      column('source', 1),
+    ],
+    edges: [
+      {
+        from: 'source-0',
+        to: 'destination-0',
+        label: 'return with evidence',
+        style: 'dotted',
+      },
+    ],
+  });
+  const nodes = [
+    nodeRect(svg, 'destination-0'),
+    nodeRect(svg, 'intermediate-0'),
+    nodeRect(svg, 'source-0'),
+  ];
+  const edge = edgePath(svg, 'source-0', 'destination-0');
+  const label = edgeLabelRect(svg, 'source-0', 'destination-0');
+  const coordinates = edge.path.match(/[\d.]+/g)?.map(Number) ?? [];
+  const maximumNodeBottom = Math.max(
+    ...nodes.map((node) => node.y + node.height),
+  );
+  const routeY = coordinates[3];
+
+  assert.equal(edge.route, 'back-exterior');
+  assert.match(
+    edge.path,
+    /^M [\d.]+ [\d.]+ H [\d.]+ V [\d.]+ H [\d.]+ V [\d.]+ H [\d.]+$/,
+  );
+  assert.ok(routeY > maximumNodeBottom);
+  assert.ok(label.y > maximumNodeBottom);
+  assert.ok(label.y + label.height < 820);
+  for (const node of nodes) {
+    assert.equal(intersects(label, node), false);
+  }
 });
 
 test('should reject fewer than two or more than five columns', () => {

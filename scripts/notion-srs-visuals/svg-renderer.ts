@@ -20,6 +20,7 @@ type TNodePosition = Readonly<{
   y: number;
   width: number;
   height: number;
+  columnIndex: number;
 }>;
 
 export const escapeXml = (value: string): string =>
@@ -114,6 +115,7 @@ export const renderDiagram = (spec: TDiagramSpec): string => {
         y: startY + nodeIndex * (nodeHeight + nodeGap),
         width: columnWidth,
         height: nodeHeight,
+        columnIndex,
       });
     });
   });
@@ -121,23 +123,63 @@ export const renderDiagram = (spec: TDiagramSpec): string => {
   const edgeLayouts = spec.edges.map((edge) => {
     const from = requirePosition(positions, edge.from, spec.key);
     const to = requirePosition(positions, edge.to, spec.key);
-    const goesRight = to.x >= from.x;
-    const direction = goesRight ? 1 : -1;
-    const x1 = goesRight ? from.x + from.width : from.x;
     const y1 = from.y + from.height / 2;
-    const x2 = goesRight ? to.x : to.x + to.width;
     const y2 = to.y + to.height / 2;
+
+    if (from.columnIndex === to.columnIndex) {
+      const routesRight = from.columnIndex < spec.columns.length - 1;
+      const direction = routesRight ? 1 : -1;
+      const x1 = routesRight ? from.x + from.width : from.x;
+      const x2 = routesRight ? to.x + to.width : to.x;
+      const laneX = x1 + direction * (gap / 2);
+
+      return {
+        edge,
+        route: 'same-column',
+        path: `M ${x1} ${y1} C ${laneX} ${y1}, ${laneX} ${y2}, ${x2} ${y2}`,
+        labelX: laneX,
+        labelY: (y1 + y2) / 2,
+      };
+    }
+
+    if (to.columnIndex < from.columnIndex) {
+      const x1 = from.x;
+      const x2 = to.x + to.width;
+      const sourceLaneX = x1 - gap / 2;
+      const targetLaneX = x2 + gap / 2;
+
+      if (from.columnIndex - to.columnIndex === 1) {
+        const laneX = (x1 + x2) / 2;
+
+        return {
+          edge,
+          route: 'back-adjacent',
+          path: `M ${x1} ${y1} C ${laneX} ${y1}, ${laneX} ${y2}, ${x2} ${y2}`,
+          labelX: laneX,
+          labelY: (y1 + y2) / 2,
+        };
+      }
+
+      const routeY = 760;
+
+      return {
+        edge,
+        route: 'back-exterior',
+        path: `M ${x1} ${y1} H ${sourceLaneX} V ${routeY} H ${targetLaneX} V ${y2} H ${x2}`,
+        labelX: (sourceLaneX + targetLaneX) / 2,
+        labelY: routeY,
+      };
+    }
+
+    const x1 = from.x + from.width;
+    const x2 = to.x;
     const bend = Math.max(28, Math.abs(x2 - x1) / 2);
 
     return {
       edge,
-      x1,
-      y1,
-      x2,
-      y2,
-      controlX1: x1 + direction * bend,
-      controlX2: x2 - direction * bend,
-      labelX: goesRight ? from.x + from.width + gap / 2 : from.x - gap / 2,
+      route: 'forward',
+      path: `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`,
+      labelX: from.x + from.width + gap / 2,
       labelY: (y1 + y2) / 2,
     };
   });
@@ -147,7 +189,7 @@ export const renderDiagram = (spec: TDiagramSpec): string => {
       const dash = DASH[edge.edge.style];
       const dashAttribute = dash ? ` stroke-dasharray="${dash}"` : '';
 
-      return `<path d="M ${edge.x1} ${edge.y1} C ${edge.controlX1} ${edge.y1}, ${edge.controlX2} ${edge.y2}, ${edge.x2} ${edge.y2}" fill="none" stroke="#56616F" stroke-width="3"${dashAttribute} marker-end="url(#arrow)"/>`;
+      return `<path data-edge-from="${escapeXml(edge.edge.from)}" data-edge-to="${escapeXml(edge.edge.to)}" data-route="${edge.route}" d="${edge.path}" fill="none" stroke="#56616F" stroke-width="3"${dashAttribute} marker-end="url(#arrow)"/>`;
     })
     .join('\n');
 
@@ -170,7 +212,7 @@ export const renderDiagram = (spec: TDiagramSpec): string => {
             ? `<text x="${position.x + position.width - 14}" y="${position.y + 22}" text-anchor="end" font-size="14" font-weight="700" fill="${color.text}">${escapeXml(node.badge)}</text>`
             : '';
 
-          return `<g><rect x="${position.x}" y="${position.y}" width="${position.width}" height="${position.height}" rx="16" fill="${color.fill}" stroke="${color.stroke}" stroke-width="3"/><text x="${position.x + 18}" y="${position.y + 35}" font-size="22" font-weight="700" fill="${color.text}">${escapeXml(node.label)}</text><text x="${position.x + 18}" y="${position.y + 68}" font-size="18" fill="${color.text}">${detail}</text>${badge}</g>`;
+          return `<g data-node-id="${escapeXml(node.id)}"><rect x="${position.x}" y="${position.y}" width="${position.width}" height="${position.height}" rx="16" fill="${color.fill}" stroke="${color.stroke}" stroke-width="3"/><text x="${position.x + 18}" y="${position.y + 35}" font-size="22" font-weight="700" fill="${color.text}">${escapeXml(node.label)}</text><text x="${position.x + 18}" y="${position.y + 68}" font-size="18" fill="${color.text}">${detail}</text>${badge}</g>`;
         })
         .join('\n');
 
@@ -193,7 +235,7 @@ export const renderDiagram = (spec: TDiagramSpec): string => {
         )
         .join('');
 
-      return `<g data-edge-label="true"><title>${escapeXml(edge.label)}</title><rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="10" fill="#FFFFFF" stroke="#697586" stroke-width="2"/><text x="${labelX}" y="${textY}" text-anchor="middle" font-size="15" font-weight="700" fill="#26303B">${text}</text></g>`;
+      return `<g data-edge-label="true" data-edge-from="${escapeXml(edge.from)}" data-edge-to="${escapeXml(edge.to)}"><title>${escapeXml(edge.label)}</title><rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="10" fill="#FFFFFF" stroke="#697586" stroke-width="2"/><text x="${labelX}" y="${textY}" text-anchor="middle" font-size="15" font-weight="700" fill="#26303B">${text}</text></g>`;
     })
     .join('\n');
 
