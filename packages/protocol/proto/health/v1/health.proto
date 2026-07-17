@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package api.v1;
+package health.v1;
 
-// Operational contracts shared by every microservice and client.
+// Operational health contract shared by every microservice and client.
 // One source of truth, gRPC- and Connect-compatible.
 
 message HealthRequest {}
@@ -13,7 +13,6 @@ message HealthResponse {
   string runtime = 3;
 }
 
-// The core API served identically on every runtime (Node, Cloudflare Workers).
-service ApiService {
+service HealthService {
   rpc Health(HealthRequest) returns (HealthResponse) {}
 }

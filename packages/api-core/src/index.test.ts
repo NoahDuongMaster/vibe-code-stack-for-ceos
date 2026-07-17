@@ -1,19 +1,19 @@
 import { createClient, createRouterTransport } from '@connectrpc/connect';
-import { ApiService } from '@packages/protocol';
+import { HealthService } from '@packages/protocol';
 import { describe, expect, it } from 'vitest';
 import { createFetchHandler, createRoutes } from './index';
 
 const config = { serviceName: 'test-service', runtime: 'test-runtime' };
 
 describe('createRoutes', () => {
-  it('should expose only supported ApiService methods', () => {
-    expect(ApiService.method).not.toHaveProperty('echo');
-    expect(ApiService.method).toHaveProperty('health');
+  it('should expose the HealthService health method', () => {
+    expect(HealthService.typeName).toBe('health.v1.HealthService');
+    expect(HealthService.method).toHaveProperty('health');
   });
 
   // In-memory transport — exercises the real handler logic with zero network.
   const client = createClient(
-    ApiService,
+    HealthService,
     createRouterTransport(createRoutes(config)),
   );
 
@@ -35,7 +35,7 @@ describe('createFetchHandler', () => {
     serviceName: 'edge',
     runtime: 'edge-runtime',
   });
-  const HEALTH_PATH = 'http://localhost/api.v1.ApiService/Health';
+  const HEALTH_PATH = 'http://localhost/health.v1.HealthService/Health';
 
   it('should return 404 for an unknown path', async () => {
     const res = await handler(new Request('http://localhost/does-not-exist'));
@@ -77,7 +77,7 @@ describe('createFetchHandler CORS', () => {
     runtime: 'edge-runtime',
     corsOrigins: ['https://admin.example.com'],
   };
-  const HEALTH_PATH = 'http://localhost/api.v1.ApiService/Health';
+  const HEALTH_PATH = 'http://localhost/health.v1.HealthService/Health';
 
   it('should answer an allowed-origin preflight with 204 and CORS headers', async () => {
     const handler = createFetchHandler(corsConfig);
