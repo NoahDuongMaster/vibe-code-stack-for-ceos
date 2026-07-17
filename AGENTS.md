@@ -56,18 +56,21 @@ Everything else (naming, testing, git, security) applies repo-wide.
 ## Commands
 
 ```bash
-pnpm install                  # pnpm only (enforced); Node >= 22 (engine-strict)
+mise install                  # install locked Node.js 22 + pnpm 11.2.2
+mise run install              # pnpm install --frozen-lockfile
 
-pnpm dev                      # all apps
-pnpm dev:web | dev:admin | dev:landing | dev:api    # one app
+mise run dev                  # all apps
+mise run dev:web | dev:admin | dev:landing | dev:api    # one app
 
-pnpm typecheck                # tsc --noEmit, all 8 workspaces
-pnpm check:ci                 # Biome (read-only), whole repo
-pnpm lint                     # ESLint (apps) / Biome (services) / buf lint (protocol)
-pnpm test                     # Vitest, all workspaces
-pnpm build                    # production builds
-pnpm check                    # Biome auto-fix + format
+mise run typecheck            # tsc --noEmit, all 8 workspaces
+mise run check:ci             # Biome (read-only), whole repo
+mise run lint                 # ESLint / Biome / buf / architecture checks
+mise run test                 # toolchain tests + Vitest, all workspaces
+mise run build                # production builds
+mise run check                # Biome auto-fix + format
+mise run verify               # all definition-of-done gates, sequentially
 
+# Direct pnpm remains supported for targeted execution.
 pnpm --filter @apps/dapp test                                   # one workspace
 pnpm --filter @apps/dapp exec vitest run <path-to-test-file>    # one test file
 pnpm test:e2e                 # Playwright (apps/dapp/e2e/); needs browsers installed
@@ -77,11 +80,11 @@ pnpm test:e2e                 # Playwright (apps/dapp/e2e/); needs browsers inst
 
 Run these before declaring any task complete. CI runs exactly the same gates.
 
-- [ ] `pnpm typecheck` — zero errors
-- [ ] `pnpm check:ci` — zero errors
-- [ ] `pnpm lint` — zero errors
-- [ ] `pnpm test` — all pass; new logic has tests
-- [ ] `pnpm build` — if you touched build-relevant code or config
+- [ ] `mise run typecheck` — zero errors
+- [ ] `mise run check:ci` — zero errors
+- [ ] `mise run lint` — zero errors
+- [ ] `mise run test` — all pass; new logic has tests
+- [ ] `mise run build` — if you touched build-relevant code or config
 
 Deploys are CI-gated only (`.github/workflows/deploy.yml`; `develop` → staging,
 `main` → production). NEVER deploy from a local machine.
