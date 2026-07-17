@@ -1,7 +1,7 @@
 # Thiết kế lại sơ đồ SRS tiếng Việt và dễ đọc trên Notion
 
 **Ngày:** 18/07/2026  
-**Trạng thái:** Chờ người dùng duyệt bản viết  
+**Trạng thái:** Đã được người dùng duyệt; chờ triển khai
 **Phạm vi:** 28 SVG kỹ thuật của SRS Benadep Affiliate & Creator Commerce  
 **Thiết kế gốc:** `2026-07-18-notion-srs-visual-diagrams-design.md`
 
@@ -48,6 +48,8 @@ Các nội dung sau được giữ nguyên:
 - tên sản phẩm hoặc surface như `Storefront`, `Vendor Portal`, `Medusa Admin`, `YouTube`, `OAuth`, `BFF/API`;
 - thuật ngữ kỹ thuật phổ biến khi việc dịch làm giảm độ chính xác, ví dụ webhook, replay, ledger, RBAC và idempotency. Phần diễn giải xung quanh vẫn phải bằng tiếng Việt.
 
+Giữ nguyên định danh và khoảng số của `codeRange`, nhưng phần mô tả tiếng Anh gắn sau mã phải được Việt hóa; ví dụ `SP-001–SP-084 overview` trở thành `SP-001–SP-084 — tổng quan`.
+
 Badge chuẩn:
 
 | Hiện tại | Sau khi Việt hóa |
@@ -65,11 +67,11 @@ Canvas được chia thành các vùng cố định:
 
 | Vùng | Khoảng dọc | Nội dung |
 |---|---:|---|
-| Header | `0–150` | Tiêu đề, code range, mô tả phạm vi |
-| Band 1 | `170–825` | Nửa đầu luồng |
-| Handoff | `825–930` | Connector đánh số giữa hai band |
-| Band 2 | `930–1585` | Nửa sau luồng |
-| Footer | `1640–1800` | Chú giải, cảnh báo normative text |
+| Header | `0–145` | Tiêu đề, code range, mô tả phạm vi |
+| Band 1 | `155–845` | Nửa đầu luồng |
+| Handoff | `845–900` | Connector đánh số giữa hai band |
+| Band 2 | `900–1590` | Nửa sau luồng |
+| Footer | `1610–1800` | Chú giải, cảnh báo normative text |
 
 Kích thước chữ tối thiểu:
 
@@ -86,7 +88,9 @@ Kích thước chữ tối thiểu:
 | Nhãn connector | 22 px |
 | Chú giải/footer | 22 px |
 
-Node được tăng chiều cao theo số dòng thực tế, tối đa bốn dòng chi tiết. Không cắt nội dung bằng dấu `…`. Nếu nội dung vượt quá bốn dòng, generation phải thất bại và yêu cầu biên tập lại câu chữ thay vì âm thầm truncate.
+Node được tăng chiều cao theo số dòng thực tế, tối đa hai dòng tiêu đề và bốn dòng chi tiết. Cột mật độ cao có thể buộc câu chi tiết ngắn hơn để bốn node vẫn vừa band, nhưng không được bỏ yêu cầu hoặc đổi nghĩa. Không cắt nội dung bằng dấu `…`. Nếu nội dung hoặc toàn cột không vừa, generation phải thất bại và yêu cầu biên tập lại câu chữ thay vì âm thầm truncate.
+
+Đường dẫn, route và mã dài được phép ngắt tại dấu phân cách như `/`, `.`, `-` mà không làm mất hoặc thay đổi ký tự. Layout engine phải tính trước rectangle cho header, tiêu đề cột, tiêu đề/chi tiết/badge node, connector label và reference chip; renderer chỉ dùng metadata này, không tự tính lại vị trí chữ.
 
 ## 5. Routing không chồng chéo
 
@@ -94,12 +98,17 @@ Chỉ primary flow được biểu diễn bằng đường nối liên tục gi�
 
 1. **Forward edge trong cùng band:** đường orthogonal đi qua gutter giữa hai cột; mỗi edge có lane riêng.
 2. **Same-column edge:** đi theo side rail của cột; các rail được cấp offset khác nhau.
-3. **Cross-band edge:** không kéo một đường dài qua hai tầng. Source và target dùng một cặp handoff marker cùng số, ví dụ `① Tiếp tục` và `① Nhận luồng`.
-4. **Back-edge:** dùng cặp reference marker `R1`, `R2`,... tại hai node thay cho đường quay ngược xuyên sơ đồ.
-5. **Audit/evidence edge:** dùng evidence reference `E1`, `E2`,...; node nguồn mang chip `→ E1`, node bằng chứng mang chip `E1`.
-6. **Async/webhook edge:** chỉ vẽ nét đứt khi nằm trong cùng band và có lane trống; nếu đi qua band hoặc quay ngược thì dùng marker `A1`, `A2`,...
+3. **Forward edge bỏ qua một cột:** dùng reference marker `N1`, `N2`,... thay vì kéo path xuyên cột trung gian.
+4. **Cross-band edge:** không kéo một đường dài qua hai tầng. Source hiển thị marker kèm nhãn edge, ví dụ `① · Tiếp tục payout`; target hiển thị marker `①` tương ứng.
+5. **Back-edge:** dùng cặp reference marker `R1`, `R2`,... tại hai node thay cho đường quay ngược xuyên sơ đồ.
+6. **Audit/evidence edge:** dùng evidence reference `E1`, `E2`,...; node nguồn mang chip `→ E1`, node bằng chứng mang chip `E1`.
+7. **Async/webhook edge:** chỉ vẽ nét đứt khi nằm trong cùng band, nối hai cột kề nhau và có lane trống; các trường hợp khác dùng marker `A1`, `A2`,...
 
 Mỗi connector label nằm trong vùng gutter hoặc handoff riêng, không phủ lên node. Renderer phải gắn metadata cho lane/reference để validator kiểm tra hình học.
+
+Mọi reference pair hiển thị nhãn edge đầy đủ ở đầu nguồn và mã gọn ở đầu đích; cả hai đầu có SVG `<title>` chứa nhãn đầy đủ. Node hội tụ nhiều reference xếp mã đích theo lưới ổn định để không ép mười nhãn dài vào cùng một node.
+
+Thứ tự phân loại bắt buộc giữ nghĩa của edge trước vị trí: edge `dotted` luôn dùng `E*`; edge `dashed` chỉ được vẽ khi đi tới cột liền kề trong cùng band, còn lại dùng `A*`; sau đó edge `solid` mới lần lượt xét cross-band `①`, back-edge `R*`, forward jump `N*`, same-column rail hoặc forward lane.
 
 ## 6. Mô hình dữ liệu và renderer
 
@@ -172,7 +181,7 @@ Sau 28 lần thay, audit lại:
 - 26 child pages, 59 MH, 59 component contracts và 470 component rows còn nguyên;
 - không có attachment, heading, filename hoặc caption trùng.
 
-Master giữ version `0.5` vì đây là correction trong cùng vòng review, không thay đổi functional baseline. Dòng changelog `0.5` được cập nhật để ghi nhận ảnh đã được Việt hóa và tái bố cục cho khả năng đọc.
+Master giữ phiên bản `0.5` vì đây là đợt hiệu chỉnh trong cùng vòng review, không thay đổi đường cơ sở chức năng. Dòng changelog `0.5` được cập nhật để ghi nhận ảnh đã được Việt hóa và tái bố cục cho khả năng đọc.
 
 ## 9. Tiêu chí nghiệm thu
 
