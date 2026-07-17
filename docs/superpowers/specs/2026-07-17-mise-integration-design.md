@@ -71,7 +71,7 @@ keeps deployment authority in GitHub Actions.
 
 Add a root `mise.toml` with:
 
-- A hard minimum mise version of `2026.7.8`.
+- A hard minimum mise version of `2026.7.7`.
 - Node.js requested as major version `22`.
 - pnpm pinned to `11.2.2`, matching `package.json#packageManager`.
 - Mise lockfile support enabled.
@@ -135,7 +135,7 @@ Create a repository-local composite action under
 `.github/actions/setup-toolchain/action.yml`. Every relevant job calls it after
 checkout. The action will:
 
-1. Install mise CLI `2026.7.8` with `jdx/mise-action@v4`.
+1. Install mise CLI `2026.7.7` with `jdx/mise-action@v4`.
 2. Install tools from the committed config and `mise.lock` in locked mode.
 3. Restore/cache the pnpm content-addressable store using the resolved store
    path and `pnpm-lock.yaml` hash.

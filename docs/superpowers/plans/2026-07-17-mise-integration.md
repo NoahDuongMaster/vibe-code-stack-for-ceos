@@ -6,11 +6,11 @@
 
 **Architecture:** A root `mise.toml` owns tool versions and delegates stable tasks to existing pnpm scripts and Make targets. A repository-local composite GitHub Action installs the locked mise toolchain and restores the pnpm store, while workflows consume that action instead of duplicating Node/pnpm setup. Compatibility files and direct pnpm commands remain supported.
 
-**Tech Stack:** mise 2026.7.8, Node.js 22, pnpm 11.2.2, TOML, Node.js built-in test runner, GitHub composite actions, GitHub Actions, Turborepo, Make.
+**Tech Stack:** mise 2026.7.7, Node.js 22, pnpm 11.2.2, TOML, Node.js built-in test runner, GitHub composite actions, GitHub Actions, Turborepo, Make.
 
 ## Global Constraints
 
-- Use mise `2026.7.8` as the hard minimum and the pinned CI CLI version.
+- Use mise `2026.7.7` as the hard minimum and the pinned CI CLI version.
 - Request Node.js major `22`; commit `mise.lock` to lock its resolved patch version.
 - Pin pnpm exactly to `11.2.2`, matching `package.json#packageManager`.
 - Add no dependency and do not replace pnpm scripts, Turborepo, or Make.
@@ -240,7 +240,7 @@ mise.*.local.toml
 Create `mise.toml`:
 
 ```toml
-min_version = "2026.7.8"
+min_version = "2026.7.7"
 
 [tools]
 node = "22"
@@ -354,14 +354,14 @@ export MISE_CACHE_DIR="$mise_test_root/cache"
 export MISE_STATE_DIR="$mise_test_root/state"
 export MISE_CONFIG_DIR="$mise_test_root/config"
 curl -fsSL https://mise.run | \
-  MISE_VERSION=v2026.7.8 MISE_INSTALL_PATH="$mise_test_root/mise" sh
+  MISE_VERSION=v2026.7.7 MISE_INSTALL_PATH="$mise_test_root/mise" sh
 "$mise_test_root/mise" trust mise.toml
 "$mise_test_root/mise" lock \
   --platform linux-x64,linux-arm64,macos-x64,macos-arm64
 "$mise_test_root/mise" install --locked
 ```
 
-Expected: mise 2026.7.8 creates `mise.lock` entries for CI Linux and supported macOS/Linux development architectures, then installs Node.js 22 and pnpm 11.2.2 without an unlocked metadata fallback. `.cache/mise-integration` remains ignored and isolated from the user's global mise state.
+Expected: mise 2026.7.7 creates `mise.lock` entries for CI Linux and supported macOS/Linux development architectures, then installs Node.js 22 and pnpm 11.2.2 without an unlocked metadata fallback. `.cache/mise-integration` remains ignored and isolated from the user's global mise state.
 
 - [ ] **Step 8: Validate the task surface and active versions**
 
@@ -447,7 +447,7 @@ runs:
     - name: Install mise toolchain
       uses: jdx/mise-action@v4
       with:
-        version: 2026.7.8
+        version: 2026.7.7
         install_args: --locked
         cache: true
 
