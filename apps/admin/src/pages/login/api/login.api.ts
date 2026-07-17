@@ -11,7 +11,7 @@ import { ENABLE_MOCK_AUTH } from '@/shared/config';
  * that doesn't set it refuses every attempt instead of accepting anyone.
  *
  * To wire up real auth:
- *   1. Add an AuthService (Login RPC) to packages/protocol/proto/api/api.proto.
+ *   1. Add an AuthService (Login RPC) to packages/protocol/proto/auth/v1/auth.proto.
  *   2. Regenerate, then call it here via @packages/api-client instead of simulating.
  *   3. Delete this mock and PUBLIC_ENABLE_MOCK_AUTH entirely.
  * The store / hooks / components above stay untouched either way.

@@ -1,6 +1,6 @@
 import { createClient, createRouterTransport } from '@connectrpc/connect';
 import { createRoutes } from '@packages/api-core';
-import { ApiService } from '@packages/protocol';
+import { HealthService } from '@packages/protocol';
 import { parseRuntimeConfig } from '@/config/runtime-config';
 
 /**
@@ -12,7 +12,7 @@ const config = parseRuntimeConfig(process.env);
 const transport = createRouterTransport(
   createRoutes({ serviceName: config.serviceName, runtime: 'node' }),
 );
-const client = createClient(ApiService, transport);
+const client = createClient(HealthService, transport);
 
 const writeOutput = (label: string, value: unknown): void => {
   process.stdout.write(`${label} → ${JSON.stringify(value)}\n`);

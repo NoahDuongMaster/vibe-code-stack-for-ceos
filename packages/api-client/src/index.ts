@@ -1,11 +1,11 @@
 import { type Client, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
-import { ApiService, TradingService } from '@packages/protocol';
+import { HealthService, TradingService } from '@packages/protocol';
 
 /**
- * End-to-end type-safe client for the backend API (Connect RPC).
+ * End-to-end type-safe client for the shared health contract (Connect RPC).
  *
- * Point it at any service that serves ApiService (trading-rpc, api-gateway, …).
+ * Point it at any runtime serving HealthService (trading-rpc, api-gateway, …).
  * Every call is typed from the proto contract — no drift, gRPC-compatible:
  *
  *   const client = createApiClient('http://localhost:3001')
@@ -15,10 +15,10 @@ import { ApiService, TradingService } from '@packages/protocol';
 export const createApiClient = (
   baseUrl: string,
   options?: Omit<Parameters<typeof createConnectTransport>[0], 'baseUrl'>,
-): Client<typeof ApiService> =>
-  createClient(ApiService, createConnectTransport({ baseUrl, ...options }));
+): Client<typeof HealthService> =>
+  createClient(HealthService, createConnectTransport({ baseUrl, ...options }));
 
-export type ApiClient = Client<typeof ApiService>;
+export type ApiClient = Client<typeof HealthService>;
 
 /** Typed client for the service-owned TradingService, normally via the gateway. */
 export const createTradingClient = (

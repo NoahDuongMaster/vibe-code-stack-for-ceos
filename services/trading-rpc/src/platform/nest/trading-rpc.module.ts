@@ -1,6 +1,6 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
-import { ApiGrpcController } from '@/adapters/grpc/api.grpc.controller';
+import { HealthGrpcController } from '@/adapters/grpc/health.grpc.controller';
 import { HealthController } from '@/adapters/http/health.controller';
 import {
   MarketDataModule,
@@ -21,7 +21,7 @@ export class TradingRpcModule {
     return {
       module: TradingRpcModule,
       imports: [MarketDataModule.register(options)],
-      controllers: [ApiGrpcController, HealthController],
+      controllers: [HealthGrpcController, HealthController],
       providers: [
         SentryLifecycleService,
         {

@@ -115,7 +115,7 @@ export async function createServer(
         transport: Transport.GRPC,
         options: {
           url: options.grpcUrl ?? '0.0.0.0:50051',
-          package: ['api.v1', 'trading.v1'],
+          package: ['health.v1', 'trading.v1'],
           protoPath: resolveGrpcProtoPaths(),
           gracefulShutdown: true,
           loader: {

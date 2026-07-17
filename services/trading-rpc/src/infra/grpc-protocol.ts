@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const PROTO_FILES = [
-  ['api', 'v1', 'api.proto'],
+  ['health', 'v1', 'health.proto'],
   ['trading', 'v1', 'trading.proto'],
 ] as const;
 

@@ -6,7 +6,7 @@ import {
   createConnectTransport,
   createGrpcTransport,
 } from '@connectrpc/connect-node';
-import { ApiService, TradingService } from '@packages/protocol';
+import { HealthService, TradingService } from '@packages/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createServer } from '@/adapters/http.adapter';
 import { CoinId } from '@/features/market-data/domain/coin-id';
@@ -132,7 +132,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
 
   function grpcClient(rpcBaseUrl = baseUrl) {
     return createClient(
-      ApiService,
+      HealthService,
       createGrpcTransport({ baseUrl: rpcBaseUrl }),
     );
   }
@@ -207,7 +207,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
   it('should serve the configured service name over Connect', async () => {
     await start({ http2: false });
     const client = createClient(
-      ApiService,
+      HealthService,
       createConnectTransport({ baseUrl, httpVersion: '1.1' }),
     );
 
@@ -221,7 +221,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
     const logs = captureJsonLogs();
     await start({ http2: false, logger: { stream: logs.stream } });
 
-    const response = await fetch(`${baseUrl}/api.v1.ApiService/Health`, {
+    const response = await fetch(`${baseUrl}/health.v1.HealthService/Health`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -239,7 +239,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
       serviceName,
       runtime: 'node',
       protocol: 'connect',
-      rpcService: 'api.v1.ApiService',
+      rpcService: 'health.v1.HealthService',
       rpcMethod: 'Health',
       res: { statusCode: 200 },
     });
@@ -457,7 +457,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
     await start({ corsOrigins: ['https://admin.example.com'] });
 
     const res = await h2(baseUrl, {
-      path: '/api.v1.ApiService/Health',
+      path: '/health.v1.HealthService/Health',
       method: 'OPTIONS',
       headers: {
         origin: 'https://admin.example.com',
@@ -474,7 +474,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
     await start({ corsOrigins: ['https://admin.example.com'] });
 
     const res = await h2(baseUrl, {
-      path: '/api.v1.ApiService/Health',
+      path: '/health.v1.HealthService/Health',
       method: 'OPTIONS',
       headers: {
         origin: 'https://evil.example.com',

@@ -4,10 +4,10 @@ import { healthService } from '@packages/api-core';
 import { SERVICE_NAME } from '@/platform/nest/trading-rpc.tokens';
 
 @Controller()
-export class ApiGrpcController {
+export class HealthGrpcController {
   constructor(@Inject(SERVICE_NAME) private readonly serviceName: string) {}
 
-  @GrpcMethod('ApiService', 'Health')
+  @GrpcMethod('HealthService', 'Health')
   health() {
     return healthService.check(this.serviceName, 'node');
   }

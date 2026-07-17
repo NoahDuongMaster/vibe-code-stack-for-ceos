@@ -1,5 +1,8 @@
 /** Operational paths that bypass both authentication and rate limiting. */
-export const PUBLIC_PATHS = ['/healthz', '/api.v1.ApiService/Health'] as const;
+export const PUBLIC_PATHS = [
+  '/healthz',
+  '/health.v1.HealthService/Health',
+] as const;
 
 export const CORS_ALLOWED_HEADERS = [
   'Content-Type',

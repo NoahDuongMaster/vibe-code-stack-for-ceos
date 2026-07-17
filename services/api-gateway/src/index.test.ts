@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TGatewayBindings } from '@/adapters/cloudflare/gateway-bindings';
 import worker, { createGatewayWorker, type RateLimiterDO } from '@/index';
 
-const HEALTH_URL = 'http://gateway.test/api.v1.ApiService/Health';
+const HEALTH_URL = 'http://gateway.test/health.v1.HealthService/Health';
 const MARKETS_URL = 'http://gateway.test/trading.v1.TradingService/GetMarkets';
 const JWT_SECRET = 'test-secret';
 

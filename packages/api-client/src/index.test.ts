@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApiClient, createTradingClient } from './index';
 
-const HEALTH_URL = 'http://localhost:3001/api.v1.ApiService/Health';
+const HEALTH_URL = 'http://localhost:3001/health.v1.HealthService/Health';
 const MARKETS_URL =
   'http://localhost:8787/trading.v1.TradingService/GetMarkets';
 
@@ -10,7 +10,7 @@ describe('createApiClient', () => {
     vi.unstubAllGlobals();
   });
 
-  it('should build a client exposing every ApiService method', () => {
+  it('should build a client exposing the HealthService method', () => {
     const client = createApiClient('http://localhost:3001');
 
     expect(client).not.toHaveProperty('echo');
