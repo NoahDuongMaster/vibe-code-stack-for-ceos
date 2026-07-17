@@ -31,6 +31,9 @@
   "dependencies": {
     "@ark-ui/react": "^5.37.2",
     "@hookform/resolvers": "^5.4.0",
+    "@packages/api-client": "workspace:*",
+    "@react-three/drei": "10.7.7",
+    "@react-three/fiber": "9.6.1",
     "@sentry/nextjs": "10.59.0",
     "@t3-oss/env-nextjs": "^0.13.11",
     "@tanstack/react-query": "^5.101.0",
@@ -50,6 +53,7 @@
     "react-hook-form": "^7.80.0",
     "server-only": "^0.0.1",
     "snakecase-keys": "9.0.2",
+    "three": "0.185.1",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
@@ -67,6 +71,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^26.0.0",
     "@types/react": "^19.2.17",
+    "@types/three": "0.185.1",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-react-swc": "^4.3.1",
     "@vitejs/plugin-rsc": "0.5.27",

@@ -5,7 +5,7 @@ const env = {
   client: createEnv({
     client: {
       NEXT_PUBLIC_PROJECT_NAME: z.string().min(1),
-      NEXT_PUBLIC_API_ENDPOINT: z.string().min(1).includes('http').nullish(),
+      NEXT_PUBLIC_API_ENDPOINT: z.url(),
       NEXT_PUBLIC_BASE_URL: z.string().url(),
       NEXT_PUBLIC_CORS_COOKIE: z.string().nullish(),
       NEXT_PUBLIC_DEBUG: z.string().nullish(),
