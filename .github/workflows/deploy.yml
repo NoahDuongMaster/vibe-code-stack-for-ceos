@@ -9,9 +9,6 @@ on:
     types: [completed]
     branches: [main, develop]
 
-env:
-  NODE_VERSION: "22"
-
 permissions:
   contents: read
 
@@ -44,14 +41,8 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -117,14 +108,8 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

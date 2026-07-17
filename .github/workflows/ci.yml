@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [main, develop]
 
-env:
-  NODE_VERSION: "22"
-
 # Least privilege by default; no job here needs to write to the repo.
 permissions:
   contents: read
@@ -26,14 +23,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -47,7 +38,7 @@ jobs:
             ${{ runner.os }}-turbo-typecheck-
 
       - name: Type check
-        run: pnpm typecheck
+        run: mise run typecheck
 
   lint:
     name: Lint
@@ -57,14 +48,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -78,10 +63,10 @@ jobs:
             ${{ runner.os }}-turbo-lint-
 
       - name: Biome check
-        run: pnpm check:ci
+        run: mise run check:ci
 
       - name: ESLint
-        run: pnpm lint
+        run: mise run lint
 
   test:
     name: Unit Tests
@@ -91,14 +76,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -112,7 +91,7 @@ jobs:
             ${{ runner.os }}-turbo-test-
 
       - name: Run tests
-        run: pnpm test
+        run: mise run test
 
   security:
     name: Security Audit
@@ -122,14 +101,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -149,14 +122,8 @@ jobs:
           # the default shallow (depth-1) checkout only has this one commit.
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -189,14 +156,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -210,7 +171,7 @@ jobs:
             ${{ runner.os }}-turbo-build-
 
       - name: Build
-        run: pnpm build
+        run: mise run build
         env:
           NODE_ENV: production
           NEXT_PUBLIC_PROJECT_NAME: ci-build
