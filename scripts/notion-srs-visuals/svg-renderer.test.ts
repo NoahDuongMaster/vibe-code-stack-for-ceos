@@ -1,37 +1,63 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { layoutDiagram } from './diagram-layout.ts';
 import { renderDiagram } from './svg-renderer.ts';
 
 import type { TDiagramColumn, TDiagramSpec } from './types.ts';
 
 const FIXTURE: TDiagramSpec = {
   key: 'safe-renderer-fixture',
-  title: 'Affiliate <overview> & "evidence"',
-  subtitle: 'Creator to platform flow',
-  scope: 'CN-001–CN-003',
+  title: 'Tổng quan <affiliate> & "bằng chứng"',
+  subtitle: 'Luồng Creator đến nền tảng',
+  scope: 'CN-001–CN-003 — kiểm thử renderer',
   columns: [
     {
-      title: 'Creator & channel',
+      title: 'Creator & kênh',
       nodes: [
         {
           id: 'creator',
-          label: 'Creator <profile>',
-          detail: "Creator's verified channel & affiliate assets",
+          label: 'Hồ sơ Creator <đã xác minh>',
+          detail:
+            "Kênh Creator's đã xác minh & toàn bộ tài sản affiliate sẵn sàng để phát hành an toàn",
           tone: 'creator',
-          badge: 'Existing',
+          badge: 'Hiện có',
         },
       ],
     },
     {
-      title: 'Benadep platform',
+      title: 'Nền tảng Benadep',
       nodes: [
         {
           id: 'platform',
-          label: 'Attribution service',
-          detail: 'Records order-line evidence',
+          label: 'Dịch vụ attribution',
+          detail: 'Ghi nhận bằng chứng theo từng dòng đơn hàng',
           tone: 'system',
-          badge: 'Extend',
+          badge: 'Mở rộng',
+        },
+      ],
+    },
+    {
+      title: 'Đối soát',
+      nodes: [
+        {
+          id: 'settlement',
+          label: 'Đối soát earning',
+          detail: 'Xác nhận earning hợp lệ trước payout',
+          tone: 'money',
+          badge: 'Mới',
+        },
+      ],
+    },
+    {
+      title: 'Bằng chứng',
+      nodes: [
+        {
+          id: 'evidence',
+          label: 'Audit trail',
+          detail: 'Lưu lịch sử quyết định có thể kiểm tra',
+          tone: 'ops',
+          badge: 'Mở rộng',
         },
       ],
     },
@@ -40,19 +66,19 @@ const FIXTURE: TDiagramSpec = {
     {
       from: 'creator',
       to: 'platform',
-      label: 'request & navigation',
+      label: 'Gửi yêu cầu & điều hướng',
+      style: 'solid',
+    },
+    {
+      from: 'platform',
+      to: 'settlement',
+      label: 'Tiếp tục đối soát',
       style: 'solid',
     },
     {
       from: 'creator',
-      to: 'platform',
-      label: 'async <event>',
-      style: 'dashed',
-    },
-    {
-      from: 'creator',
-      to: 'platform',
-      label: 'audit "evidence"',
+      to: 'evidence',
+      label: 'Lưu audit <evidence>',
       style: 'dotted',
     },
   ],
@@ -68,80 +94,70 @@ const column = (title: string, nodeCount: number): TDiagramColumn => ({
   })),
 });
 
-type TRect = Readonly<{
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}>;
-
-const nodeRect = (svg: string, nodeId: string): TRect => {
-  const match = svg.match(
-    new RegExp(
-      `<g data-node-id="${nodeId}"><rect x="([\\d.]+)" y="([\\d.]+)" width="([\\d.]+)" height="([\\d.]+)"`,
-    ),
-  );
-  assert.ok(match, `missing rendered node ${nodeId}`);
-
-  return {
-    x: Number(match[1]),
-    y: Number(match[2]),
-    width: Number(match[3]),
-    height: Number(match[4]),
-  };
-};
-
-const edgePath = (
+const elementWithData = (
   svg: string,
-  from: string,
-  to: string,
-): { route: string; path: string } => {
+  attribute: string,
+  value: string,
+): string => {
+  const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = svg.match(
     new RegExp(
-      `<path data-edge-from="${from}" data-edge-to="${to}" data-route="([^"]+)" d="([^"]+)"`,
+      `<g(?=[^>]*${attribute}="${escapedValue}")[^>]*>[\\s\\S]*?<\\/g>`,
     ),
   );
-  assert.ok(match, `missing rendered edge ${from} -> ${to}`);
-
-  return { route: match[1], path: match[2] };
+  assert.ok(match, `missing <g ${attribute}="${value}">`);
+  return match[0];
 };
 
-const edgeLabelRect = (svg: string, from: string, to: string): TRect => {
-  const match = svg.match(
-    new RegExp(
-      `<g data-edge-label="true" data-edge-from="${from}" data-edge-to="${to}">[\\s\\S]*?<rect x="([\\d.]+)" y="([\\d.]+)" width="([\\d.]+)" height="([\\d.]+)"`,
-    ),
+const elementWithDataAttributes = (
+  svg: string,
+  attributes: Readonly<Record<string, string>>,
+): string => {
+  const lookaheads = Object.entries(attributes)
+    .map(([attribute, value]) => {
+      const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return `(?=[^>]*${attribute}="${escapedValue}")`;
+    })
+    .join('');
+  const match = svg.match(new RegExp(`<g${lookaheads}[^>]*>[\\s\\S]*?<\\/g>`));
+  assert.ok(
+    match,
+    `missing <g> with ${Object.entries(attributes)
+      .map(([attribute, value]) => `${attribute}="${value}"`)
+      .join(' ')}`,
   );
-  assert.ok(match, `missing rendered edge label ${from} -> ${to}`);
-
-  return {
-    x: Number(match[1]),
-    y: Number(match[2]),
-    width: Number(match[3]),
-    height: Number(match[4]),
-  };
+  return match[0];
 };
 
-const intersects = (left: TRect, right: TRect): boolean =>
-  left.x < right.x + right.width &&
-  left.x + left.width > right.x &&
-  left.y < right.y + right.height &&
-  left.y + left.height > right.y;
+const visibleText = (fragment: string): string =>
+  [...fragment.matchAll(/<text\b[^>]*>([\s\S]*?)<\/text>/g)]
+    .map((match) => match[1].replace(/<[^>]+>/g, ''))
+    .join(' ')
+    .replaceAll('&amp;', '&')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
+    .replace(/\s+/g, ' ')
+    .trim();
 
-test('should render a safe semantic SVG with all approved edge styles', () => {
+test('should preserve safe semantic SVG metadata and XML escaping', () => {
   const svg = renderDiagram(FIXTURE);
 
   assert.match(svg, /xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
-  assert.match(svg, /viewBox="0 0 1600 900"/);
-  assert.match(svg, /<title id="diagram-title">/);
-  assert.match(svg, /<desc id="diagram-desc">/);
+  assert.match(svg, /role="img"/);
+  assert.match(
+    svg,
+    /<title id="diagram-title">Tổng quan &lt;affiliate&gt; &amp; &quot;bằng chứng&quot;<\/title>/,
+  );
+  assert.match(
+    svg,
+    /<desc id="diagram-desc">Luồng Creator đến nền tảng\. CN-001–CN-003 — kiểm thử renderer\. Các nút:/,
+  );
   assert.match(svg, /marker-end="url\(#arrow\)"/);
-  assert.match(svg, /stroke-dasharray="12 8"/);
-  assert.match(svg, /stroke-dasharray="3 8"/);
-  assert.match(svg, /Affiliate &lt;overview&gt; &amp; &quot;evidence&quot;/);
-  assert.match(svg, /Creator&apos;s verified channel &amp;/);
-  assert.match(svg, /affiliate assets/);
-  assert.match(svg, /async &lt;event&gt;/);
+  assert.match(svg, /Hồ sơ Creator &lt;đã xác minh&gt;/);
+  assert.match(svg, /Creator&apos;s đã xác minh &amp;/);
+  assert.match(svg, /Lưu audit &lt;evidence&gt;/);
 
   assert.doesNotMatch(svg, /<script/i);
   assert.doesNotMatch(svg, /javascript:/i);
@@ -152,187 +168,148 @@ test('should render a safe semantic SVG with all approved edge styles', () => {
   assert.deepEqual(urls, ['http://www.w3.org/2000/svg']);
 });
 
-test('should reserve a readable immediate label lane and paint a wrapped pill above nodes', () => {
-  const svg = renderDiagram({
-    ...FIXTURE,
-    key: 'edge-label-layout-fixture',
-    columns: [
-      column('source', 1),
-      column('intermediate', 1),
-      column('destination', 1),
-    ],
-    edges: [
-      {
-        from: 'source-0',
-        to: 'destination-0',
-        label: 'submit verified affiliate application',
-        style: 'solid',
-      },
-    ],
-  });
-  const nodeRects = [
-    ...svg.matchAll(
-      /<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="112" rx="16"/g,
-    ),
-  ];
-  const firstNode = nodeRects[0];
-  const secondNode = nodeRects[1];
-  assert.ok(firstNode && secondNode);
-
-  const laneLeft = Number(firstNode[1]) + Number(firstNode[2]);
-  const laneRight = Number(secondNode[1]);
-  const labelGroup = svg.match(
-    /<g data-edge-label="true"[^>]*>([\s\S]*?)<\/g>/,
-  );
-  const labelPill = labelGroup?.[1].match(
-    /<rect x="([\d.]+)"[^>]*width="([\d.]+)"[^>]*rx="10"[^>]*fill="#FFFFFF"/,
-  );
-  const pillLeft = Number(labelPill?.[1] ?? Number.NaN);
-  const pillRight = pillLeft + Number(labelPill?.[2] ?? Number.NaN);
-  const wrappedLineCount = labelGroup?.[1].match(/<tspan\b/g)?.length ?? 0;
-
-  assert.deepEqual(
-    {
-      hasReadableLane: laneRight - laneLeft >= 96,
-      hasVisiblePill: Boolean(labelPill),
-      labelUsesImmediateLane: pillLeft >= laneLeft && pillRight <= laneRight,
-      paintedAfterNodes:
-        svg.indexOf('<g data-edge-label="true"') >
-        svg.lastIndexOf('height="112" rx="16"'),
-      wrappedLineCount,
-    },
-    {
-      hasReadableLane: true,
-      hasVisiblePill: true,
-      labelUsesImmediateLane: true,
-      paintedAfterNodes: true,
-      wrappedLineCount: 2,
-    },
-  );
+test('should render the portrait 1400 by 1800 canvas', () => {
+  assert.match(renderDiagram(FIXTURE), /viewBox="0 0 1400 1800"/);
 });
 
-test('should route a same-column edge vertically outside both node rectangles', () => {
-  const svg = renderDiagram({
+test('should preserve audited coordinates without renderer quantization', () => {
+  const fiveColumnFixture: TDiagramSpec = {
     ...FIXTURE,
-    key: 'same-column-routing-fixture',
-    columns: [column('source', 2), column('adjacent', 1)],
-    edges: [
-      {
-        from: 'source-0',
-        to: 'source-1',
-        label: 'continue vertically',
-        style: 'solid',
-      },
-    ],
-  });
-  const source = nodeRect(svg, 'source-0');
-  const target = nodeRect(svg, 'source-1');
-  const adjacent = nodeRect(svg, 'adjacent-0');
-  const edge = edgePath(svg, 'source-0', 'source-1');
-  const label = edgeLabelRect(svg, 'source-0', 'source-1');
-  const coordinates = edge.path.match(/[\d.]+/g)?.map(Number) ?? [];
-  const sourceRight = source.x + source.width;
+    key: 'exact-rendered-geometry-fixture',
+    columns: Array.from({ length: 5 }, (_, index) => column(`cột-${index}`, 1)),
+    edges: [],
+  };
+  const layout = layoutDiagram(fiveColumnFixture);
+  const firstNode = layout.nodes[0];
+  assert.ok(firstNode);
 
-  assert.equal(edge.route, 'same-column');
   assert.match(
-    edge.path,
-    /^M [\d.]+ [\d.]+ C [\d.]+ [\d.]+, [\d.]+ [\d.]+, [\d.]+ [\d.]+$/,
+    renderDiagram(fiveColumnFixture),
+    new RegExp(`width="${String(firstNode.rect.width).replace('.', '\\.')}"`),
   );
-  assert.equal(coordinates[0], sourceRight);
-  assert.equal(coordinates.at(-2), target.x + target.width);
-  assert.ok(coordinates[2] > sourceRight);
-  assert.ok(coordinates[4] > sourceRight);
-  assert.ok(label.x >= sourceRight);
-  assert.ok(label.x + label.width <= adjacent.x);
-  assert.equal(intersects(label, source), false);
-  assert.equal(intersects(label, target), false);
 });
 
-test('should keep an adjacent back-edge path and label inside the shared column gap', () => {
-  const svg = renderDiagram({
-    ...FIXTURE,
-    key: 'adjacent-back-edge-routing-fixture',
-    columns: [column('destination', 1), column('source', 1)],
-    edges: [
-      {
-        from: 'source-0',
-        to: 'destination-0',
-        label: 'return safely',
-        style: 'solid',
-      },
-    ],
-  });
-  const destination = nodeRect(svg, 'destination-0');
-  const source = nodeRect(svg, 'source-0');
-  const edge = edgePath(svg, 'source-0', 'destination-0');
-  const label = edgeLabelRect(svg, 'source-0', 'destination-0');
-  const coordinates = edge.path.match(/[\d.]+/g)?.map(Number) ?? [];
-  const gapLeft = destination.x + destination.width;
-  const gapRight = source.x;
+test('should expose node and edge semantics in the root accessible description', () => {
+  const svg = renderDiagram(FIXTURE);
 
-  assert.equal(edge.route, 'back-adjacent');
-  assert.equal(coordinates[0], gapRight);
-  assert.equal(coordinates.at(-2), gapLeft);
-  assert.ok(coordinates[2] > gapLeft && coordinates[2] < gapRight);
-  assert.ok(coordinates[4] > gapLeft && coordinates[4] < gapRight);
-  assert.ok(label.x >= gapLeft);
-  assert.ok(label.x + label.width <= gapRight);
-  assert.equal(intersects(label, destination), false);
-  assert.equal(intersects(label, source), false);
-});
-
-test('should route a spanning back edge below intermediate nodes with its label', () => {
-  const svg = renderDiagram({
-    ...FIXTURE,
-    key: 'spanning-back-edge-routing-fixture',
-    columns: [
-      column('destination', 1),
-      column('intermediate', 1),
-      column('source', 1),
-    ],
-    edges: [
-      {
-        from: 'source-0',
-        to: 'destination-0',
-        label: 'return with evidence',
-        style: 'dotted',
-      },
-    ],
-  });
-  const nodes = [
-    nodeRect(svg, 'destination-0'),
-    nodeRect(svg, 'intermediate-0'),
-    nodeRect(svg, 'source-0'),
-  ];
-  const edge = edgePath(svg, 'source-0', 'destination-0');
-  const label = edgeLabelRect(svg, 'source-0', 'destination-0');
-  const coordinates = edge.path.match(/[\d.]+/g)?.map(Number) ?? [];
-  const maximumNodeBottom = Math.max(
-    ...nodes.map((node) => node.y + node.height),
-  );
-  const routeY = coordinates[3];
-
-  assert.equal(edge.route, 'back-exterior');
   assert.match(
-    edge.path,
-    /^M [\d.]+ [\d.]+ H [\d.]+ V [\d.]+ H [\d.]+ V [\d.]+ H [\d.]+$/,
+    svg,
+    /<desc id="diagram-desc">[^<]*Hồ sơ Creator &lt;đã xác minh&gt;[^<]*Gửi yêu cầu &amp; điều hướng[^<]*Lưu audit &lt;evidence&gt;[^<]*<\/desc>/,
   );
-  assert.ok(routeY > maximumNodeBottom);
-  assert.ok(label.y > maximumNodeBottom);
-  assert.ok(label.y + label.height < 820);
-  for (const node of nodes) {
-    assert.equal(intersects(label, node), false);
+});
+
+test('should render exactly two portrait flow bands', () => {
+  const svg = renderDiagram(FIXTURE);
+  assert.equal((svg.match(/data-band-index=/g) ?? []).length, 2);
+  assert.match(svg, /data-band-index="0"/);
+  assert.match(svg, /data-band-index="1"/);
+});
+
+test('should render the approved portrait typography scale', () => {
+  const svg = renderDiagram(FIXTURE);
+  assert.match(svg, /font-size="46"/);
+  assert.match(svg, /font-size="24"/);
+  assert.match(svg, /font-size="22"/);
+});
+
+test('should expose local path kind metadata', () => {
+  assert.match(renderDiagram(FIXTURE), /data-path-kind="forward-lane"/);
+});
+
+test('should expose the stable local path code', () => {
+  assert.match(renderDiagram(FIXTURE), /data-edge-code="L1"/);
+});
+
+test('should expose paired reference kind and code metadata', () => {
+  const svg = renderDiagram(FIXTURE);
+  assert.match(svg, /data-reference-kind="handoff"/);
+  assert.match(svg, /data-reference-code="①"/);
+});
+
+test('should render code-only reference endpoints with accessible titles', () => {
+  const svg = renderDiagram(FIXTURE);
+  const source = elementWithDataAttributes(svg, {
+    'data-reference-code': '①',
+    'data-reference-role': 'source',
+  });
+  const target = elementWithDataAttributes(svg, {
+    'data-reference-code': '①',
+    'data-reference-role': 'target',
+  });
+
+  assert.equal(visibleText(source), '①');
+  assert.equal(visibleText(target), '①');
+  assert.match(source, /<title>Tiếp tục đối soát<\/title>/);
+  assert.match(target, /<title>Tiếp tục đối soát<\/title>/);
+});
+
+test('should render one lossless footer directory entry per semantic edge', () => {
+  const svg = renderDiagram(FIXTURE);
+  const expectedEntries = [
+    ['L1', 'L1 — Gửi yêu cầu & điều hướng'],
+    ['①', '① — Tiếp tục đối soát'],
+    ['E1', 'E1 — Lưu audit <evidence>'],
+  ] as const;
+
+  assert.equal(
+    (svg.match(/data-edge-directory-code=/g) ?? []).length,
+    FIXTURE.edges.length,
+  );
+  for (const [code, expectedText] of expectedEntries) {
+    const entry = elementWithData(svg, 'data-edge-directory-code', code);
+    assert.equal(visibleText(entry), expectedText);
   }
+});
+
+test('should render the Vietnamese legend and normative warning', () => {
+  const svg = renderDiagram(FIXTURE);
+  assert.match(svg, />Luồng chính \/ điều hướng</);
+  assert.match(svg, />Bất đồng bộ \/ webhook</);
+  assert.match(svg, />Audit \/ bằng chứng</);
+  assert.match(
+    svg,
+    />Hình minh họa; nội dung SRS chuẩn tắc vẫn là nguồn quyết định\.</,
+  );
+});
+
+test('should not retain the English footer legend', () => {
+  assert.doesNotMatch(
+    renderDiagram(FIXTURE),
+    /Visual aid|normative text|request \/ navigation|async \/ webhook|audit \/ evidence/i,
+  );
+});
+
+test('should never emit renderer-generated ellipsis', () => {
+  assert.doesNotMatch(renderDiagram(FIXTURE), /…/);
+});
+
+test('should paint paths before nodes and markers before the footer directory', () => {
+  const svg = renderDiagram(FIXTURE);
+  const pathIndex = svg.indexOf('data-path-kind="forward-lane"');
+  const nodeIndex = svg.indexOf('data-node-id="creator"');
+  const markerIndex = svg.indexOf('data-reference-role="source"');
+  const directoryIndex = svg.indexOf('data-edge-directory-code="L1"');
+
+  assert.ok(pathIndex >= 0, 'missing local path metadata');
+  assert.ok(nodeIndex >= 0, 'missing rendered node');
+  assert.ok(markerIndex >= 0, 'missing reference endpoint marker');
+  assert.ok(directoryIndex >= 0, 'missing footer edge directory');
+  assert.ok(pathIndex < nodeIndex, 'paths must render before nodes');
+  assert.ok(nodeIndex < markerIndex, 'markers must render after nodes');
+  assert.ok(
+    markerIndex < directoryIndex,
+    'directory must render after markers',
+  );
 });
 
 test('should reject fewer than two or more than five columns', () => {
   assert.throws(
     () => renderDiagram({ ...FIXTURE, columns: [] }),
-    /safe-renderer-fixture: expected 2–5 columns/,
+    /layoutDiagram requires at least two columns/,
   );
   assert.throws(
     () => renderDiagram({ ...FIXTURE, columns: [column('only', 1)] }),
-    /safe-renderer-fixture: expected 2–5 columns/,
+    /layoutDiagram requires at least two columns/,
   );
   assert.throws(
     () =>
@@ -342,7 +319,7 @@ test('should reject fewer than two or more than five columns', () => {
           column(`column-${index}`, 1),
         ),
       }),
-    /safe-renderer-fixture: expected 2–5 columns/,
+    /layoutDiagram does not support more than five columns/,
   );
 });
 
@@ -353,7 +330,7 @@ test('should reject empty columns and columns with more than four nodes', () => 
         ...FIXTURE,
         columns: [column('empty', 0), column('valid', 1)],
       }),
-    /safe-renderer-fixture: every column needs 1–4 nodes/,
+    /safe-renderer-fixture: column 0 must contain between one and four nodes/,
   );
   assert.throws(
     () =>
@@ -361,7 +338,7 @@ test('should reject empty columns and columns with more than four nodes', () => 
         ...FIXTURE,
         columns: [column('crowded', 5), column('valid', 1)],
       }),
-    /safe-renderer-fixture: every column needs 1–4 nodes/,
+    /safe-renderer-fixture: column 0 must contain between one and four nodes/,
   );
 });
 
@@ -400,6 +377,6 @@ test('should reject edges with unknown endpoints', () => {
           },
         ],
       }),
-    /safe-renderer-fixture: unknown edge creator → missing/,
+    /safe-renderer-fixture: edge references unknown node missing/,
   );
 });

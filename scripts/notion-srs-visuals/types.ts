@@ -121,7 +121,6 @@ export type TDiagramLayout = Readonly<{
     title: 46;
     subtitle: 30;
     scope: 24;
-    band: 30;
     column: 26;
     nodeTitle: 30;
     nodeDetail: 24;

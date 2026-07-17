@@ -13,10 +13,13 @@
 - Main SVG viewBox is exactly `0 0 1400 1800`.
 - Each diagram has two vertical flow bands and no band contains more than three columns.
 - Visible explanatory copy is Vietnamese; codes, routes, APIs, source paths, and approved proper nouns remain unchanged.
-- Node detail font is at least 24 px, connector labels at least 22 px, and renderer-generated ellipsis is forbidden.
+- Node detail font is at least 24 px, edge-code markers/directory text are at least 22 px, and renderer-generated ellipsis is forbidden.
 - A node detail may use at most four lines; overflow must fail generation.
 - Forward in-band edges use unique orthogonal lanes; same-column edges use unique side rails.
 - Cross-band, backward, evidence, and non-local async connections use paired references instead of long paths.
+- Every semantic edge receives a stable code in original `spec.edges` order: drawable local paths use `L1`, `L2`, ...; non-local references retain `①`, `N*`, `R*`, `E*`, or `A*` families.
+- Visible path/reference markers are code-only: local markers stay in their allocated gutter stripe, while paired-reference endpoints stay inside their exact owner nodes; the complete edge label is not rendered at either endpoint.
+- The footer edge directory lists every edge as `{code} — {edge.label}` in source-spec order, with at most four columns × six rows (24 entries), no truncation or ellipsis, and generation failure when any entry cannot fit losslessly.
 - No node/label collision, path-through-node, duplicate path segment, unpaired reference, or out-of-bounds connector is permitted.
 - Filenames, page IDs, code identifiers/numeric ranges, 28-target inventory, and functional baseline remain unchanged; English prose appended to a code range is translated.
 - Notion remains version `0.5`; replacement must preserve 29 total visual blocks, 26 child pages, 59 MH headings, 59 component contracts, and 470 component rows.
@@ -57,7 +60,7 @@
 - Consumes: current `TDiagramTarget`, `TDiagramSpec`, and 28 target keys.
 - Produces: Vietnamese `TBadge`, `TLegacyVisualCopy`, `auditVietnameseCopy(targets, specs): string[]`, and replacement metadata used by Notion updates.
 
-- [ ] **Step 1: Write failing localization and manifest tests**
+- [x] **Step 1: Write failing localization and manifest tests**
 
 Add these assertions:
 
@@ -79,20 +82,21 @@ test('should expose Vietnamese visual copy and retain legacy replacement copy', 
   }
 });
 
-test('should pass the Vietnamese visible-copy policy for all targets and specs', () => {
+test('should pass the Vietnamese visible-copy policy for translated targets', () => {
   assert.deepEqual(
-    auditVietnameseCopy(DIAGRAM_TARGETS, ALL_SPECS),
+    auditVietnameseCopy(DIAGRAM_TARGETS, []),
     [],
   );
-  for (const spec of ALL_SPECS) {
-    for (const node of spec.columns.flatMap((column) => column.nodes)) {
-      if (node.badge) assert.ok(APPROVED_BADGES.has(node.badge));
-    }
-  }
+});
+
+test('should reject English explanatory copy before spec translation', () => {
+  assert.ok(auditVietnameseCopy([], [englishOnlySpec]).length > 0);
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+Define `englishOnlySpec` as the smallest valid `TDiagramSpec` fixture with English title, scope, column, node and edge copy. Task 1 deliberately does not pass production `ALL_SPECS`; that gate becomes GREEN only in Task 2 after translation.
+
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -104,7 +108,7 @@ mise exec -- node --test \
 
 Expected: FAIL because `currentVersion`, `legacy`, Vietnamese badge values, and `auditVietnameseCopy` do not exist.
 
-- [ ] **Step 3: Add exact types and localization audit**
+- [x] **Step 3: Add exact types and localization audit**
 
 Use these public types:
 
@@ -198,7 +202,7 @@ export const auditVietnameseCopy = (
 
 Keep the current English `title`, `alt`, and `caption` under `legacy` before replacing them with Vietnamese values. Retain the existing historical `previousVersion` and `nextVersion` fields for regression compatibility, and set every target to `currentVersion: '0.5'`.
 
-- [ ] **Step 4: Translate the 28 target titles**
+- [x] **Step 4: Translate the 28 target titles**
 
 Use these exact titles:
 
@@ -244,7 +248,7 @@ Translate the explanatory suffixes of the four mixed code-range values without c
 | `SP → CN → QT → MH/non-UI → KT → evidence` | `SP → CN → QT → MH/non-UI → KT → bằng chứng` |
 | `KT-001–KT-120 and release evidence` | `KT-001–KT-120 và bằng chứng phát hành` |
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 Run the Task 1 command. Expected: PASS.
 
@@ -273,7 +277,7 @@ git commit -m "feat(docs): define Vietnamese diagram copy contract"
 - Consumes: Vietnamese badges and localization audit from Task 1.
 - Produces: 28 Vietnamese `TDiagramSpec` values with unchanged keys, node IDs, code identifiers/numeric ranges, roles, source paths, and graph semantics.
 
-- [ ] **Step 1: Write failing semantic-preservation tests**
+- [x] **Step 1: Write failing semantic-preservation tests**
 
 Add assertions that snapshot the immutable parts before copy translation:
 
@@ -289,6 +293,15 @@ test('should preserve diagram graph identity while translating visible copy', ()
       .update(JSON.stringify(identity))
       .digest('hex');
     assert.equal(hash, EXPECTED_GRAPH_HASHES[spec.key], spec.key);
+  }
+});
+
+test('should pass the Vietnamese visible-copy policy for all production specs', () => {
+  assert.deepEqual(auditVietnameseCopy(DIAGRAM_TARGETS, ALL_SPECS), []);
+  for (const spec of ALL_SPECS) {
+    for (const node of spec.columns.flatMap((column) => column.nodes)) {
+      if (node.badge) assert.ok(APPROVED_BADGES.has(node.badge));
+    }
   }
 });
 ```
@@ -330,7 +343,7 @@ export const EXPECTED_GRAPH_HASHES: Readonly<Record<string, string>> = {
 
 Keep the existing tests for 59 unique MH nodes, lifecycle reachability, MCN Storefront mapping, money-state semantics, native evidence, and truthful `Mới/Mở rộng/Hiện có` source fit.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -344,7 +357,7 @@ mise exec -- node --test \
 
 Expected: localization test FAILS on the current English copy while graph-identity assertions pass.
 
-- [ ] **Step 3: Translate overview and Page 4 specs**
+- [x] **Step 3: Translate overview and Page 4 specs**
 
 Translate all titles, scope, columns, nodes and edges in the four specs. Use these footer concepts consistently:
 
@@ -355,7 +368,7 @@ Translate all titles, scope, columns, nodes and edges in the four specs. Use the
 
 Keep the explicit statement that unobservable internals require field validation and do not claim Shopee secret-algorithm parity.
 
-- [ ] **Step 4: Translate twelve backend specs**
+- [x] **Step 4: Translate twelve backend specs**
 
 For every `2-xx-backend` spec:
 
@@ -367,7 +380,7 @@ For every `2-xx-backend` spec:
 - keep CN-059 Sample and YouTube feed/tag as `Mới`;
 - keep CN-004 native evidence as ADR + native implementation + authenticated evidence.
 
-- [ ] **Step 5: Translate twelve UI specs**
+- [x] **Step 5: Translate twelve UI specs**
 
 For every `3-xx-ui` spec:
 
@@ -378,7 +391,7 @@ For every `3-xx-ui` spec:
 - keep MCN at `apps/storefront/src/app/mcn/*`;
 - describe `reversed` as `bút toán bù trừ`, not a balance state.
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 Run the Task 2 command plus:
 
@@ -412,7 +425,7 @@ git commit -m "docs: translate affiliate SRS diagrams to Vietnamese"
 - Consumes: `TDiagramSpec`.
 - Produces: `layoutDiagram(spec): TDiagramLayout`, `measureVisibleText(value, fontSize): number`, `wrapVisibleText(value, maxWidth, fontSize): string[]`, and deterministic band/node/lane/reference metadata.
 
-- [ ] **Step 1: Write failing band and typography tests**
+- [x] **Step 1: Write failing band and typography tests**
 
 Use exact contracts:
 
@@ -440,14 +453,14 @@ test('should wrap a long source path without losing characters', () => {
 });
 ```
 
-- [ ] **Step 2: Write failing edge-classification tests**
+- [x] **Step 2: Write failing edge-classification tests**
 
 ```ts
 test('should draw only local forward and same-column edges', () => {
   const layout = layoutDiagram(classificationSpec);
-  assert.deepEqual(layout.paths.map((path) => path.kind), [
-    'forward-lane',
-    'same-column-rail',
+  assert.deepEqual(layout.paths.map((path) => ({ kind: path.kind, code: path.code })), [
+    { kind: 'forward-lane', code: 'L1' },
+    { kind: 'same-column-rail', code: 'L2' },
   ]);
 });
 
@@ -468,15 +481,29 @@ test('should convert non-local connections into paired references', () => {
     ],
   );
 });
+
+test('should create one lossless footer directory entry for every edge', () => {
+  const layout = layoutDiagram(classificationSpec);
+  assert.deepEqual(
+    layout.footer.edgeItems.map((item) => item.text.lines.join('')),
+    classificationSpec.edges.map((edge) => {
+      const path = layout.paths.find((item) => item.edge === edge);
+      const reference = layout.references.find((item) => item.edge === edge);
+      return `${path?.code ?? reference?.code} — ${edge.label}`;
+    }),
+  );
+  assert.ok(layout.footer.edgeItems.length <= 24);
+  assert.ok(layout.footer.edgeItems.every((item) => item.text.lines.length === 1));
+});
 ```
 
-- [ ] **Step 3: Run tests and verify RED**
+- [x] **Step 3: Run tests and verify RED**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/diagram-layout.test.ts`
 
 Expected: FAIL with module-not-found for `diagram-layout.ts`.
 
-- [ ] **Step 4: Define layout types**
+- [x] **Step 4: Define layout types**
 
 Add:
 
@@ -495,6 +522,7 @@ export type TReferenceKind = 'handoff' | 'jump' | 'return' | 'evidence' | 'async
 export type TLayoutPath = Readonly<{
   edge: TDiagramEdge;
   kind: 'forward-lane' | 'same-column-rail';
+  code: string;
   lane: string;
   segments: readonly TSegment[];
   label: TLayoutText;
@@ -518,13 +546,17 @@ export type TLayoutReference = Readonly<{
     }>,
   ];
 }>;
+export type TLayoutEdgeDirectoryEntry = Readonly<{
+  edge: TDiagramEdge;
+  code: string;
+  text: TLayoutText;
+}>;
 export type TDiagramLayout = Readonly<{
   viewBox: Readonly<{ width: 1400; height: 1800 }>;
   typography: Readonly<{
     title: 46;
     subtitle: 30;
     scope: 24;
-    band: 30;
     column: 26;
     nodeTitle: 30;
     nodeDetail: 24;
@@ -551,11 +583,15 @@ export type TDiagramLayout = Readonly<{
   }>[];
   paths: readonly TLayoutPath[];
   references: readonly TLayoutReference[];
-  footer: Readonly<{ legendItems: readonly TLayoutText[]; warning: TLayoutText }>;
+  footer: Readonly<{
+    edgeItems: readonly TLayoutEdgeDirectoryEntry[];
+    legendItems: readonly TLayoutText[];
+    warning: TLayoutText;
+  }>;
 }>;
 ```
 
-- [ ] **Step 5: Implement deterministic layout**
+- [x] **Step 5: Implement deterministic layout**
 
 Use these constants:
 
@@ -565,15 +601,21 @@ const BAND_RECTS = [
   { x: 48, y: 155, width: 1304, height: 690 },
   { x: 48, y: 900, width: 1304, height: 690 },
 ] as const;
-const COLUMN_GAP = 72;
+const COLUMN_GAP = 48;
 const NODE_GAP = 12;
 const NODE_MIN_HEIGHT = 128;
-const NODE_HORIZONTAL_PADDING = 22;
+const NODE_HORIZONTAL_PADDING = 14;
 ```
 
 `measureVisibleText(value, fontSize)` must use one conservative deterministic glyph-width table (including Vietnamese combining/diacritic characters), never browser/canvas measurement. `wrapVisibleText(value, maxWidth, fontSize)` wraps prose at whitespace and long technical tokens at `/`, `.`, `-`, `_`, `:` or `*`, retaining every original character. It allows at most two node-title lines and four detail lines; all text rectangles are calculated here and exported in the layout.
 
-Allocate distinct source/target anchor ports for multiple local edges incident on the same node. For paired references, the source endpoint visibly renders `{code} · {edge.label}` and the target endpoint renders the compact matching code; the SVG `<title>` at both endpoints carries the complete edge label. Stack compact target codes in a deterministic grid when a convergence node has many incoming references. Expose every chip/text rectangle and include the required chip space in node/side-gutter fit calculations.
+Allocate stable edge codes in original `spec.edges` order. Drawable local paths share the `L1`, `L2`, ... sequence; non-local references retain their semantic `①`, `N*`, `R*`, `E*`, `A*`, and last-resort same-column `S*` families. A local path renders its code-only marker in the allocated gutter stripe. Both endpoints of a paired reference render only the matching code inside their exact owner nodes; the complete label is never visible at either endpoint, although each endpoint keeps an SVG `<title>` with the full label for accessibility.
+
+Every local marker must remain within the canvas and its owning gutter stripe. Every reference chip must remain inside its exact owner node, after title/detail/badge content. Pack source chips before target chips, at most four chips per row, and include those rows in the node height. Expose every marker/chip rectangle and include its space in node and gutter fit calculations.
+
+Preserve semantic node order by default. Only a column that explicitly declares `allowVisualReorder: true` may use deterministic permutation search to reduce local-edge crossing. For a non-adjacent same-column span in an interior column, test the preferred right rail and then the left rail; emit an `S*` paired reference only when both sides are blocked. Validate the bounded search space before any permutation: one to four nodes per column, at most 24 edges per diagram, and at most five local paths per gutter.
+
+Build `footer.edgeItems` for every semantic edge in source-spec order using the exact visible form `{code} — {edge.label}`. Lay it out row-major with at most four columns and six rows. Every entry must fit on exactly one 22 px line; never wrap, truncate, or emit ellipsis. Throw a descriptive error when there are more than 24 edges or when any entry, the complete directory, or the normative warning cannot fit within `y = 1610–1800`.
 
 Classify an edge as:
 
@@ -591,9 +633,9 @@ if (to.columnIndex === from.columnIndex) return 'same-column-rail';
 return 'forward-lane';
 ```
 
-Allocate reference codes in stable source-spec order. Throw descriptive errors for more than five semantic columns, a band with more than three columns, detail overflow beyond four lines, or a column whose calculated nodes do not fit the band.
+Allocate all edge codes deterministically in stable source-spec order, including the local `L*` sequence and `S*` fallback, and use the same code in marker metadata and the footer directory. Throw descriptive errors for more than five semantic columns, a band with more than three columns, a column outside one to four nodes, more than 24 edges, more than five local paths in one gutter, detail/footer overflow, or a column whose calculated nodes do not fit the band.
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 Run the Task 3 test and full visual unit suite. Expected: PASS.
 
@@ -615,7 +657,7 @@ git commit -m "feat(docs): add portrait SRS diagram layout"
 - Consumes: `TDiagramLayout`.
 - Produces: `auditDiagramGeometry(layout): string[]` used by tests, generation and final validation.
 
-- [ ] **Step 1: Write failing collision tests**
+- [x] **Step 1: Write failing collision tests**
 
 ```ts
 test('should report every node, label and segment collision', () => {
@@ -634,23 +676,25 @@ test('should accept all twenty-eight production layouts', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/geometry-audit.test.ts`
 
 Expected: FAIL because `auditDiagramGeometry` does not exist.
 
-- [ ] **Step 3: Implement exact geometry rules**
+- [x] **Step 3: Implement exact geometry rules**
 
-Implement strict rectangle intersection, axis-aligned segment intersection, shared-segment normalization, canvas bounds, footer bound `y < 1610`, and paired-reference validation. Audit header/column/node text rectangles, badges, path labels and reference chips as well as node rectangles. Text/badge content inside its owning node is exempt only from intersection with that owner; source/target anchor contact is exempt only for the first/last segment of its own edge.
+Implement strict rectangle intersection, axis-aligned segment intersection, shared-segment normalization, canvas bounds, and paired-reference validation. Audit header/column/node text rectangles, badges, local code markers, reference chips, footer directory cells/text, and node rectangles. Physical paths and all markers must remain above the footer (`y < 1610`); every directory cell/text rectangle must remain inside `1610–1800`. Text/badge content inside its owning node is exempt only from intersection with that owner; source/target anchor contact is exempt only for the first/last segment of its own edge.
+
+Validate the one-to-one semantic mapping: each edge has one unique stable code, every local code marker belongs to its path/rail, every paired marker endpoint belongs to the declared source/target node, and every edge has exactly one directory entry with the identical code and full label. Reject more than four directory columns, more than six rows, any overlap with non-owner content, any truncation/ellipsis, or any directory text that exceeds its cell.
 
 Return all errors together with the diagram key and involved IDs; do not stop at the first collision.
 
-- [ ] **Step 4: Adjust lane allocation until production layouts audit cleanly**
+- [x] **Step 4: Adjust lane allocation until production layouts audit cleanly**
 
 Only modify deterministic lane/rail offsets in `diagram-layout.ts`. Do not remove semantic edges or weaken geometry checks. If a diagram cannot fit, shorten its Vietnamese prose without deleting the requirement.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 Run Task 4 tests, Task 3 tests, Biome and `git diff --check`. Expected: PASS.
 
@@ -671,7 +715,7 @@ git commit -m "test(docs): enforce SRS diagram geometry"
 - Consumes: `layoutDiagram`, `auditDiagramGeometry`, and Vietnamese specs.
 - Produces: `renderDiagram(spec): string` with `1400 × 1800` semantic SVG.
 
-- [ ] **Step 1: Replace renderer tests with portrait contracts**
+- [x] **Step 1: Replace renderer tests with portrait contracts**
 
 Assert:
 
@@ -682,7 +726,9 @@ assert.match(svg, /data-band-index="1"/);
 assert.match(svg, /font-size="46"/);
 assert.match(svg, /font-size="24"/);
 assert.match(svg, /data-path-kind="forward-lane"/);
+assert.match(svg, /data-edge-code="L1"/);
 assert.match(svg, /data-reference-kind="handoff"/);
+assert.match(svg, /data-edge-directory-code="L1"/);
 assert.match(svg, />Luồng chính \/ điều hướng</);
 assert.match(svg, />Audit \/ bằng chứng</);
 assert.doesNotMatch(svg, /Visual aid|normative text|request \/ navigation/i);
@@ -691,25 +737,25 @@ assert.doesNotMatch(svg, /…/);
 
 Keep the existing XML escaping and unsafe SVG assertions.
 
-- [ ] **Step 2: Run renderer tests and verify RED**
+- [x] **Step 2: Run renderer tests and verify RED**
 
 Run: `mise exec -- node --test scripts/notion-srs-visuals/svg-renderer.test.ts`
 
 Expected: FAIL on old viewBox, English legend and missing band/reference metadata.
 
-- [ ] **Step 3: Render layout metadata without recomputing geometry**
+- [x] **Step 3: Render layout metadata without recomputing geometry**
 
 `renderDiagram` must:
 
 1. call `layoutDiagram(spec)` once;
 2. call `auditDiagramGeometry(layout)` and throw with all errors when non-empty;
-3. render header, two band backgrounds, column headings, dynamic node rectangles, local paths, paired reference chips and Vietnamese footer;
+3. render header, two band backgrounds, column headings, dynamic node rectangles, local paths with `L*` markers, code-only paired reference chips inside owner nodes, and the full Vietnamese footer edge directory;
 4. preserve `<title>`, `<desc>`, `role="img"`, and XML safety;
-5. render paths before nodes and labels/references after nodes.
+5. render paths before nodes, then render node text, code-only markers/references, and footer directory content from their allocated metadata.
 
 Use the typography values from `layout.typography`; do not hardcode a second font scale in the renderer.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 Run renderer, layout, geometry and all spec tests. Expected: PASS.
 
@@ -740,6 +786,7 @@ Update the old viewBox assertion to `0 0 1400 1800` and add:
 assert.doesNotMatch(svg, /…/);
 assert.match(svg, /font-size="24"/);
 assert.equal((svg.match(/data-band-index=/g) ?? []).length, 2);
+assert.equal((svg.match(/data-edge-directory-code=/g) ?? []).length, spec.edges.length);
 assert.deepEqual(auditDiagramGeometry(layoutDiagram(spec)), []);
 ```
 
@@ -753,7 +800,7 @@ Expected: FAIL on old viewBox/contact-sheet styling.
 
 - [ ] **Step 3: Update generator and validator**
 
-Update semantic title/description, viewBox, minimum typography, two-band metadata, Vietnamese-copy audit and geometry audit checks. Keep size `< 200 KiB`, deterministic bytes, code-range validation, no external resources, no unsafe SVG, and no placeholders.
+Update semantic title/description, viewBox, minimum typography, two-band metadata, Vietnamese-copy audit and geometry audit checks. Validate that every semantic edge has one stable code, code-only marker ownership is correct, and the footer contains exactly one lossless `{code} — {edge.label}` entry per edge in no more than four columns × six rows. Fail on overflow, truncation, or ellipsis. Keep size `< 200 KiB`, deterministic bytes, code-range validation, no external resources, no unsafe SVG, and no placeholders.
 
 - [ ] **Step 4: Regenerate and run automated validation**
 
@@ -770,7 +817,7 @@ Expected: all tests PASS; generator reports 28; validator reports `28/28 valid`.
 
 - [ ] **Step 5: Review at Notion-equivalent widths**
 
-Rasterize every SVG at 700 px and 1000 px width with `rsvg-convert`, build two 4-column contact sheets using ImageMagick, and inspect all 28 diagrams. Reject any clipped Vietnamese text, unreadable connector, overlapping chip/label, confusing reference pair, or remaining English explanatory sentence.
+Rasterize every SVG at 700 px and 1000 px width with `rsvg-convert`, build two 4-column contact sheets using ImageMagick, and inspect all 28 diagrams. Reject any clipped Vietnamese text, unreadable code marker, wrong marker-to-owner association, overlapping chip/label, confusing reference pair, incomplete footer directory, directory entry truncation/ellipsis, or remaining English explanatory sentence.
 
 - [ ] **Step 6: Commit deterministic assets**
 

@@ -1,7 +1,7 @@
 # Thiết kế lại sơ đồ SRS tiếng Việt và dễ đọc trên Notion
 
 **Ngày:** 18/07/2026  
-**Trạng thái:** Đã được người dùng duyệt; chờ triển khai
+**Trạng thái:** Đã được người dùng duyệt; đang triển khai
 **Phạm vi:** 28 SVG kỹ thuật của SRS Benadep Affiliate & Creator Commerce  
 **Thiết kế gốc:** `2026-07-18-notion-srs-visual-diagrams-design.md`
 
@@ -27,16 +27,17 @@ Sử dụng **một SVG khổ dọc hai tầng cho mỗi target hiện tại**. 
 - Mỗi band có tối đa ba cột.
 - Sơ đồ bốn cột được chia `2 + 2`; sơ đồ năm cột được chia `3 + 2`.
 - Mỗi band sử dụng gần toàn bộ chiều rộng Notion, nhờ đó node và chữ không còn bị ép vào năm cột nhỏ.
+- Mỗi semantic edge có một mã ổn định; marker trong flow chỉ hiện mã, còn footer edge directory hiển thị đầy đủ mã và ý nghĩa của mọi edge.
 - Giữ đúng 28 SVG mới và 29 visual blocks tổng cộng, bao gồm infographic master cũ.
 
 ## 3. Quy tắc Việt hóa
 
 Toàn bộ nội dung phục vụ đọc hiểu trong SVG phải dùng tiếng Việt:
 
-- tiêu đề ảnh, mô tả phạm vi và tên flow band;
+- tiêu đề ảnh và mô tả phạm vi;
 - tên cột;
 - nhãn và mô tả node;
-- nhãn connector/mũi tên;
+- code-only marker trên connector hoặc trong node sở hữu reference, cùng nhãn đầy đủ trong footer edge directory;
 - badge trạng thái;
 - chú giải và cảnh báo ở footer;
 - alt text, caption và heading `## Sơ đồ — ...` trên Notion.
@@ -69,9 +70,9 @@ Canvas được chia thành các vùng cố định:
 |---|---:|---|
 | Header | `0–145` | Tiêu đề, code range, mô tả phạm vi |
 | Band 1 | `155–845` | Nửa đầu luồng |
-| Handoff | `845–900` | Connector đánh số giữa hai band |
+| Handoff | `845–900` | Khoảng tách thị giác giữa hai band; không có path xuyên band |
 | Band 2 | `900–1590` | Nửa sau luồng |
-| Footer | `1610–1800` | Chú giải, cảnh báo normative text |
+| Footer | `1610–1800` | Edge directory đầy đủ và cảnh báo normative text |
 
 Kích thước chữ tối thiểu:
 
@@ -80,35 +81,34 @@ Kích thước chữ tối thiểu:
 | Tiêu đề ảnh | 46 px |
 | Code range / subtitle | 30 px |
 | Mô tả phạm vi | 24 px |
-| Tiêu đề band | 30 px |
 | Tiêu đề cột | 26 px |
 | Tên node | 30 px |
-| Chi tiết node | 24 px, line-height 32 px |
+| Chi tiết node | 24 px, line-height 28 px |
 | Badge | 20 px |
-| Nhãn connector | 22 px |
+| Mã connector / edge directory | 22 px |
 | Chú giải/footer | 22 px |
 
 Node được tăng chiều cao theo số dòng thực tế, tối đa hai dòng tiêu đề và bốn dòng chi tiết. Cột mật độ cao có thể buộc câu chi tiết ngắn hơn để bốn node vẫn vừa band, nhưng không được bỏ yêu cầu hoặc đổi nghĩa. Không cắt nội dung bằng dấu `…`. Nếu nội dung hoặc toàn cột không vừa, generation phải thất bại và yêu cầu biên tập lại câu chữ thay vì âm thầm truncate.
 
-Đường dẫn, route và mã dài được phép ngắt tại dấu phân cách như `/`, `.`, `-` mà không làm mất hoặc thay đổi ký tự. Layout engine phải tính trước rectangle cho header, tiêu đề cột, tiêu đề/chi tiết/badge node, connector label và reference chip; renderer chỉ dùng metadata này, không tự tính lại vị trí chữ.
+Đường dẫn, route và mã dài được phép ngắt tại dấu phân cách như `/`, `.`, `-` mà không làm mất hoặc thay đổi ký tự. Layout engine phải tính trước rectangle cho header, tiêu đề cột, tiêu đề/chi tiết/badge node, code-only marker của local path, reference chip trong owner node và từng cell của footer edge directory; renderer chỉ dùng metadata này, không tự tính lại vị trí chữ.
 
 ## 5. Routing không chồng chéo
 
-Chỉ primary flow được biểu diễn bằng đường nối liên tục giữa các node. Các edge còn lại được chuẩn hóa như sau:
+Mỗi semantic edge được cấp mã ổn định theo thứ tự xuất hiện trong `spec.edges`. Visible marker trong flow luôn là **code-only**; nhãn đầy đủ chỉ xuất hiện trong footer edge directory. Routing được chuẩn hóa như sau:
 
-1. **Forward edge trong cùng band:** đường orthogonal đi qua gutter giữa hai cột; mỗi edge có lane riêng.
-2. **Same-column edge:** đi theo side rail của cột; các rail được cấp offset khác nhau.
-3. **Forward edge bỏ qua một cột:** dùng reference marker `N1`, `N2`,... thay vì kéo path xuyên cột trung gian.
-4. **Cross-band edge:** không kéo một đường dài qua hai tầng. Source hiển thị marker kèm nhãn edge, ví dụ `① · Tiếp tục payout`; target hiển thị marker `①` tương ứng.
-5. **Back-edge:** dùng cặp reference marker `R1`, `R2`,... tại hai node thay cho đường quay ngược xuyên sơ đồ.
-6. **Audit/evidence edge:** dùng evidence reference `E1`, `E2`,...; node nguồn mang chip `→ E1`, node bằng chứng mang chip `E1`.
-7. **Async/webhook edge:** chỉ vẽ nét đứt khi nằm trong cùng band, nối hai cột kề nhau và có lane trống; các trường hợp khác dùng marker `A1`, `A2`,...
+1. **Forward edge trong cùng band:** đường orthogonal đi qua gutter giữa hai cột; mỗi edge có lane riêng và mã local `L1`, `L2`,... đặt trên connector rail.
+2. **Same-column edge:** đi theo side rail của cột; ở cột giữa phải thử cả hai phía và chỉ dùng cặp `S1`, `S2`,... khi cả hai rail đều bị chặn bởi local path nằm bên trong span. Các rail vẽ được tiếp tục dùng dãy mã local `L*`.
+3. **Forward edge bỏ qua một cột:** dùng cặp reference marker `N1`, `N2`,... thay vì kéo path xuyên cột trung gian.
+4. **Cross-band edge:** không kéo một đường dài qua hai tầng; hai đầu chỉ hiển thị cùng mã `①`, `②`,... trong node nguồn và node đích tương ứng.
+5. **Back-edge:** dùng cặp reference marker `R1`, `R2`,... thay cho đường quay ngược xuyên sơ đồ.
+6. **Audit/evidence edge:** dùng cặp evidence marker `E1`, `E2`,... thay cho nhãn dài tại node nguồn hoặc node bằng chứng.
+7. **Async/webhook edge:** chỉ vẽ nét đứt khi nằm trong cùng band, nối hai cột kề nhau và có lane trống; trường hợp local này dùng mã `L*`, còn các trường hợp khác dùng cặp marker `A1`, `A2`,...
 
-Mỗi connector label nằm trong vùng gutter hoặc handoff riêng, không phủ lên node. Renderer phải gắn metadata cho lane/reference để validator kiểm tra hình học.
+Marker `L*` phải nằm trong gutter stripe được cấp phát cho local path. Mỗi endpoint reference phải nằm **bên trong đúng owner node**, sau phần title/detail/badge; source chip đứng trước target chip và tối đa bốn chip mỗi hàng. Layout phải tính các hàng chip vào chiều cao node để không giao text, badge hay nội dung khác. Cả hai endpoint vẫn có SVG `<title>` chứa nhãn edge đầy đủ để hỗ trợ accessibility, nhưng `<title>` không thay thế edge directory hiển thị.
 
-Mọi reference pair hiển thị nhãn edge đầy đủ ở đầu nguồn và mã gọn ở đầu đích; cả hai đầu có SVG `<title>` chứa nhãn đầy đủ. Node hội tụ nhiều reference xếp mã đích theo lưới ổn định để không ép mười nhãn dài vào cùng một node.
+Footer edge directory liệt kê **mọi edge** theo đúng thứ tự `spec.edges`, mỗi entry có dạng `{code} — {edge.label}`. Directory dùng tối đa bốn cột và sáu hàng, tức tối đa 24 edge; thứ tự đọc là row-major. Mỗi entry phải vừa đúng một dòng 22 px, không wrap, truncate hoặc dùng ellipsis. Generation phải thất bại nếu có hơn 24 edge hoặc nếu bất kỳ entry, directory hay cảnh báo footer nào không vừa vùng `1610–1800`.
 
-Thứ tự phân loại bắt buộc giữ nghĩa của edge trước vị trí: edge `dotted` luôn dùng `E*`; edge `dashed` chỉ được vẽ khi đi tới cột liền kề trong cùng band, còn lại dùng `A*`; sau đó edge `solid` mới lần lượt xét cross-band `①`, back-edge `R*`, forward jump `N*`, same-column rail hoặc forward lane.
+Thứ tự phân loại bắt buộc giữ nghĩa của edge trước vị trí: edge `dotted` luôn dùng `E*`; edge `dashed` chỉ được vẽ khi đi tới cột liền kề trong cùng band, còn lại dùng `A*`; sau đó edge `solid` mới lần lượt xét cross-band `①`, back-edge `R*`, forward jump `N*`, same-column rail/`S*` fallback hoặc forward lane.
 
 ## 6. Mô hình dữ liệu và renderer
 
@@ -116,8 +116,9 @@ Semantic specs tiếp tục là nguồn sự thật cho 28 sơ đồ. Thay đổ
 
 - bổ sung lớp localization để toàn bộ visible copy được định nghĩa bằng tiếng Việt;
 - renderer tự chia `columns` thành hai band theo quy tắc `2 + 2` hoặc `3 + 2`;
-- edge classifier quyết định một edge được vẽ bằng path hay bằng reference pair;
-- layout engine cấp phát node rectangle, gutter lane và connector rectangle trước khi render;
+- edge classifier quyết định một edge được vẽ bằng local path hay bằng reference pair, đồng thời cấp mã ổn định `L*`, `①`, `N*`, `R*`, `E*` hoặc `A*` theo thứ tự source spec;
+- semantic node order được giữ nguyên mặc định; chỉ cột khai báo rõ `allowVisualReorder: true` mới được phép đổi thứ tự trình bày để giảm crossing;
+- layout engine cấp phát node rectangle, gutter path/marker, reference chip trong owner node và footer edge-directory cell trước khi render;
 - validator dùng chính layout metadata để kiểm tra collision thay vì chỉ tìm chuỗi trong SVG;
 - manifest đổi title, alt và caption sang tiếng Việt nhưng giữ nguyên `key`, `filename`, `pageId`, code range và insertion target.
 
@@ -141,17 +142,19 @@ Thực hiện theo TDD: thêm test thất bại trước mỗi thay đổi produ
 - font nhỏ nhất 20 px, font nội dung node ít nhất 24 px;
 - không có dấu ellipsis do renderer tạo;
 - mọi node detail vừa tối đa bốn dòng;
+- mọi footer directory entry giữ nguyên toàn bộ `{code} — {edge.label}`, không truncate, và directory không vượt quá bốn cột × sáu hàng;
 - contact sheet có preview ở chiều rộng tương đương Notion để review.
 
 ### 7.3 Geometry contract
 
 - node rectangle không giao nhau;
-- label rectangle không giao node hoặc label khác;
+- local marker/directory text rectangle không giao node hoặc nội dung khác ngoài gutter/cell sở hữu nó; reference chip phải nằm trong đúng owner node và không giao owner text/badge/control khác;
 - path không đi qua node, trừ điểm neo tại source/target;
 - không có hai path dùng cùng lane/segment;
 - không có path quay ngược hoặc cross-band; các trường hợp đó bắt buộc dùng reference marker;
-- marker pair xuất hiện đúng hai đầu và không trùng mã trong cùng diagram;
-- toàn bộ connector nằm ngoài footer và canvas bounds.
+- marker pair xuất hiện đúng hai owner node, marker local xuất hiện đúng một lần trên gutter stripe của path sở hữu nó và không trùng mã trong cùng diagram;
+- mỗi semantic edge có đúng một footer directory entry, cùng mã và đúng full label;
+- path và marker nằm hoàn toàn phía trên footer (`y < 1610`); directory entry nằm trong footer `1610–1800`; tất cả geometry nằm trong canvas bounds.
 
 ### 7.4 Content preservation
 
@@ -191,8 +194,9 @@ Thiết kế đạt khi:
 2. Toàn bộ nội dung đọc hiểu trong 28 ảnh là tiếng Việt theo allowlist đã chốt.
 3. Geometry validator báo 0 node collision, 0 label collision và 0 shared path segment.
 4. Không còn back-edge hoặc cross-band path; mọi trường hợp dùng reference marker rõ ràng.
-5. Visual review đủ 28 ảnh ở preview 700 px và 1000 px không phát hiện chữ cắt, nét chồng hoặc marker khó theo dõi.
-6. Notion giữ đúng 28 ảnh mới, version `0.5` và toàn bộ baseline nội dung hiện có.
+5. Mọi edge có mã ổn định, marker code-only đúng owner và một entry `{code} — {edge.label}` đọc được trong footer; không entry nào bị truncate hoặc ellipsis.
+6. Visual review đủ 28 ảnh ở preview 700 px và 1000 px không phát hiện chữ cắt, nét chồng hoặc marker khó theo dõi.
+7. Notion giữ đúng 28 ảnh mới, version `0.5` và toàn bộ baseline nội dung hiện có.
 
 ## 10. Ngoài phạm vi
 

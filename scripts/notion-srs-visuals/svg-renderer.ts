@@ -1,4 +1,14 @@
-import type { TDiagramSpec, TEdgeStyle, TTone } from './types.ts';
+import { layoutDiagram } from './diagram-layout.ts';
+import { auditDiagramGeometry } from './geometry-audit.ts';
+
+import type {
+  TDiagramLayout,
+  TDiagramSpec,
+  TEdgeStyle,
+  TLayoutText,
+  TRect,
+  TTone,
+} from './types.ts';
 
 const COLORS: Record<TTone, { fill: string; stroke: string; text: string }> = {
   creator: { fill: '#EAF2FF', stroke: '#2457A7', text: '#173A70' },
@@ -15,12 +25,9 @@ const DASH: Record<TEdgeStyle, string | undefined> = {
   dotted: '3 8',
 };
 
-type TNodePosition = Readonly<{
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  columnIndex: number;
+type TTextOptions = Readonly<{
+  fill?: string;
+  fontWeight?: number;
 }>;
 
 export const escapeXml = (value: string): string =>
@@ -31,215 +38,159 @@ export const escapeXml = (value: string): string =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&apos;');
 
-const wrap = (value: string, width = 28): string[] => {
-  const words = value.split(/\s+/);
-  const lines: string[] = [];
+const numberValue = (value: number): string => String(value);
 
-  for (const word of words) {
-    const last = lines.at(-1);
-    if (!last || `${last} ${word}`.length > width) {
-      lines.push(word);
-    } else {
-      lines[lines.length - 1] = `${last} ${word}`;
-    }
+const rectAttributes = (rect: TRect): string =>
+  `x="${numberValue(rect.x)}" y="${numberValue(rect.y)}" width="${numberValue(rect.width)}" height="${numberValue(rect.height)}"`;
+
+const textAnchor = (align: TLayoutText['align']): string =>
+  align === 'middle' ? 'middle' : align === 'end' ? 'end' : 'start';
+
+const textX = (text: TLayoutText): number =>
+  text.align === 'middle'
+    ? text.rect.x + text.rect.width / 2
+    : text.align === 'end'
+      ? text.rect.x + text.rect.width
+      : text.rect.x;
+
+const renderText = (
+  text: TLayoutText,
+  { fill = '#26303B', fontWeight }: TTextOptions = {},
+): string => {
+  const x = numberValue(textX(text));
+  const y = numberValue(text.rect.y + text.fontSize);
+  const weight = fontWeight ? ` font-weight="${fontWeight}"` : '';
+  const attributes = `x="${x}" y="${y}" text-anchor="${textAnchor(text.align)}" font-size="${text.fontSize}"${weight} fill="${fill}"`;
+
+  if (text.lines.length === 1) {
+    return `<text ${attributes}>${escapeXml(text.lines[0] ?? '')}</text>`;
   }
 
-  if (lines.length <= 2) {
-    return lines;
-  }
-
-  return [
-    lines[0],
-    `${lines
-      .slice(1)
-      .join(' ')
-      .slice(0, width - 1)}…`,
-  ];
+  const lines = text.lines
+    .map(
+      (line, index) =>
+        `<tspan x="${x}" dy="${index === 0 ? 0 : text.lineHeight}">${escapeXml(line)}</tspan>`,
+    )
+    .join('');
+  return `<text ${attributes}>${lines}</text>`;
 };
 
-const requirePosition = (
-  positions: ReadonlyMap<string, TNodePosition>,
-  nodeId: string,
-  diagramKey: string,
-): TNodePosition => {
-  const position = positions.get(nodeId);
-  if (!position) {
-    throw new Error(`${diagramKey}: missing layout for node ${nodeId}`);
+const renderPathData = (
+  segments: TDiagramLayout['paths'][number]['segments'],
+): string => {
+  const first = segments[0];
+  if (!first) {
+    throw new Error('cannot render an edge without path segments');
   }
-  return position;
+
+  const commands = [
+    `M ${numberValue(first.from.x)} ${numberValue(first.from.y)}`,
+  ];
+  for (const segment of segments) {
+    if (segment.from.x === segment.to.x) {
+      commands.push(`V ${numberValue(segment.to.y)}`);
+    } else if (segment.from.y === segment.to.y) {
+      commands.push(`H ${numberValue(segment.to.x)}`);
+    } else {
+      commands.push(
+        `L ${numberValue(segment.to.x)} ${numberValue(segment.to.y)}`,
+      );
+    }
+  }
+  return commands.join(' ');
+};
+
+const renderBands = (layout: TDiagramLayout): string =>
+  layout.bands
+    .map(
+      (band) =>
+        `<g data-band-index="${band.index}"><rect ${rectAttributes(band.rect)} rx="20" fill="${band.index === 0 ? '#F8FAFC' : '#F7F9FC'}" stroke="#CBD5E1" stroke-width="2"/></g>`,
+    )
+    .join('\n');
+
+const renderColumns = (layout: TDiagramLayout): string =>
+  layout.columns
+    .map(
+      (column) =>
+        `<g data-column-index="${column.index}" data-column-band="${column.bandIndex}">${renderText(column.title, { fontWeight: 700 })}</g>`,
+    )
+    .join('\n');
+
+const renderPaths = (layout: TDiagramLayout): string =>
+  layout.paths
+    .map((path) => {
+      const dash = DASH[path.edge.style];
+      const dashAttribute = dash ? ` stroke-dasharray="${dash}"` : '';
+      return `<path data-edge-from="${escapeXml(path.edge.from)}" data-edge-to="${escapeXml(path.edge.to)}" data-path-kind="${path.kind}" data-edge-code="${escapeXml(path.code)}" data-lane="${escapeXml(path.lane)}" d="${renderPathData(path.segments)}" fill="none" stroke="#56616F" stroke-width="3"${dashAttribute} marker-end="url(#arrow)"/>`;
+    })
+    .join('\n');
+
+const renderNodes = (layout: TDiagramLayout): string =>
+  layout.nodes
+    .map((node) => {
+      const color = COLORS[node.node.tone];
+      const badge = node.badge
+        ? `<g data-node-badge="${escapeXml(node.node.id)}"><rect ${rectAttributes(node.badge.rect)} rx="14" fill="#FFFFFF" stroke="${color.stroke}" stroke-width="2"/><text x="${numberValue(node.badge.rect.x + node.badge.rect.width / 2)}" y="${numberValue(node.badge.rect.y + layout.typography.badge)}" text-anchor="middle" font-size="${layout.typography.badge}" font-weight="700" fill="${color.text}">${escapeXml(node.badge.text)}</text></g>`
+        : '';
+      return `<g data-node-id="${escapeXml(node.node.id)}" data-node-band="${node.bandIndex}" data-column-index="${node.columnIndex}"><rect ${rectAttributes(node.rect)} rx="16" fill="${color.fill}" stroke="${color.stroke}" stroke-width="3"/>${renderText(node.title, { fill: color.text, fontWeight: 700 })}${renderText(node.detail, { fill: color.text })}${badge}</g>`;
+    })
+    .join('\n');
+
+const renderPathMarkers = (layout: TDiagramLayout): string =>
+  layout.paths
+    .map(
+      (path) =>
+        `<g data-path-marker="true" data-edge-code="${escapeXml(path.code)}" data-edge-from="${escapeXml(path.edge.from)}" data-edge-to="${escapeXml(path.edge.to)}"><title>${escapeXml(path.edge.label)}</title><rect ${rectAttributes(path.label.rect)} rx="8" fill="#FFFFFF" stroke="#56616F" stroke-width="2"/>${renderText(path.label, { fontWeight: 700 })}</g>`,
+    )
+    .join('\n');
+
+const renderReferences = (layout: TDiagramLayout): string =>
+  layout.references
+    .flatMap((reference) =>
+      reference.endpoints.map(
+        (endpoint) =>
+          `<g data-reference-kind="${reference.kind}" data-reference-code="${escapeXml(reference.code)}" data-reference-role="${endpoint.role}" data-reference-node-id="${escapeXml(endpoint.nodeId)}"><title>${escapeXml(reference.edge.label)}</title><rect ${rectAttributes(endpoint.chipRect)} rx="8" fill="#FFFFFF" stroke="#56616F" stroke-width="2"/>${renderText(endpoint.label, { fontWeight: 700 })}</g>`,
+      ),
+    )
+    .join('\n');
+
+const renderFooter = (layout: TDiagramLayout): string => {
+  const legend = layout.footer.legendItems
+    .map((item) => renderText(item, { fontWeight: 700 }))
+    .join('\n');
+  const directory = layout.footer.edgeItems
+    .map(
+      (item) =>
+        `<g data-edge-directory-code="${escapeXml(item.code)}" data-edge-from="${escapeXml(item.edge.from)}" data-edge-to="${escapeXml(item.edge.to)}">${renderText(item.text)}</g>`,
+    )
+    .join('\n');
+
+  return `<g data-footer="true">${legend}${directory}${renderText(layout.footer.warning, { fontWeight: 700 })}</g>`;
 };
 
 export const renderDiagram = (spec: TDiagramSpec): string => {
-  if (spec.columns.length < 2 || spec.columns.length > 5) {
-    throw new Error(`${spec.key}: expected 2–5 columns`);
+  const layout = layoutDiagram(spec);
+  const geometryErrors = auditDiagramGeometry(layout);
+  if (geometryErrors.length > 0) {
+    throw new Error(
+      `${spec.key}: geometry audit failed\n${geometryErrors.join('\n')}`,
+    );
   }
 
-  const nodeIds = new Set<string>();
-  for (const column of spec.columns) {
-    if (column.nodes.length === 0 || column.nodes.length > 4) {
-      throw new Error(`${spec.key}: every column needs 1–4 nodes`);
-    }
+  const nodeDescription = spec.columns
+    .flatMap((column) => column.nodes)
+    .map(
+      (node) =>
+        `${node.label}: ${node.detail}${node.badge ? `; trạng thái ${node.badge}` : ''}`,
+    )
+    .join('; ');
+  const edgeDescription = layout.footer.edgeItems
+    .map((item) => `${item.code}: ${item.edge.label}`)
+    .join('; ');
+  const description = escapeXml(
+    `${spec.subtitle}. ${spec.scope}. Các nút: ${nodeDescription}. Các quan hệ: ${edgeDescription}.`,
+  );
+  const { width, height } = layout.viewBox;
 
-    for (const node of column.nodes) {
-      if (nodeIds.has(node.id)) {
-        throw new Error(`${spec.key}: duplicate node ${node.id}`);
-      }
-      nodeIds.add(node.id);
-    }
-  }
-
-  for (const edge of spec.edges) {
-    if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) {
-      throw new Error(`${spec.key}: unknown edge ${edge.from} → ${edge.to}`);
-    }
-  }
-
-  const left = 60;
-  const right = 1540;
-  const gap = 112;
-  const columnWidth =
-    (right - left - gap * (spec.columns.length - 1)) / spec.columns.length;
-  const nodeHeight = 112;
-  const positions = new Map<string, TNodePosition>();
-
-  spec.columns.forEach((column, columnIndex) => {
-    const x = left + columnIndex * (columnWidth + gap);
-    const available = 520 - column.nodes.length * nodeHeight;
-    const nodeGap =
-      column.nodes.length === 1 ? 0 : available / (column.nodes.length - 1);
-    const startY = column.nodes.length === 1 ? 390 : 190;
-
-    column.nodes.forEach((node, nodeIndex) => {
-      positions.set(node.id, {
-        x,
-        y: startY + nodeIndex * (nodeHeight + nodeGap),
-        width: columnWidth,
-        height: nodeHeight,
-        columnIndex,
-      });
-    });
-  });
-
-  const edgeLayouts = spec.edges.map((edge) => {
-    const from = requirePosition(positions, edge.from, spec.key);
-    const to = requirePosition(positions, edge.to, spec.key);
-    const y1 = from.y + from.height / 2;
-    const y2 = to.y + to.height / 2;
-
-    if (from.columnIndex === to.columnIndex) {
-      const routesRight = from.columnIndex < spec.columns.length - 1;
-      const direction = routesRight ? 1 : -1;
-      const x1 = routesRight ? from.x + from.width : from.x;
-      const x2 = routesRight ? to.x + to.width : to.x;
-      const laneX = x1 + direction * (gap / 2);
-
-      return {
-        edge,
-        route: 'same-column',
-        path: `M ${x1} ${y1} C ${laneX} ${y1}, ${laneX} ${y2}, ${x2} ${y2}`,
-        labelX: laneX,
-        labelY: (y1 + y2) / 2,
-      };
-    }
-
-    if (to.columnIndex < from.columnIndex) {
-      const x1 = from.x;
-      const x2 = to.x + to.width;
-      const sourceLaneX = x1 - gap / 2;
-      const targetLaneX = x2 + gap / 2;
-
-      if (from.columnIndex - to.columnIndex === 1) {
-        const laneX = (x1 + x2) / 2;
-
-        return {
-          edge,
-          route: 'back-adjacent',
-          path: `M ${x1} ${y1} C ${laneX} ${y1}, ${laneX} ${y2}, ${x2} ${y2}`,
-          labelX: laneX,
-          labelY: (y1 + y2) / 2,
-        };
-      }
-
-      const routeY = 760;
-
-      return {
-        edge,
-        route: 'back-exterior',
-        path: `M ${x1} ${y1} H ${sourceLaneX} V ${routeY} H ${targetLaneX} V ${y2} H ${x2}`,
-        labelX: (sourceLaneX + targetLaneX) / 2,
-        labelY: routeY,
-      };
-    }
-
-    const x1 = from.x + from.width;
-    const x2 = to.x;
-    const bend = Math.max(28, Math.abs(x2 - x1) / 2);
-
-    return {
-      edge,
-      route: 'forward',
-      path: `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`,
-      labelX: from.x + from.width + gap / 2,
-      labelY: (y1 + y2) / 2,
-    };
-  });
-
-  const edgePathSvg = edgeLayouts
-    .map((edge) => {
-      const dash = DASH[edge.edge.style];
-      const dashAttribute = dash ? ` stroke-dasharray="${dash}"` : '';
-
-      return `<path data-edge-from="${escapeXml(edge.edge.from)}" data-edge-to="${escapeXml(edge.edge.to)}" data-route="${edge.route}" d="${edge.path}" fill="none" stroke="#56616F" stroke-width="3"${dashAttribute} marker-end="url(#arrow)"/>`;
-    })
-    .join('\n');
-
-  const columnSvg = spec.columns
-    .map((column, columnIndex) => {
-      const x = left + columnIndex * (columnWidth + gap);
-      const heading = `<text x="${x + columnWidth / 2}" y="164" text-anchor="middle" font-size="19" font-weight="700" fill="#26303B">${escapeXml(column.title)}</text>`;
-      const nodes = column.nodes
-        .map((node) => {
-          const position = requirePosition(positions, node.id, spec.key);
-          const color = COLORS[node.tone];
-          const detailLines = wrap(node.detail);
-          const detail = detailLines
-            .map(
-              (line, index) =>
-                `<tspan x="${position.x + 18}" dy="${index === 0 ? 0 : 23}">${escapeXml(line)}</tspan>`,
-            )
-            .join('');
-          const badge = node.badge
-            ? `<text x="${position.x + position.width - 14}" y="${position.y + 22}" text-anchor="end" font-size="14" font-weight="700" fill="${color.text}">${escapeXml(node.badge)}</text>`
-            : '';
-
-          return `<g data-node-id="${escapeXml(node.id)}"><rect x="${position.x}" y="${position.y}" width="${position.width}" height="${position.height}" rx="16" fill="${color.fill}" stroke="${color.stroke}" stroke-width="3"/><text x="${position.x + 18}" y="${position.y + 35}" font-size="22" font-weight="700" fill="${color.text}">${escapeXml(node.label)}</text><text x="${position.x + 18}" y="${position.y + 68}" font-size="18" fill="${color.text}">${detail}</text>${badge}</g>`;
-        })
-        .join('\n');
-
-      return `${heading}\n${nodes}`;
-    })
-    .join('\n');
-
-  const edgeLabelSvg = edgeLayouts
-    .map(({ edge, labelX, labelY }) => {
-      const lines = wrap(edge.label, 11);
-      const pillWidth = 96;
-      const pillHeight = lines.length === 1 ? 34 : 52;
-      const pillX = labelX - pillWidth / 2;
-      const pillY = labelY - pillHeight / 2;
-      const textY = labelY - (lines.length - 1) * 9 + 5;
-      const text = lines
-        .map(
-          (line, index) =>
-            `<tspan x="${labelX}" dy="${index === 0 ? 0 : 18}">${escapeXml(line)}</tspan>`,
-        )
-        .join('');
-
-      return `<g data-edge-label="true" data-edge-from="${escapeXml(edge.from)}" data-edge-to="${escapeXml(edge.to)}"><title>${escapeXml(edge.label)}</title><rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="10" fill="#FFFFFF" stroke="#697586" stroke-width="2"/><text x="${labelX}" y="${textY}" text-anchor="middle" font-size="15" font-weight="700" fill="#26303B">${text}</text></g>`;
-    })
-    .join('\n');
-
-  const description = escapeXml(`${spec.subtitle}. ${spec.scope}`);
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="diagram-title diagram-desc"><title id="diagram-title">${escapeXml(spec.title)}</title><desc id="diagram-desc">${description}</desc><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#56616F"/></marker></defs><rect width="1600" height="900" fill="#FFFFFF"/><text x="60" y="58" font-size="34" font-weight="800" fill="#17202A">${escapeXml(spec.title)}</text><text x="60" y="94" font-size="21" fill="#374151">${escapeXml(spec.subtitle)}</text><text x="60" y="124" font-size="18" fill="#56616F">${escapeXml(spec.scope)}</text>${edgePathSvg}${columnSvg}${edgeLabelSvg}<g transform="translate(60 820)" font-size="16" fill="#26303B"><path d="M 0 12 H 90" stroke="#56616F" stroke-width="3" marker-end="url(#arrow)"/><text x="105" y="18">request / navigation</text><path d="M 345 12 H 435" stroke="#56616F" stroke-width="3" stroke-dasharray="12 8" marker-end="url(#arrow)"/><text x="450" y="18">async / webhook</text><path d="M 680 12 H 770" stroke="#56616F" stroke-width="3" stroke-dasharray="3 8" marker-end="url(#arrow)"/><text x="785" y="18">audit / evidence</text><text x="1120" y="18" font-weight="700">Visual aid — normative SRS text is authoritative</text></g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="diagram-title diagram-desc"><title id="diagram-title">${escapeXml(spec.title)}</title><desc id="diagram-desc">${description}</desc><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#56616F"/></marker></defs><rect width="${width}" height="${height}" fill="#FFFFFF"/>${renderText(layout.header.title, { fontWeight: 800 })}${renderText(layout.header.subtitle)}${renderText(layout.header.scope, { fill: '#56616F' })}${renderBands(layout)}${renderColumns(layout)}${renderPaths(layout)}${renderNodes(layout)}${renderPathMarkers(layout)}${renderReferences(layout)}${renderFooter(layout)}</svg>`;
 };
