@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { auditSceneAccessibility } from './accessibility-audit.ts';
 import { layoutScreen } from './layout-recipes.ts';
 import {
   escapeXml,
@@ -134,6 +135,7 @@ test('should render all fifty-nine audited layouts without component or director
       screen.code,
     );
     assert.doesNotMatch(svg, /shopee/iu, screen.code);
+    assert.deepEqual(auditSceneAccessibility(svg), [], screen.code);
 
     const accentElements = svg.match(/<[^>]+(?:#F67993|#FFF0F3)[^>]*>/gu) ?? [];
     assert.ok(accentElements.length > 0, `${screen.code}: accent coverage`);
