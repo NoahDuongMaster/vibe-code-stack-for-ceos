@@ -12,6 +12,7 @@ export type TLayoutRecipe =
 
 export type TScreenState =
   | 'loading'
+  | 'pending'
   | 'empty'
   | 'ready'
   | 'editing'
@@ -64,6 +65,7 @@ export type TScreenContract = {
   readonly code: TScreenCode;
   readonly pageKey: TUiPageKey;
   readonly title: string;
+  readonly displayTitle: string;
   readonly surface: TSurface;
   readonly actor: string;
   readonly route: string;
