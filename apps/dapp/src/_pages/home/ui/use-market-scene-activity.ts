@@ -5,6 +5,7 @@ import type { RefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 type TMarketSceneActivity = {
+  compactViewport: boolean;
   containerRef: RefObject<HTMLDivElement | null>;
   shouldAnimate: boolean;
   reducedMotion: boolean;
@@ -13,11 +14,26 @@ type TMarketSceneActivity = {
 export const useMarketSceneActivity = (): TMarketSceneActivity => {
   const containerRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion() ?? false;
+  const [compactViewport, setCompactViewport] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia('(max-width: 639px)').matches,
+  );
   const [isIntersecting, setIsIntersecting] = useState(true);
   const [isDocumentVisible, setIsDocumentVisible] = useState(
     () =>
       typeof document === 'undefined' || document.visibilityState !== 'hidden',
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(max-width: 639px)');
+    const handleChange = () => setCompactViewport(mediaQuery.matches);
+
+    handleChange();
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -43,6 +59,7 @@ export const useMarketSceneActivity = (): TMarketSceneActivity => {
   }, []);
 
   return {
+    compactViewport,
     containerRef,
     shouldAnimate: !prefersReducedMotion && isIntersecting && isDocumentVisible,
     reducedMotion: prefersReducedMotion,

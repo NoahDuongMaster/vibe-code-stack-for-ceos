@@ -104,6 +104,7 @@ describe('[MarketDashboard]', () => {
     render(<MarketDashboard />);
 
     expect(screen.getByRole('heading', { name: 'VIBE//X' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Market pulse' })).toBeTruthy();
     expect(screen.getByLabelText('Market tape')).toBeTruthy();
     expect(
       screen.getByRole('list', { name: 'Market tape' }).getAttribute('role'),
@@ -118,6 +119,11 @@ describe('[MarketDashboard]', () => {
     expect(screen.getAllByText('$70,000.00').length).toBeGreaterThan(0);
     expect(screen.getByText('Selected cap')).toBeTruthy();
     expect(screen.getByText('24h volume')).toBeTruthy();
+    expect(
+      screen
+        .getByRole('button', { name: 'Refresh market data' })
+        .getAttribute('aria-label'),
+    ).toBe('Refresh market data');
     for (const [, , name] of MARKET_NAMES) {
       expect(screen.getAllByText(name).length).toBeGreaterThan(0);
     }
@@ -187,6 +193,21 @@ describe('[MarketDashboard]', () => {
     render(<MarketDashboard />);
 
     fireEvent.focus(screen.getByRole('button', { name: 'Select Ethereum' }));
+
+    expect(screen.getByTestId('market-scene').textContent).toContain(
+      'Scene: 10 / ethereum',
+    );
+  });
+
+  it('should activate a market in the scene from a table click', () => {
+    mocks.useMarkets.mockReturnValue(queryState({ data: SNAPSHOT }));
+    render(<MarketDashboard />);
+
+    const ethereumButtons = screen.getAllByRole('button', {
+      name: 'Highlight Ethereum in 3D',
+    });
+    expect(ethereumButtons).toHaveLength(2);
+    fireEvent.click(ethereumButtons[0] as HTMLButtonElement);
 
     expect(screen.getByTestId('market-scene').textContent).toContain(
       'Scene: 10 / ethereum',

@@ -61,8 +61,8 @@ const identityStyle = css({
 });
 
 const kickerStyle = css({
-  color: 'bone/46',
-  fontFamily: 'mono',
+  color: 'bone/62',
+  fontFamily: 'var(--font-mono), ui-monospace, monospace',
   fontSize: '2xs',
   letterSpacing: '0.14em',
   textTransform: 'uppercase',
@@ -70,7 +70,7 @@ const kickerStyle = css({
 
 const wordmarkStyle = css({
   mt: '0.5',
-  fontFamily: 'display',
+  fontFamily: 'var(--font-display), ui-sans-serif, system-ui, sans-serif',
   fontSize: { base: 'xl', md: '2xl' },
   fontWeight: '800',
   letterSpacing: '-0.08em',
@@ -96,7 +96,7 @@ const tapeItemStyle = css({
   minW: 'max-content',
   px: '4',
   py: '2.5',
-  fontFamily: 'mono',
+  fontFamily: 'var(--font-mono), ui-monospace, monospace',
   fontSize: 'xs',
   borderInlineEndWidth: '1px',
   borderColor: 'bone/8',
@@ -116,8 +116,8 @@ const statusStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: '2',
-  fontFamily: 'mono',
-  fontSize: '2xs',
+  fontFamily: 'var(--font-mono), ui-monospace, monospace',
+  fontSize: 'xs',
   textTransform: 'uppercase',
 });
 
@@ -131,8 +131,8 @@ const refreshButtonStyle = css({
   color: 'bone',
   borderWidth: '1px',
   borderColor: 'bone/18',
-  fontFamily: 'mono',
-  fontSize: '2xs',
+  fontFamily: 'var(--font-mono), ui-monospace, monospace',
+  fontSize: 'xs',
   cursor: 'pointer',
   transition: 'color 140ms ease, border-color 140ms ease',
   _hover: { color: 'toxic', borderColor: 'toxic/70' },
@@ -193,6 +193,7 @@ export function MarketHeader({
         </div>
         <button
           type="button"
+          aria-label="Refresh market data"
           className={refreshButtonStyle}
           onClick={onRefresh}
         >

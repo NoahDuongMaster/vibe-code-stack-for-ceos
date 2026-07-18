@@ -10,6 +10,7 @@ const r3fMocks = vi.hoisted(() => ({
   renderFallback: false,
 }));
 const activityState = vi.hoisted(() => ({
+  compactViewport: false,
   reducedMotion: false,
   shouldAnimate: true,
 }));
@@ -33,6 +34,7 @@ vi.mock('@react-three/drei', () => ({
 }));
 vi.mock('@/_pages/home/ui/use-market-scene-activity', () => ({
   useMarketSceneActivity: () => ({
+    compactViewport: activityState.compactViewport,
     containerRef: { current: null },
     reducedMotion: activityState.reducedMotion,
     shouldAnimate: activityState.shouldAnimate,
@@ -92,6 +94,7 @@ describe('[MarketScene]', () => {
     r3fMocks.renderFallback = false;
     activityState.reducedMotion = false;
     activityState.shouldAnimate = true;
+    activityState.compactViewport = false;
   });
 
   it('should configure a capped animated canvas and semantic selected asset', () => {
@@ -118,6 +121,23 @@ describe('[MarketScene]', () => {
     expect(screen.getByRole('status').textContent).toContain('BTC');
     expect(screen.getByRole('status').textContent).toContain('$70,000.00');
     expect(screen.getByRole('status').textContent).toContain('+2.50%');
+  });
+
+  it('should pull the camera back to frame every blade on mobile', () => {
+    activityState.compactViewport = true;
+    render(
+      <MarketScene
+        activeMarketId="bitcoin"
+        markets={markets}
+        nodes={nodes}
+        onActiveMarketChange={vi.fn()}
+      />,
+    );
+
+    expect(r3fMocks.canvasProps?.camera).toEqual({
+      fov: 44,
+      position: [0, 5.8, 13.2],
+    });
   });
 
   it('should use a demand frame loop without mutation for reduced motion', () => {

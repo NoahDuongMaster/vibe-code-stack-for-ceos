@@ -85,7 +85,12 @@ export function MarketErrorState({ onRetry }: { onRetry: () => void }) {
       <div className={flex({ align: 'center', gap: '3' })}>
         <AlertTriangle aria-hidden="true" size={18} />
         <div>
-          <p className={css({ fontFamily: 'mono', fontWeight: '600' })}>
+          <p
+            className={css({
+              fontFamily: 'var(--font-mono), ui-monospace, monospace',
+              fontWeight: '600',
+            })}
+          >
             Market data is temporarily unavailable.
           </p>
           <p className={css({ mt: '1', color: 'bone/58', fontSize: 'sm' })}>
@@ -106,7 +111,7 @@ export function MarketErrorState({ onRetry }: { onRetry: () => void }) {
           color: 'rekt',
           borderWidth: '1px',
           borderColor: 'rekt/58',
-          fontFamily: 'mono',
+          fontFamily: 'var(--font-mono), ui-monospace, monospace',
           fontSize: 'xs',
           fontWeight: '600',
           cursor: 'pointer',

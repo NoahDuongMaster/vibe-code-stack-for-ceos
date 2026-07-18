@@ -62,8 +62,8 @@ const activeReadoutStyle = css({
 });
 
 const readoutLabelStyle = css({
-  color: 'bone/42',
-  fontFamily: 'mono',
+  color: 'bone/62',
+  fontFamily: 'var(--font-mono), ui-monospace, monospace',
   fontSize: '2xs',
   letterSpacing: '0.12em',
   textTransform: 'uppercase',
@@ -71,7 +71,7 @@ const readoutLabelStyle = css({
 
 const readoutSymbolStyle = css({
   mt: '1.5',
-  fontFamily: 'display',
+  fontFamily: 'var(--font-display), ui-sans-serif, system-ui, sans-serif',
   fontSize: { base: '3xl', md: '5xl' },
   fontWeight: '800',
   letterSpacing: '-0.08em',
@@ -83,7 +83,7 @@ const readoutValueStyle = css({
   alignItems: 'center',
   gap: '2',
   mt: '2',
-  fontFamily: 'mono',
+  fontFamily: 'var(--font-mono), ui-monospace, monospace',
   fontSize: { base: 'sm', md: 'md' },
 });
 
@@ -121,13 +121,15 @@ function MarketBlade({
   onActiveMarketChange,
 }: TMarketBladeProps) {
   const bladeRef = useRef<Group>(null);
+  const elapsedRef = useRef(0);
   const [hovered, setHovered] = useState(false);
   const highlighted = active || hovered;
 
-  useFrame(({ clock }, delta) => {
+  useFrame((_, delta) => {
     if (!animate || !bladeRef.current) return;
+    elapsedRef.current += delta;
     const reveal = MathUtils.clamp(
-      (clock.elapsedTime - node.revealDelay) * 1.8,
+      (elapsedRef.current - node.revealDelay) * 1.8,
       0,
       1,
     );
@@ -139,7 +141,8 @@ function MarketBlade({
     );
     const pulseAmplitude = 0.012 + node.pulseStrength * 0.018;
     const pulse =
-      1 + Math.sin(clock.elapsedTime * 1.6 + node.revealDelay) * pulseAmplitude;
+      1 +
+      Math.sin(elapsedRef.current * 1.6 + node.revealDelay) * pulseAmplitude;
     bladeRef.current.scale.y = highlighted ? pulse * 1.035 : pulse;
   });
 
@@ -171,10 +174,12 @@ function MarketBlade({
           color={highlighted ? '#E9F1E2' : node.color}
           emissive={node.color}
           emissiveIntensity={
-            node.emissiveIntensity * (highlighted ? 1.5 : node.pulseStrength)
+            node.emissiveIntensity *
+            (highlighted ? 2 : 1.05 + node.pulseStrength)
           }
-          metalness={0.72}
-          roughness={0.24}
+          metalness={0.42}
+          roughness={0.16}
+          toneMapped={false}
         />
       </mesh>
       {highlighted ? (
@@ -189,18 +194,20 @@ function MarketBlade({
 
 function ScanPlane({ animate }: { animate: boolean }) {
   const scanRef = useRef<Group>(null);
+  const elapsedRef = useRef(0);
 
-  useFrame(({ clock }) => {
+  useFrame((_, delta) => {
     if (!animate || !scanRef.current) return;
-    const progress = (clock.elapsedTime * 0.18) % 1;
+    elapsedRef.current += delta;
+    const progress = (elapsedRef.current * 0.18) % 1;
     scanRef.current.position.x = MathUtils.lerp(-3.8, 3.8, progress);
   });
 
   return (
     <group ref={scanRef} position={[-3.8, 1.5, 0]}>
       <mesh>
-        <boxGeometry args={[0.018, 3.4, 7]} />
-        <meshBasicMaterial color="#C7FF2F" opacity={0.2} transparent />
+        <boxGeometry args={[0.018, 0.035, 7]} />
+        <meshBasicMaterial color="#C7FF2F" opacity={0.32} transparent />
       </mesh>
     </group>
   );
@@ -280,7 +287,8 @@ export function MarketScene({
   nodes,
   onActiveMarketChange,
 }: TMarketSceneProps) {
-  const { containerRef, shouldAnimate } = useMarketSceneActivity();
+  const { compactViewport, containerRef, shouldAnimate } =
+    useMarketSceneActivity();
   const selectedMarket =
     markets.find(({ id }) => id === activeMarketId) ?? markets[0];
 
@@ -292,7 +300,10 @@ export function MarketScene({
       <div ref={containerRef} className={sceneActivitySurfaceStyle}>
         <Canvas
           aria-hidden="true"
-          camera={{ position: [0, 5.4, 9.4], fov: 38 }}
+          camera={{
+            position: compactViewport ? [0, 5.8, 13.2] : [0, 5.4, 9.4],
+            fov: compactViewport ? 44 : 38,
+          }}
           dpr={[1, 1.5]}
           fallback={<MarketSceneFallback />}
           frameloop={shouldAnimate ? 'always' : 'demand'}
@@ -301,7 +312,9 @@ export function MarketScene({
             antialias: true,
             powerPreference: 'high-performance',
           }}
-          onCreated={({ camera }) => camera.lookAt(0, 1.1, 0)}
+          onCreated={({ camera }) =>
+            camera.lookAt(0, compactViewport ? 1 : 1.1, 0)
+          }
         >
           <ambientLight intensity={0.34} />
           <pointLight color="#C7FF2F" intensity={18} position={[2, 7, 4]} />

@@ -12,7 +12,7 @@ let intersectionCallback: IntersectionObserverCallback | undefined;
 const disconnect = vi.fn();
 
 function ActivityHarness() {
-  const { containerRef, reducedMotion, shouldAnimate } =
+  const { compactViewport, containerRef, reducedMotion, shouldAnimate } =
     useMarketSceneActivity();
 
   return (
@@ -20,6 +20,7 @@ function ActivityHarness() {
       ref={containerRef}
       data-testid="activity"
       data-animate={String(shouldAnimate)}
+      data-compact-viewport={String(compactViewport)}
       data-reduced-motion={String(reducedMotion)}
     />
   );
@@ -86,5 +87,22 @@ describe('[MarketSceneActivity]', () => {
 
     unmount();
     expect(disconnect).toHaveBeenCalledOnce();
+  });
+
+  it('should expose compact viewport framing from a media query', () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+      matches: query === '(max-width: 639px)',
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    }));
+
+    render(<ActivityHarness />);
+
+    expect(screen.getByTestId('activity').dataset.compactViewport).toBe('true');
   });
 });

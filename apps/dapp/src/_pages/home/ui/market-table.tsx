@@ -51,7 +51,7 @@ const tokenStyle = css({
   borderColor: 'plasma/58',
   clipPath:
     'polygon(0 0, calc(100% - 0.45rem) 0, 100% 0.45rem, 100% 100%, 0 100%)',
-  fontFamily: 'mono',
+  fontFamily: 'var(--font-mono), ui-monospace, monospace',
   fontSize: '2xs',
   fontWeight: '600',
 });
@@ -70,7 +70,7 @@ const cellStyle = css({
 });
 
 const numericCellStyle = css({
-  fontFamily: 'mono',
+  fontFamily: 'var(--font-mono), ui-monospace, monospace',
   fontSize: 'xs',
   textAlign: 'right',
   whiteSpace: 'nowrap',
@@ -120,6 +120,7 @@ function AssetButton({
       aria-pressed={active}
       onFocus={() => onActiveMarketChange(market.id)}
       onMouseEnter={() => onActiveMarketChange(market.id)}
+      onClick={() => onActiveMarketChange(market.id)}
     >
       <span className={cx(tokenStyle, active ? activeTokenStyle : undefined)}>
         {market.symbol.slice(0, 2)}
@@ -141,8 +142,8 @@ function AssetButton({
           className={css({
             display: 'block',
             mt: '0.5',
-            color: 'bone/44',
-            fontFamily: 'mono',
+            color: 'bone/62',
+            fontFamily: 'var(--font-mono), ui-monospace, monospace',
             fontSize: '2xs',
           })}
         >
@@ -172,7 +173,7 @@ export function MarketTable({
           <p
             className={css({
               color: 'plasma',
-              fontFamily: 'mono',
+              fontFamily: 'var(--font-mono), ui-monospace, monospace',
               fontSize: '2xs',
               letterSpacing: '0.14em',
               textTransform: 'uppercase',
@@ -184,7 +185,8 @@ export function MarketTable({
             id="market-list-heading"
             className={css({
               mt: '1',
-              fontFamily: 'display',
+              fontFamily:
+                'var(--font-display), ui-sans-serif, system-ui, sans-serif',
               fontSize: { base: 'xl', md: '2xl' },
               fontWeight: '600',
               letterSpacing: '-0.05em',
@@ -196,8 +198,8 @@ export function MarketTable({
         <p
           className={css({
             display: { base: 'none', md: 'block' },
-            color: 'bone/42',
-            fontFamily: 'mono',
+            color: 'bone/62',
+            fontFamily: 'var(--font-mono), ui-monospace, monospace',
             fontSize: '2xs',
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
@@ -237,10 +239,10 @@ export function MarketTable({
                     className={css({
                       px: '4',
                       py: '3',
-                      color: 'bone/42',
+                      color: 'bone/62',
                       borderBottomWidth: '1px',
                       borderColor: 'bone/12',
-                      fontFamily: 'mono',
+                      fontFamily: 'var(--font-mono), ui-monospace, monospace',
                       fontSize: '2xs',
                       fontWeight: '500',
                       letterSpacing: '0.12em',
@@ -275,8 +277,8 @@ export function MarketTable({
                       cellStyle,
                       css({
                         w: '16',
-                        color: active ? 'toxic' : 'bone/38',
-                        fontFamily: 'mono',
+                        color: active ? 'toxic' : 'bone/62',
+                        fontFamily: 'var(--font-mono), ui-monospace, monospace',
                         fontSize: '2xs',
                       }),
                     )}
@@ -346,8 +348,8 @@ export function MarketTable({
                 <div className={flex({ align: 'center', gap: '3', minW: 0 })}>
                   <span
                     className={css({
-                      color: active ? 'toxic' : 'bone/38',
-                      fontFamily: 'mono',
+                      color: active ? 'toxic' : 'bone/62',
+                      fontFamily: 'var(--font-mono), ui-monospace, monospace',
                       fontSize: '2xs',
                     })}
                   >
@@ -379,8 +381,8 @@ export function MarketTable({
                   <div key={label} className={css({ minW: 0 })}>
                     <dt
                       className={css({
-                        color: 'bone/40',
-                        fontFamily: 'mono',
+                        color: 'bone/62',
+                        fontFamily: 'var(--font-mono), ui-monospace, monospace',
                         fontSize: '2xs',
                         textTransform: 'uppercase',
                       })}
@@ -391,7 +393,7 @@ export function MarketTable({
                       className={css({
                         mt: '1',
                         overflow: 'hidden',
-                        fontFamily: 'mono',
+                        fontFamily: 'var(--font-mono), ui-monospace, monospace',
                         fontSize: 'xs',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',

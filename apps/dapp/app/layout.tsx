@@ -37,12 +37,14 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
     <html lang="en">
       <body
         className={cx(
+          fontSans.className,
           fontDisplay.variable,
           fontSans.variable,
           fontMono.variable,
           css({
             minH: '100vh',
-            fontFamily: 'sans',
+            fontFamily:
+              'var(--font-sans), ui-sans-serif, system-ui, sans-serif',
             fontSmoothing: 'antialiased',
             bg: 'background',
           }),

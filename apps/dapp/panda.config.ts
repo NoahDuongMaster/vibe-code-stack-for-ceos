@@ -166,7 +166,7 @@ export default defineConfig({
     body: {
       bg: 'background',
       color: 'foreground',
-      fontFamily: 'sans',
+      fontFamily: 'var(--font-sans), ui-sans-serif, system-ui, sans-serif',
       minHeight: '100vh',
       fontSmoothing: 'antialiased',
     },

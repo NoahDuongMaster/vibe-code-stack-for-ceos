@@ -42,17 +42,19 @@ const watchlistHeaderStyle = css({
   alignItems: 'center',
   justifyContent: 'space-between',
   px: '4',
-  py: '3',
+  py: { base: '3', xl: '2' },
   borderBottomWidth: '1px',
   borderColor: 'bone/12',
-  fontFamily: 'mono',
-  fontSize: '2xs',
+  fontFamily: 'var(--font-mono), ui-monospace, monospace',
+  fontSize: 'xs',
   letterSpacing: '0.14em',
   textTransform: 'uppercase',
 });
 
 const watchlistItemsStyle = css({
-  display: { base: 'flex', xl: 'block' },
+  display: { base: 'flex', xl: 'grid' },
+  gridAutoRows: { xl: 'minmax(3.25rem, 1fr)' },
+  gridTemplateRows: { xl: 'repeat(10, minmax(3.25rem, 1fr))' },
   minW: 0,
   m: 0,
   p: 0,
@@ -66,6 +68,7 @@ const watchlistItemsStyle = css({
 const watchlistItemStyle = css({
   flex: { base: '0 0 min(17rem, 82vw)', xl: 'none' },
   minW: 0,
+  minH: 0,
   borderInlineEndWidth: { base: '1px', xl: '0' },
   borderColor: 'bone/8',
 });
@@ -75,9 +78,10 @@ const watchlistButtonStyle = css({
   gridTemplateColumns: '2rem minmax(0, 1fr) auto',
   alignItems: 'center',
   w: 'full',
-  minH: '4.7rem',
+  h: { xl: 'full' },
+  minH: { base: '4.7rem', xl: 0 },
   px: '3',
-  py: '2.5',
+  py: { base: '2.5', xl: '1' },
   color: 'bone',
   borderBottomWidth: { xl: '1px' },
   borderColor: 'bone/8',
@@ -129,9 +133,9 @@ export function MarketWatchlist({
               >
                 <span
                   className={css({
-                    color: 'bone/38',
-                    fontFamily: 'mono',
-                    fontSize: '2xs',
+                    color: 'bone/62',
+                    fontFamily: 'var(--font-mono), ui-monospace, monospace',
+                    fontSize: 'xs',
                   })}
                 >
                   {String(index + 1).padStart(2, '0')}
@@ -140,7 +144,7 @@ export function MarketWatchlist({
                   <strong
                     className={css({
                       display: 'block',
-                      fontFamily: 'mono',
+                      fontFamily: 'var(--font-mono), ui-monospace, monospace',
                       fontSize: 'sm',
                       letterSpacing: '0.04em',
                     })}
@@ -152,8 +156,8 @@ export function MarketWatchlist({
                       display: 'block',
                       maxW: '24',
                       overflow: 'hidden',
-                      color: 'bone/46',
-                      fontSize: '2xs',
+                      color: 'bone/62',
+                      fontSize: 'xs',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
                     })}
@@ -162,7 +166,10 @@ export function MarketWatchlist({
                   </span>
                 </span>
                 <span
-                  className={css({ fontFamily: 'mono', textAlign: 'right' })}
+                  className={css({
+                    fontFamily: 'var(--font-mono), ui-monospace, monospace',
+                    textAlign: 'right',
+                  })}
                 >
                   <span className={css({ display: 'block', fontSize: 'xs' })}>
                     {formatMarketPrice(market.currentPrice)}
