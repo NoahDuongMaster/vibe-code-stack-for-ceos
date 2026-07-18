@@ -1,13 +1,22 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { TMarket } from '@/_pages/home/model/market.schema';
 import { MarketWatchlist } from '@/_pages/home/ui/market-watchlist';
+
+vi.mock('next/image', () => ({
+  default: ({ alt, height, onError, src, width }: ComponentProps<'img'>) => (
+    // biome-ignore lint/performance/noImgElement: test double for next/image.
+    <img alt={alt} height={height} onError={onError} src={src} width={width} />
+  ),
+}));
 
 const markets: TMarket[] = [
   {
     id: 'bitcoin',
     symbol: 'BTC',
     name: 'Bitcoin',
+    imageUrl: 'https://coin-images.coingecko.com/bitcoin.png',
     currentPrice: 70_000,
     priceChangePercentage24h: 2.5,
     marketCapRank: 1,
@@ -16,6 +25,7 @@ const markets: TMarket[] = [
     id: 'ethereum',
     symbol: 'ETH',
     name: 'Ethereum',
+    imageUrl: 'https://coin-images.coingecko.com/ethereum.png',
     currentPrice: 3_500,
     priceChangePercentage24h: -1.25,
     marketCapRank: 2,
@@ -46,6 +56,12 @@ describe('[MarketWatchlist]', () => {
         .getByRole('button', { name: 'Select Bitcoin' })
         .getAttribute('aria-pressed'),
     ).toBe('true');
+    expect(
+      screen
+        .getByRole('button', { name: 'Select Bitcoin' })
+        .querySelector('img')
+        ?.getAttribute('src'),
+    ).toBe('https://coin-images.coingecko.com/bitcoin.png');
     fireEvent.focus(screen.getByRole('button', { name: 'Select Ethereum' }));
     expect(onActiveMarketChange).toHaveBeenCalledWith('ethereum');
   });

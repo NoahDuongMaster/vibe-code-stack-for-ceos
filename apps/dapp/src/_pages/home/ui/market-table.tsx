@@ -5,6 +5,7 @@ import {
   formatMarketPrice,
 } from '@/_pages/home/model/market.formatters';
 import type { TMarket } from '@/_pages/home/model/market.schema';
+import { MarketLogo } from '@/_pages/home/ui/market-logo';
 import { css, cx } from '@/styled-system/css';
 import { flex, grid } from '@/styled-system/patterns';
 
@@ -39,27 +40,10 @@ const assetButtonStyle = css({
   },
 });
 
-const tokenStyle = css({
-  display: 'grid',
-  placeItems: 'center',
-  w: '8',
-  h: '8',
-  flexShrink: 0,
-  color: 'bone',
-  bgColor: 'plasma/18',
-  borderWidth: '1px',
-  borderColor: 'plasma/58',
-  clipPath:
-    'polygon(0 0, calc(100% - 0.45rem) 0, 100% 0.45rem, 100% 100%, 0 100%)',
-  fontFamily: 'var(--font-mono), ui-monospace, monospace',
-  fontSize: '2xs',
-  fontWeight: '600',
-});
-
 const activeTokenStyle = css({
-  color: 'void',
-  bgColor: 'toxic',
   borderColor: 'toxic',
+  boxShadow:
+    '0 0 0 2px rgba(199, 255, 47, 0.24), 0 0 18px rgba(199, 255, 47, 0.2)',
 });
 
 const cellStyle = css({
@@ -122,9 +106,13 @@ function AssetButton({
       onMouseEnter={() => onActiveMarketChange(market.id)}
       onClick={() => onActiveMarketChange(market.id)}
     >
-      <span className={cx(tokenStyle, active ? activeTokenStyle : undefined)}>
-        {market.symbol.slice(0, 2)}
-      </span>
+      <MarketLogo
+        className={active ? activeTokenStyle : undefined}
+        imageUrl={market.imageUrl}
+        name={market.name}
+        size={32}
+        symbol={market.symbol}
+      />
       <span className={css({ minW: 0 })}>
         <strong
           className={css({

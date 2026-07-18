@@ -58,10 +58,12 @@ const nextConfig: NextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: process.env.NODE_ENV === 'production' ? 60 : 0,
-    remotePatterns:
-      env.server.CORS_RESOURCE?.split(',').map((remote) => ({
+    remotePatterns: [
+      { protocol: 'https', hostname: 'coin-images.coingecko.com' },
+      ...(env.server.CORS_RESOURCE?.split(',').map((remote) => ({
         hostname: remote,
-      })) ?? [],
+      })) ?? []),
+    ],
   },
   logging: {
     fetches: {

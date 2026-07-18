@@ -3,6 +3,7 @@ import {
   formatMarketPrice,
 } from '@/_pages/home/model/market.formatters';
 import type { TMarket } from '@/_pages/home/model/market.schema';
+import { MarketLogo } from '@/_pages/home/ui/market-logo';
 import { css, cx } from '@/styled-system/css';
 
 type TMarketWatchlistProps = {
@@ -113,7 +114,7 @@ export function MarketWatchlist({
       </div>
       {/* biome-ignore lint/a11y/noRedundantRoles: Safari drops list semantics when list-style is none. */}
       <ol className={watchlistItemsStyle} role="list">
-        {markets.map((market, index) => {
+        {markets.map((market) => {
           const active = market.id === activeMarketId;
           const changeTone = getChangeTone(market.priceChangePercentage24h);
 
@@ -131,15 +132,12 @@ export function MarketWatchlist({
                 onMouseEnter={() => onActiveMarketChange(market.id)}
                 onClick={() => onActiveMarketChange(market.id)}
               >
-                <span
-                  className={css({
-                    color: 'bone/62',
-                    fontFamily: 'var(--font-mono), ui-monospace, monospace',
-                    fontSize: 'xs',
-                  })}
-                >
-                  {String(index + 1).padStart(2, '0')}
-                </span>
+                <MarketLogo
+                  imageUrl={market.imageUrl}
+                  name={market.name}
+                  size={32}
+                  symbol={market.symbol}
+                />
                 <span>
                   <strong
                     className={css({
