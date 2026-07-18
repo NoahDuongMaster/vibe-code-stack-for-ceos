@@ -29,7 +29,32 @@ vi.mock('@react-three/fiber', () => ({
   },
 }));
 vi.mock('@react-three/drei', () => ({
+  Edges: () => <span data-testid="reactor-blade-edges" />,
   Grid: () => null,
+  RoundedBox: ({
+    children,
+    name,
+    onClick,
+    onPointerOut,
+    onPointerOver,
+  }: {
+    children?: React.ReactNode;
+    name?: string;
+    onClick?: (event: React.MouseEvent) => void;
+    onPointerOut?: () => void;
+    onPointerOver?: (event: React.MouseEvent) => void;
+  }) => (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the mock preserves React Three Fiber pointer handlers for the selection test.
+    <mesh
+      data-testid="reactor-beveled-blade"
+      name={name}
+      onClick={onClick}
+      onPointerOut={onPointerOut}
+      onPointerOver={onPointerOver}
+    >
+      {children}
+    </mesh>
+  ),
   Sparkles: () => null,
 }));
 vi.mock('@/_pages/home/ui/use-market-scene-activity', () => ({
@@ -115,6 +140,10 @@ describe('[MarketScene]', () => {
       alpha: true,
       powerPreference: 'high-performance',
     });
+    expect(r3fMocks.canvasProps?.camera).toEqual({
+      fov: 38,
+      position: [4.6, 5.2, 7.1],
+    });
     expect(screen.getByRole('status').textContent).toContain(
       'Active market / USD',
     );
@@ -136,8 +165,71 @@ describe('[MarketScene]', () => {
 
     expect(r3fMocks.canvasProps?.camera).toEqual({
       fov: 44,
-      position: [0, 5.8, 13.2],
+      position: [6.4, 6.8, 11.6],
     });
+  });
+
+  it('should build each market from a beveled metallic body, bright cap, and crisp edges', () => {
+    const { container } = render(
+      <MarketScene
+        activeMarketId="bitcoin"
+        markets={markets}
+        nodes={nodes}
+        onActiveMarketChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByTestId('reactor-beveled-blade')).toHaveLength(
+      nodes.length,
+    );
+    expect(screen.getAllByTestId('reactor-blade-edges')).toHaveLength(
+      nodes.length,
+    );
+    expect(
+      container.querySelectorAll('mesh[name^="market-cap-"]'),
+    ).toHaveLength(nodes.length);
+  });
+
+  it('should place one active vertical beam in the selected liquidity lane', () => {
+    const { container } = render(
+      <MarketScene
+        activeMarketId="bitcoin"
+        markets={markets}
+        nodes={nodes}
+        onActiveMarketChange={vi.fn()}
+      />,
+    );
+
+    const activeBeam = container.querySelector(
+      'mesh[name="active-market-beam"]',
+    );
+    const activeBeamSheath = container.querySelector(
+      'mesh[name="active-market-beam-sheath"]',
+    );
+    expect(activeBeam).toBeTruthy();
+    expect(activeBeamSheath).toBeTruthy();
+    expect(activeBeam?.getAttribute('data-market-id')).toBe('bitcoin');
+    expect(activeBeamSheath?.getAttribute('data-market-id')).toBe('bitcoin');
+    expect(
+      activeBeam
+        ?.closest('[data-lane-position]')
+        ?.getAttribute('data-lane-position'),
+    ).toBe('-0.625,-1.45');
+  });
+
+  it('should separate the market rows onto two liquidity lane bases', () => {
+    const { container } = render(
+      <MarketScene
+        activeMarketId="bitcoin"
+        markets={markets}
+        nodes={nodes}
+        onActiveMarketChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      container.querySelectorAll('mesh[name^="liquidity-lane-"]'),
+    ).toHaveLength(2);
   });
 
   it('should use a demand frame loop without mutation for reduced motion', () => {
@@ -154,6 +246,9 @@ describe('[MarketScene]', () => {
     );
 
     expect(r3fMocks.canvasProps?.frameloop).toBe('demand');
+    expect(
+      screen.getByTestId('canvas').querySelector('mesh[name="liquidity-scan"]'),
+    ).toBeNull();
     for (const frameCallback of r3fMocks.frameCallbacks) {
       expect(() =>
         frameCallback(
@@ -179,6 +274,7 @@ describe('[MarketScene]', () => {
     expect(ethereumMesh).toBeTruthy();
     expect(container.querySelector('icosahedronGeometry')).toBeNull();
     expect(container.querySelectorAll('boxGeometry').length).toBeGreaterThan(0);
+    expect(container.querySelector('mesh[name="liquidity-scan"]')).toBeTruthy();
     fireEvent.click(ethereumMesh as Element);
     expect(onActiveMarketChange).toHaveBeenCalledWith('ethereum');
   });

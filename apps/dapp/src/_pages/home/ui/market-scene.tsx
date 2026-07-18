@@ -1,6 +1,6 @@
 'use client';
 
-import { Grid, Sparkles } from '@react-three/drei';
+import { Edges, Grid, RoundedBox, Sparkles } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useRef, useState } from 'react';
 import type { Group } from 'three';
@@ -108,6 +108,10 @@ const sceneActivitySurfaceStyle = css({
   inset: 0,
 });
 
+const BLADE_BEVEL_RADIUS = 0.08;
+const BLADE_BEVEL_SEGMENTS = 2;
+const LANE_Z_POSITIONS = [-1.45, 1.45] as const;
+
 const changeTone = (change: number | undefined): string => {
   if ((change ?? 0) > 0) return '#C7FF2F';
   if ((change ?? 0) < 0) return '#FF3B5C';
@@ -156,8 +160,10 @@ function MarketBlade({
       ]}
       rotation={[0, 0, node.lean]}
     >
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: equivalent keyboard selection is provided by MarketWatchlist and MarketTable. */}
-      <mesh
+      <RoundedBox
+        args={[node.width, node.height, node.depth]}
+        bevelSegments={BLADE_BEVEL_SEGMENTS}
+        creaseAngle={0.42}
         name={node.id}
         onClick={(event) => {
           event.stopPropagation();
@@ -168,26 +174,43 @@ function MarketBlade({
           event.stopPropagation();
           setHovered(true);
         }}
+        radius={BLADE_BEVEL_RADIUS}
+        smoothness={BLADE_BEVEL_SEGMENTS}
       >
-        <boxGeometry args={[node.width, node.height, node.depth]} />
         <meshStandardMaterial
-          color={highlighted ? '#E9F1E2' : node.color}
+          color={highlighted ? '#161A14' : '#0A0D0B'}
           emissive={node.color}
           emissiveIntensity={
-            node.emissiveIntensity *
-            (highlighted ? 2 : 1.05 + node.pulseStrength)
+            node.emissiveIntensity * (highlighted ? 0.3 : 0.08)
           }
-          metalness={0.42}
-          roughness={0.16}
+          metalness={0.9}
+          roughness={0.26}
+          toneMapped={false}
+        />
+        <Edges
+          color={highlighted ? '#E9F1E2' : node.color}
+          lineWidth={0.5}
+          opacity={highlighted ? 0.7 : 0.22}
+          threshold={12}
+          transparent
+        />
+      </RoundedBox>
+      <mesh
+        name={`market-cap-${node.id}`}
+        position={[0, node.height / 2 + 0.035, 0]}
+      >
+        <boxGeometry args={[node.width * 0.82, 0.07, node.depth * 0.82]} />
+        <meshStandardMaterial
+          color={node.color}
+          emissive={node.color}
+          emissiveIntensity={
+            node.emissiveIntensity * (highlighted ? 2.4 : 1.15)
+          }
+          metalness={0.34}
+          roughness={0.18}
           toneMapped={false}
         />
       </mesh>
-      {highlighted ? (
-        <mesh position={[0, node.height / 2 + 0.05, 0]}>
-          <boxGeometry args={[node.width * 1.35, 0.025, node.depth * 1.35]} />
-          <meshBasicMaterial color="#C7FF2F" />
-        </mesh>
-      ) : null}
     </group>
   );
 }
@@ -199,17 +222,108 @@ function ScanPlane({ animate }: { animate: boolean }) {
   useFrame((_, delta) => {
     if (!animate || !scanRef.current) return;
     elapsedRef.current += delta;
-    const progress = (elapsedRef.current * 0.18) % 1;
-    scanRef.current.position.x = MathUtils.lerp(-3.8, 3.8, progress);
+    const progress = (elapsedRef.current * 0.13) % 1;
+    scanRef.current.position.x = MathUtils.lerp(-3.45, 3.45, progress);
+  });
+
+  if (!animate) return null;
+
+  return (
+    <group ref={scanRef} position={[-3.45, 0.13, 0]}>
+      <mesh name="liquidity-scan">
+        <boxGeometry args={[0.026, 0.012, 4.2]} />
+        <meshBasicMaterial
+          color="#C7FF2F"
+          depthWrite={false}
+          opacity={0.18}
+          toneMapped={false}
+          transparent
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function ActiveMarketBeam({
+  animate,
+  node,
+}: {
+  animate: boolean;
+  node: TMarketSceneNode;
+}) {
+  const beamRef = useRef<Group>(null);
+  const elapsedRef = useRef(0);
+
+  useFrame((_, delta) => {
+    if (!animate || !beamRef.current) return;
+    elapsedRef.current += delta;
+    const pulse = 1 + Math.sin(elapsedRef.current * 1.35) * 0.035;
+    beamRef.current.scale.y = pulse;
   });
 
   return (
-    <group ref={scanRef} position={[-3.8, 1.5, 0]}>
-      <mesh>
-        <boxGeometry args={[0.018, 0.035, 7]} />
-        <meshBasicMaterial color="#C7FF2F" opacity={0.32} transparent />
+    <group
+      data-lane-position={`${node.position[0]},${node.position[2]}`}
+      position={[node.position[0], 0, node.position[2]]}
+    >
+      <group ref={beamRef} position={[0, 2.75, 0]}>
+        <mesh
+          data-market-id={node.id}
+          name="active-market-beam"
+          renderOrder={3}
+        >
+          <boxGeometry args={[0.035, 5.5, 0.035]} />
+          <meshBasicMaterial
+            color="#C7FF2F"
+            depthTest={false}
+            depthWrite={false}
+            opacity={0.76}
+            toneMapped={false}
+            transparent
+          />
+        </mesh>
+        <mesh
+          data-market-id={node.id}
+          name="active-market-beam-sheath"
+          renderOrder={2}
+        >
+          <boxGeometry args={[0.18, 5.5, 0.18]} />
+          <meshBasicMaterial
+            color="#C7FF2F"
+            depthTest={false}
+            depthWrite={false}
+            opacity={0.065}
+            toneMapped={false}
+            transparent
+          />
+        </mesh>
+      </group>
+      <mesh position={[0, 0.13, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.22, 0.31, 24]} />
+        <meshBasicMaterial
+          color="#C7FF2F"
+          depthWrite={false}
+          opacity={0.5}
+          toneMapped={false}
+          transparent
+        />
       </mesh>
     </group>
+  );
+}
+
+function LiquidityLane({ index, z }: { index: number; z: number }) {
+  return (
+    <mesh name={`liquidity-lane-${index + 1}`} position={[0, 0.055, z]}>
+      <boxGeometry args={[7.15, 0.11, 1.08]} />
+      <meshStandardMaterial
+        color="#0A0D0B"
+        emissive={index === 0 ? '#8B5CF6' : '#C7FF2F'}
+        emissiveIntensity={0.045}
+        metalness={0.92}
+        roughness={0.34}
+      />
+    </mesh>
   );
 }
 
@@ -223,6 +337,7 @@ function ReactorWorld({
   'activeMarketId' | 'nodes' | 'onActiveMarketChange'
 > & { animate: boolean }) {
   const worldRef = useRef<Group>(null);
+  const activeNode = nodes.find(({ id }) => id === activeMarketId) ?? nodes[0];
 
   useFrame(({ pointer }, delta) => {
     if (!animate || !worldRef.current) return;
@@ -250,16 +365,35 @@ function ReactorWorld({
         fadeDistance={12}
         fadeStrength={1.4}
         infiniteGrid={false}
-        position={[0, 0, 0]}
+        position={[0, -0.025, 0]}
         sectionColor="#C7FF2F"
         sectionSize={2.5}
         sectionThickness={0.55}
       />
-      <mesh position={[0, 0.04, 0]}>
-        <boxGeometry args={[7.2, 0.06, 0.72]} />
-        <meshStandardMaterial color="#050507" metalness={0.9} roughness={0.3} />
+      {LANE_Z_POSITIONS.map((z, index) => (
+        <LiquidityLane key={z} index={index} z={z} />
+      ))}
+      <mesh position={[0, 0.035, 0]}>
+        <boxGeometry args={[7.4, 0.07, 0.86]} />
+        <meshStandardMaterial
+          color="#050507"
+          metalness={0.96}
+          roughness={0.3}
+        />
+      </mesh>
+      <mesh position={[0, 0.078, 0]}>
+        <boxGeometry args={[6.8, 0.01, 0.018]} />
+        <meshBasicMaterial
+          color="#8B5CF6"
+          opacity={0.22}
+          toneMapped={false}
+          transparent
+        />
       </mesh>
       <ScanPlane animate={animate} />
+      {activeNode ? (
+        <ActiveMarketBeam animate={animate} node={activeNode} />
+      ) : null}
       {nodes.map((node) => (
         <MarketBlade
           key={node.id}
@@ -271,11 +405,11 @@ function ReactorWorld({
       ))}
       <Sparkles
         color="#E9F1E2"
-        count={38}
-        opacity={0.36}
+        count={22}
+        opacity={0.22}
         scale={[11, 5, 7]}
-        size={0.8}
-        speed={animate ? 0.12 : 0}
+        size={0.64}
+        speed={animate ? 0.08 : 0}
       />
     </group>
   );
@@ -301,7 +435,7 @@ export function MarketScene({
         <Canvas
           aria-hidden="true"
           camera={{
-            position: compactViewport ? [0, 5.8, 13.2] : [0, 5.4, 9.4],
+            position: compactViewport ? [6.4, 6.8, 11.6] : [4.6, 5.2, 7.1],
             fov: compactViewport ? 44 : 38,
           }}
           dpr={[1, 1.5]}
@@ -313,13 +447,14 @@ export function MarketScene({
             powerPreference: 'high-performance',
           }}
           onCreated={({ camera }) =>
-            camera.lookAt(0, compactViewport ? 1 : 1.1, 0)
+            camera.lookAt(0, compactViewport ? 1.15 : 1.25, 0)
           }
         >
-          <ambientLight intensity={0.34} />
-          <pointLight color="#C7FF2F" intensity={18} position={[2, 7, 4]} />
-          <pointLight color="#8B5CF6" intensity={12} position={[-5, 3, 1]} />
-          <pointLight color="#FF3B5C" intensity={8} position={[4, 1, -3]} />
+          <ambientLight intensity={0.42} />
+          <pointLight color="#E9F1E2" intensity={20} position={[4, 8, 7]} />
+          <pointLight color="#8B5CF6" intensity={16} position={[-5, 4, -2]} />
+          <pointLight color="#C7FF2F" intensity={11} position={[3, 2, 4]} />
+          <pointLight color="#FF3B5C" intensity={7} position={[4, 1, -4]} />
           <ReactorWorld
             activeMarketId={activeMarketId}
             animate={shouldAnimate}
