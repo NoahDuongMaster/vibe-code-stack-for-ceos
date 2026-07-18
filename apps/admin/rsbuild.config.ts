@@ -8,6 +8,11 @@ const packagesDir = fileURLToPath(new URL('../../packages', import.meta.url));
 
 export default defineConfig({
   plugins: [pluginReact()],
+  server: {
+    host: '127.0.0.1',
+    port: 3002,
+    strictPort: true,
+  },
   source: {
     entry: { index: './src/app/entrypoint/index.tsx' },
     include: [packagesDir],

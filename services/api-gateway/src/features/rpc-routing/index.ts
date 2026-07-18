@@ -6,4 +6,5 @@ export {
   UpstreamUnavailableError,
 } from '@/features/rpc-routing/domain/errors';
 export { createLocalApiCoreAdapter } from '@/features/rpc-routing/infra/api-core/local-api-core.adapter';
+export { createCloudflareAdminRpcAdapter } from '@/features/rpc-routing/infra/cloudflare/cloudflare-admin-rpc.adapter';
 export { createCloudflareTradingRpcAdapter } from '@/features/rpc-routing/infra/cloudflare/cloudflare-trading-rpc.adapter';

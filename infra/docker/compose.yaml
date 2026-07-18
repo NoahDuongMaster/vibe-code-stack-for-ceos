@@ -228,6 +228,30 @@ services:
         aliases:
           - ${TRADING_RPC_PRIVATE_HOSTNAME:-trading-rpc.internal}
       trading-rpc-data:
+      admin-rpc-internal:
+
+  admin-rpc:
+    profiles: [vpc]
+    build:
+      context: ../..
+      dockerfile: infra/docker/admin-rpc.Dockerfile
+    expose:
+      - '3001'
+      - '50051'
+    init: true
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      trading-rpc:
+        condition: service_healthy
+    networks:
+      admin-rpc-internal:
+      admin-rpc-private:
+        aliases:
+          - ${ADMIN_RPC_PRIVATE_HOSTNAME:-admin-rpc.internal}
 
   cloudflared:
     profiles: [vpc]
@@ -243,6 +267,8 @@ services:
       - --token-file
       - /run/secrets/cloudflare-tunnel-token
     depends_on:
+      admin-rpc:
+        condition: service_healthy
       trading-rpc:
         condition: service_healthy
     healthcheck:
@@ -266,6 +292,7 @@ services:
     secrets:
       - cloudflare-tunnel-token
     networks:
+      - admin-rpc-private
       - cloudflare-egress
       - trading-rpc-private
 
@@ -274,7 +301,11 @@ networks:
   trading-rpc-egress:
   trading-rpc-private:
     internal: true
+  admin-rpc-private:
+    internal: true
   trading-rpc-data:
+    internal: true
+  admin-rpc-internal:
     internal: true
   postgres-backup-egress:
 

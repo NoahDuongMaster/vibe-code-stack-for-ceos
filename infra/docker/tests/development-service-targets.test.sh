@@ -70,6 +70,7 @@ run_target start-dapp-development dapp no no
 run_target start-admin-development admin yes yes
 run_target start-landing-development landing no yes
 run_target start-api-gateway-development api-gateway yes yes
+run_target start-admin-rpc-development admin-rpc no no
 run_target start-trading-rpc-development trading-rpc no no
 
 for target in start-admin-development start-api-gateway-development; do

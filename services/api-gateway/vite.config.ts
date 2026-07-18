@@ -5,7 +5,7 @@ import { defineConfig } from 'vite';
 // Same @cloudflare/vite-plugin the main app uses —
 // gives HMR + the real workerd runtime during dev.
 export default defineConfig({
-  plugins: [cloudflare()],
+  plugins: [cloudflare({ inspectorPort: 9230 })],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

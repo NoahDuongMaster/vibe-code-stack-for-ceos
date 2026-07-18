@@ -16,8 +16,11 @@ COPY packages/protocol/package.json ./packages/protocol/
 COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/api-core/package.json ./packages/api-core/
 COPY services/trading-rpc/package.json ./services/trading-rpc/
+COPY services/admin-rpc/package.json ./services/admin-rpc/
 COPY services/api-gateway/package.json ./services/api-gateway/
-RUN pnpm install --frozen-lockfile --ignore-scripts
+COPY .pnpmfile.mjs ./
+COPY scripts/check-install-context.ts ./scripts/
+RUN MISE_TASK_NAME=setup pnpm install --frozen-lockfile --ignore-scripts
 
 # 2. Build the vinext standalone app with environment-specific public values.
 # NEXT_PUBLIC_* values are inlined into the client bundle and therefore belong
@@ -53,8 +56,11 @@ COPY packages/protocol/package.json ./packages/protocol/
 COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/api-core/package.json ./packages/api-core/
 COPY services/trading-rpc/package.json ./services/trading-rpc/
+COPY services/admin-rpc/package.json ./services/admin-rpc/
 COPY services/api-gateway/package.json ./services/api-gateway/
-RUN pnpm install --frozen-lockfile --ignore-scripts --config.node-linker=hoisted
+COPY .pnpmfile.mjs ./
+COPY scripts/check-install-context.ts ./scripts/
+RUN MISE_TASK_NAME=setup pnpm install --frozen-lockfile --ignore-scripts --config.node-linker=hoisted
 
 # 4. Run the standalone server as a non-root user. Every environment uses the
 # same container port; Compose owns host-port differences.

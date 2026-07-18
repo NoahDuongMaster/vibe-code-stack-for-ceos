@@ -1,6 +1,10 @@
 import { type Client, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
-import { HealthService, TradingService } from '@packages/protocol';
+import {
+  AdminService,
+  HealthService,
+  TradingService,
+} from '@packages/protocol';
 
 /**
  * End-to-end type-safe client for the shared health contract (Connect RPC).
@@ -29,8 +33,19 @@ export const createTradingClient = (
 
 export type TradingClient = Client<typeof TradingService>;
 
+/** Typed client for the admin facade, which delegates coin data to trading-rpc. */
+export const createAdminClient = (
+  baseUrl: string,
+  options?: Omit<Parameters<typeof createConnectTransport>[0], 'baseUrl'>,
+): Client<typeof AdminService> =>
+  createClient(AdminService, createConnectTransport({ baseUrl, ...options }));
+
+export type AdminClient = Client<typeof AdminService>;
+
 // Re-export the generated message types for consumers/UI.
 export type {
+  AdminServiceGetMarketsRequest,
+  AdminServiceGetMarketsResponse,
   CryptoMarket,
   GetMarketsRequest,
   GetMarketsResponse,

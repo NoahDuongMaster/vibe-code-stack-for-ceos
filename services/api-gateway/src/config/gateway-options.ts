@@ -8,6 +8,7 @@ export const AUTH_PUBLIC_PATHS = [
 export const RATE_LIMIT_EXEMPT_PATHS = HEALTH_PATHS;
 
 export const CORS_ALLOWED_HEADERS = [
+  'Authorization',
   'Content-Type',
   'Connect-Protocol-Version',
   'Connect-Timeout-Ms',
@@ -20,6 +21,9 @@ export const RATE_LIMIT_POLICY = {
   limit: 300,
   periodMs: 60_000,
 } as const;
+
+/** Stable Host header supplied to the private VPC Service binding. */
+export const ADMIN_RPC_ORIGIN = 'http://admin-rpc.internal';
 
 /** Stable Host header supplied to the private VPC Service binding. */
 export const TRADING_RPC_ORIGIN = 'http://trading-rpc.internal';

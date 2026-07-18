@@ -1,5 +1,5 @@
 import { Code, ConnectError, type Interceptor } from '@connectrpc/connect';
-import { createApiClient } from '@packages/api-client';
+import { createAdminClient, createApiClient } from '@packages/api-client';
 import { emitUnauthenticated } from '@/shared/api/auth-events';
 import { getAuthToken } from '@/shared/api/auth-token';
 import { API_URL } from '@/shared/config';
@@ -26,5 +26,10 @@ const authInterceptor: Interceptor = (next) => async (req) => {
 
 /** Shared Connect RPC client — every slice API should reuse this client. */
 export const apiClient = createApiClient(API_URL, {
+  interceptors: [authInterceptor],
+});
+
+/** Admin facade client — always targets api-gateway, never admin-rpc directly. */
+export const adminApiClient = createAdminClient(API_URL, {
   interceptors: [authInterceptor],
 });

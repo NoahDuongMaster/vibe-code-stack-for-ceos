@@ -13,6 +13,7 @@ export const createGatewayRpcHandler = <TEnv extends Env>(
     const response = await resolveRouteRpcRequest(c).execute({
       request: c.req.raw,
       requestId,
+      rpcPath: c.req.path,
     });
     response.headers.set('x-request-id', requestId);
     return response;

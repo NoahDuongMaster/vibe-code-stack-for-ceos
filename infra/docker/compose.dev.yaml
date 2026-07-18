@@ -54,6 +54,19 @@ services:
       postgres:
         condition: service_healthy
 
+  admin-rpc:
+    image: vibe-admin-rpc:development
+    ports:
+      - '127.0.0.1:${ADMIN_RPC_HTTP_HOST_PORT:-3004}:3001'
+      - '127.0.0.1:${ADMIN_RPC_GRPC_HOST_PORT:-50052}:50051'
+    env_file:
+      - ../../services/admin-rpc/.env.sample
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      GRPC_PORT: 50051
+      TRADING_RPC_GRPC_URL: http://trading-rpc:50051
+
   postgres:
     environment:
       POSTGRES_BACKUP_MODE: disabled

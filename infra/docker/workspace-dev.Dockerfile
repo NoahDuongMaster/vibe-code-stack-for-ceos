@@ -36,9 +36,12 @@ COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/api-core/package.json ./packages/api-core/
 COPY packages/protocol/package.json ./packages/protocol/
 COPY services/api-gateway/package.json ./services/api-gateway/
+COPY services/admin-rpc/package.json ./services/admin-rpc/
 COPY services/trading-rpc/package.json ./services/trading-rpc/
+COPY .pnpmfile.mjs ./
+COPY scripts/check-install-context.ts ./scripts/
 
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN MISE_TASK_NAME=setup pnpm install --frozen-lockfile --ignore-scripts
 
 # Vite, Rsbuild, and Miniflare create development caches directly under each
 # workspace's node_modules directory. Change only those directory entries;

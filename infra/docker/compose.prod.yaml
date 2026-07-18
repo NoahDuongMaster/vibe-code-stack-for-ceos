@@ -32,6 +32,13 @@ services:
     tmpfs:
       - /run/trading-rpc:mode=0700
 
+  admin-rpc:
+    image: vibe-admin-rpc:production
+    env_file:
+      - ../../services/admin-rpc/.env.production.local
+    environment:
+      TRADING_RPC_GRPC_URL: http://trading-rpc:50051
+
   postgres:
     image: vibe-postgres:production
     environment:

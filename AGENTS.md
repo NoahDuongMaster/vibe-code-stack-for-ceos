@@ -1,7 +1,7 @@
 # AGENTS.md — Vibe Code Stack For CEOs
 
 AI-first Turborepo monorepo (pnpm 11, Node 22, TypeScript strict): 3 frontend
-apps + 2 backend services + 3 shared packages, deployed to Cloudflare.
+apps + 3 backend services + 3 shared packages, deployed to Cloudflare/Docker.
 
 - This file is the single source of truth for agent behavior. `CLAUDE.md` is a
   symlink to it — always edit `AGENTS.md`.
@@ -19,6 +19,7 @@ apps + 2 backend services + 3 shared packages, deployed to Cloudflare.
 | `apps/admin` | `@apps/admin` | React 19 SPA (Rsbuild + React Router, no RSC) | Cloudflare Pages |
 | `apps/landing` | `@apps/landing` | Astro static site (zero JS by default) | Cloudflare Workers |
 | `services/trading-rpc` | `@services/trading-rpc` | NestJS host on Fastify: Connect for edge + native Nest gRPC for Node services | Docker |
+| `services/admin-rpc` | `@services/admin-rpc` | Admin-facing NestJS RPC facade; calls trading-rpc over native gRPC for coin data | Docker |
 | `services/api-gateway` | `@services/api-gateway` | Edge gateway Worker (Hono: request-id, CORS, self-hosted Durable Object rate-limit, opt-in JWT auth, upstream proxy) | Cloudflare Workers |
 | `packages/protocol` | `@packages/protocol` | Protobuf schemas, buf codegen → `src/gen/` | — |
 | `packages/api-core` | `@packages/api-core` | Shared RPC impl + CORS-aware fetch handler | — |
@@ -56,34 +57,41 @@ Everything else (naming, testing, git, security) applies repo-wide.
 ## Commands
 
 ```bash
-mise setup                    # install locked tools + frozen dependencies
+mise run setup                # install locked tools + frozen dependencies
 
-mise dev                      # all apps
-mise dev:web | dev:admin | dev:landing | dev:api    # one app
+mise run dev                  # native apps + managed PostgreSQL/VPC infra
+mise run dev:web | dev:admin | dev:landing          # one frontend
+mise run dev:api | dev:admin-api | dev:gateway | dev:backend  # backend topology
+mise run dev:infra:stop       # stop native-development Docker infra
 
-mise typecheck                # tsc --noEmit, all 8 workspaces
-mise check:ci                 # Biome (read-only), whole repo
-mise lint                     # ESLint / Biome / buf / architecture checks
-mise test                     # toolchain tests + Vitest, all workspaces
-mise build                    # production builds
-mise check                    # Biome auto-fix + format
-mise verify                   # all definition-of-done gates, sequentially
+mise run typecheck            # tsc --noEmit, all 9 workspaces
+mise run check:ci             # Biome (read-only), whole repo
+mise run lint                 # ESLint / Biome / buf / architecture checks
+mise run test                 # toolchain tests + Vitest, all workspaces
+mise run build                # production builds
+mise run check                # Biome auto-fix + format
+mise run verify               # all definition-of-done gates, sequentially
+
+mise run docker:start             # full Docker development stack
+mise run docker:start:dapp | docker:start:admin | docker:start:landing
+mise run docker:start:api-gateway | docker:start:admin-rpc | docker:start:trading-rpc
+mise run docker:stop | docker:check
 
 # pnpm is internal; use it directly only for targeted commands without a mise task.
 pnpm --filter @apps/dapp test                                   # one workspace
 pnpm --filter @apps/dapp exec vitest run <path-to-test-file>    # one test file
-mise test:e2e                 # Playwright (apps/dapp/e2e/); needs browsers installed
+mise run test:e2e             # Playwright (apps/dapp/e2e/); needs browsers installed
 ```
 
 ## Definition of done
 
 Run these before declaring any task complete. CI runs exactly the same gates.
 
-- [ ] `mise typecheck` — zero errors
-- [ ] `mise check:ci` — zero errors
-- [ ] `mise lint` — zero errors
-- [ ] `mise test` — all pass; new logic has tests
-- [ ] `mise build` — if you touched build-relevant code or config
+- [ ] `mise run typecheck` — zero errors
+- [ ] `mise run check:ci` — zero errors
+- [ ] `mise run lint` — zero errors
+- [ ] `mise run test` — all pass; new logic has tests
+- [ ] `mise run build` — if you touched build-relevant code or config
 
 Deploys are CI-gated only (`.github/workflows/deploy.yml`; `develop` → staging,
 `main` → production). NEVER deploy from a local machine.
@@ -269,6 +277,31 @@ Fastify/Connect cross-cutting hooks; Nest guards, pipes, filters, and
 interceptors apply to the native gRPC and Nest HTTP controllers, not implicitly
 to Connect routes.
 
+**Admin service (`services/admin-rpc`):**
+
+```
+src/
+  index.ts                    composition root; the only env reader
+  adapters/http.adapter.ts    Nest/Fastify host + Connect plugin + gRPC listener
+  features/coin-information/
+    domain/                   coin primitives, typed error, trading-rpc port
+    application/              admin GetMarkets input port + orchestration
+    adapters/{connect,grpc}/  AdminService transport validation/error mapping
+    infra/grpc/               native gRPC TradingService client adapter
+    coin-information.module.ts
+    index.ts                  PUBLIC feature API
+  platform/nest/              root module, interceptors, lifecycle providers
+  config/                     validated runtime config and downstream timeout
+  infra/                      transport selection + Protobuf asset resolution
+```
+
+`admin-rpc` exposes `admin.v1.AdminService/GetMarkets` over Connect and native
+gRPC. Its application use case calls a transport-neutral driven port; the
+feature-local gRPC adapter calls `trading.v1.TradingService/GetMarkets` on
+`TRADING_RPC_GRPC_URL`. It validates the downstream response with Zod, applies
+`TRADING_RPC_TIMEOUT_MS`, and maps transport/response failures to a typed safe
+domain error. CoinGecko and market persistence remain owned by `trading-rpc`.
+
 **Edge gateway (`services/api-gateway`):**
 
 ```
@@ -326,14 +359,14 @@ workspace's `lint:architecture` command):
    transport errors/envelopes and NEVER leak internal messages.
 9. Env/secrets are read only in the composition root or validated runtime-config
    boundary. Import `@packages/api-core` only via its root barrel.
-10. After structural changes run all three relevant `lint:architecture` commands;
+10. After structural changes run all four relevant `lint:architecture` commands;
     the shared checker automatically discovers every `features/*` directory.
-11. `services/trading-rpc` and `services/api-gateway` use TypeScript-only source
-    and service-local architecture scripts. All local imports use configured
+11. All backend services use TypeScript-only source and service-local
+    architecture scripts. All local imports use configured
     aliases (`@/`, `@scripts/`, and the narrow `@repo/architecture-checker`
     tooling alias); relative imports are rejected by their architecture
     checkers.
-12. Both backend services require a validated `SERVICE_NAME` runtime value.
+12. All backend services require a validated `SERVICE_NAME` runtime value.
     Composition roots inject it into health and telemetry adapters; production
     code MUST NOT hardcode, derive, or silently default the logical service
     identity. Worker resource names, package names, and runtime labels are
@@ -342,10 +375,9 @@ workspace's `lint:architecture` command):
 ### HTTP layer
 
 - Components MUST NOT call `fetch()`/axios.
-- `apps/dapp` data flows UI → model hook → same-slice `api/` → `xhr` from
-  `@/shared/api` (ofetch, `credentials: 'include'`, no baseURL; same-origin
-  `app/api/**` BFF paths resolve as-is; external APIs use
-  `xhr.create({ baseURL })`).
+- `apps/dapp` data flows UI → model hook → same-slice `api/` → a configured
+  transport from `@/shared/api`. ConnectRPC modules use typed shared clients;
+  REST/BFF modules use `xhr`. Components call neither transport directly.
 - `apps/admin` slice `api/` modules use `apiClient` from `@/shared/api`
   (Connect-RPC client with the auth interceptor pre-wired). Only
   `shared/api/api-client.ts` may call `createApiClient` directly.
@@ -428,7 +460,7 @@ last.
   root `proxy.ts` — the nonce and CSP MUST be set on request headers (not only
   the response). Admin/landing ship static headers via `public/_headers`.
 - Backend CORS is allowlist-driven via `CORS_ORIGINS` (handled in
-  `packages/api-core` and `services/trading-rpc`).
+  `packages/api-core` and the Node RPC services).
 - NEVER: committed secrets, `eval()`, `new Function()`,
   `dangerouslySetInnerHTML` without DOMPurify.
 
@@ -498,9 +530,10 @@ off-format commits/branches are rejected locally.
   blocks with distinct worker names — deploys MUST pass an explicit
   `--env staging|production`.
 - Rollback: `wrangler rollback --env production` (Workers keep prior versions).
-- `services/trading-rpc` builds a Docker image (`infra/docker/trading-rpc.Dockerfile`,
-  multi-stage, non-root, `/healthz` healthcheck) — hosting platform not chosen
-  yet, so it is not wired into `deploy.yml`.
+- `services/{admin-rpc,trading-rpc}` build Docker images from
+  `infra/docker/{admin-rpc,trading-rpc}.Dockerfile` (multi-stage, non-root,
+  `/healthz` healthcheck) — hosting platform not chosen yet, so neither is
+  wired into `deploy.yml`.
 - Secrets are provisioned per environment via GitHub Environment
   secrets/vars and `wrangler secret put` — never committed, never in
   `wrangler.jsonc` `vars`.

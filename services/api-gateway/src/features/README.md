@@ -75,7 +75,8 @@ Selective Hexagonal means layers are earned, not copied empty:
 - `access-control/` has application ports/use case, one Hono inbound adapter,
   and one Hono JWT outbound adapter. It has no artificial domain entity.
 - `rpc-routing/` has typed routing errors, an application use case, one HTTP
-  handler, and two endpoint implementations. It has no repository abstraction.
+  handler, and explicit local, admin RPC, and trading RPC endpoint
+  implementations. It has no repository abstraction.
 - `rate-limiting/` needs the full shape because token-bucket state, policy
   invariants, Durable Object lifecycle, and persistence are genuine boundaries.
 
@@ -177,8 +178,11 @@ wrapped in this HTTP envelope.
   runtimes.
 - `TRADING_RPC` is a required VPC Service binding in every environment; there
   is no direct-URL transport fallback.
-- Edge-owned RPC methods are attempted locally before delegating an unhandled
-  method to Trading RPC.
+- `ADMIN_RPC` is a separate, least-privilege VPC Service binding. When it is
+  absent, only `AdminService` calls fail closed with 502 and never fall through
+  to Trading RPC.
+- Edge-owned RPC methods are attempted locally before the application use case
+  selects Admin RPC for `admin.v1.AdminService/*` and Trading RPC otherwise.
 
 Do not remove or silently change these policies during structural refactors.
 

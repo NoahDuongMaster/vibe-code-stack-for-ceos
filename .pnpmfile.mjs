@@ -1,4 +1,4 @@
-import { validateInstallContext } from './scripts/check-install-context.mjs';
+import { validateInstallContext } from './scripts/check-install-context.ts';
 
 const INSTALL_COMMANDS = new Set(['i', 'install']);
 

@@ -12,11 +12,12 @@ subdirectories.
 
 ```text
 infra/docker/
-├── compose.yaml             # canonical seven-container model and networks
-├── compose.dev.yaml         # dapp/trading-rpc local overrides
+├── compose.yaml             # canonical nine-container model and networks
+├── compose.dev.yaml         # local runtime/port overrides
 ├── compose.staging.yaml     # staging dapp overrides
 ├── compose.prod.yaml        # production dapp overrides
 ├── dapp.Dockerfile          # vinext standalone image
+├── admin-rpc.Dockerfile     # admin facade: Connect + native gRPC
 ├── trading-rpc.Dockerfile   # Nest/Fastify Connect + gRPC image
 ├── workspace-dev.Dockerfile # shared non-root local development image
 └── secrets/                 # git-ignored runtime secrets
@@ -34,41 +35,62 @@ docker compose \
   up --build
 ```
 
-All seven containers are declared in `compose.yaml`. Profiles only select the
+All nine containers are declared in `compose.yaml`. Profiles only select the
 runtime topology: `admin`, `landing`, `api-gateway`, and `postgres` use `dev`;
-`trading-rpc` and `cloudflared` use `vpc`; `dapp` is the default service. The
-development entrypoint activates both profiles.
+`admin-rpc`, `trading-rpc`, and `cloudflared` use `vpc`; `postgres-backup` uses
+`backup`; `dapp` is the default service. The development entrypoint activates
+the `dev` and `vpc` profiles.
 
-Use the root `Makefile` targets for normal operation. Run `make check-docker`
-after changing Docker configuration.
+Use mise as the public command interface. Its Docker and infrastructure tasks
+delegate to the root `Makefile`, which remains the low-level Compose source of
+truth. Run `mise run docker:check` after changing Docker configuration.
+
+## Native hot-reload topology
+
+`mise run dev` starts PostgreSQL, the VPC-visible trading-rpc origin, and
+cloudflared before launching all native development processes through Turbo.
+The VPC origin publishes gRPC on host port `50052` in this topology so native
+trading-rpc can retain `50051`; native admin-rpc uses `50053`.
+
+Ctrl-C stops the native processes and leaves the infrastructure available for
+fast restarts. Stop and remove those containers without deleting PostgreSQL
+data with:
+
+```bash
+mise run dev:infra:stop
+```
 
 ## Full development stack
 
 After provisioning the rotated Cloudflare Tunnel token and authenticating
-Wrangler once, one command starts all five application runtimes plus PostgreSQL
+Wrangler once, one command starts all six application runtimes plus PostgreSQL
 and the tunnel connector:
 
 ```bash
-make start-development
+mise run docker:start
 ```
 
 To start one application service and only its declared Compose dependencies,
-use the matching target:
+use the matching mise task:
 
 ```bash
-make start-dapp-development
-make start-admin-development
-make start-landing-development
-make start-api-gateway-development
-make start-trading-rpc-development
+mise run docker:start:dapp
+mise run docker:start:admin
+mise run docker:start:landing
+mise run docker:start:api-gateway
+mise run docker:start:admin-rpc
+mise run docker:start:trading-rpc
 ```
+
+These tasks delegate to the corresponding `start-*-development` Make targets;
+the Makefile remains the internal source of truth for Compose dependencies.
 
 `admin` and `api-gateway` follow the Compose dependency graph through
 `cloudflared`, `trading-rpc`, and PostgreSQL, so they require the same
-Cloudflare credentials as the full stack. `dapp`, `landing`, and `trading-rpc`
-do not synchronize unrelated Cloudflare credentials. The shared development
-workspace image is built automatically for `admin`, `landing`, and
-`api-gateway`; this does not start the dapp container.
+Cloudflare credentials as the full stack. `dapp`, `landing`, `admin-rpc`, and
+`trading-rpc` do not synchronize unrelated Cloudflare credentials. The shared
+development workspace image is built automatically for `admin`, `landing`,
+and `api-gateway`; this does not start the dapp container.
 
 | Runtime | Local URL |
 | --- | --- |
@@ -76,6 +98,8 @@ workspace image is built automatically for `admin`, `landing`, and
 | admin | `http://localhost:3002` |
 | landing | `http://localhost:4321` |
 | api-gateway | `http://localhost:8787` |
+| admin-rpc Connect | `http://localhost:3004` |
+| admin-rpc native gRPC | `localhost:50052` |
 | trading-rpc Connect | `http://localhost:3003` |
 | trading-rpc native gRPC | `localhost:50051` |
 | PostgreSQL | `postgresql://trading_rpc:trading_rpc_local@localhost:5433/trading_rpc` |
@@ -83,11 +107,16 @@ workspace image is built automatically for `admin`, `landing`, and
 The gateway is not attached to the origin's private Compose network. It reaches
 `trading-rpc.internal:3001` only through the remote `TRADING_RPC` VPC Service
 binding. The browser-facing admin app uses the host-published gateway URL.
+`admin-rpc` reaches `trading-rpc:50051` only through the separate internal
+`admin-rpc-internal` network; it has no CoinGecko or database adapter. Its
+Connect listener is exposed to `cloudflared` only as
+`admin-rpc.internal:3001` on `admin-rpc-private`, ready for the gateway's
+separate `ADMIN_RPC` VPC Service binding.
 Follow or stop the entire stack with:
 
 ```bash
 make logs-development
-make stop-development
+mise run docker:stop
 make psql-development
 ```
 
@@ -116,20 +145,23 @@ The VPC development target runs PostgreSQL plus two origin-path containers:
 Cloudflare Workers VPC
   -> Cloudflare Tunnel
   -> cloudflared
-  -> trading-rpc.internal:3001
+     +-> trading-rpc.internal:3001
+     +-> admin-rpc.internal:3001
 ```
 
-`trading-rpc-private` is the internal network shared only by the origin and the
-tunnel connector; `api-gateway` is deliberately excluded. Docker registers
-`trading-rpc.internal` as a network-scoped alias on this network. The implicit
-Compose name `trading-rpc` remains available as a compatibility name, but the
-explicit alias is the canonical VPC target. Each VPC container has a separate
-egress network:
+`trading-rpc-private` and `admin-rpc-private` are isolated internal networks,
+each shared only by its origin and the tunnel connector; `api-gateway` is
+deliberately excluded. Docker registers the corresponding `*.internal` alias
+only on its private network. The implicit Compose service names remain
+available inside their capability-owned networks, but the explicit aliases are
+the canonical VPC targets. Each VPC runtime has only the network access it
+needs:
 `trading-rpc-egress` lets the market-data adapter call CoinGecko, while
 `cloudflare-egress` lets the connector reach Cloudflare without putting both
-containers on the same general-purpose bridge. The connector always pulls the
-latest `cloudflared` image, uses QUIC, and reads its remotely-managed tunnel
-token from a Docker secret.
+origins on the same general-purpose bridge. `admin-rpc-internal` carries only
+native gRPC from admin-rpc to trading-rpc. The connector always pulls the latest
+`cloudflared` image, uses QUIC, and reads its remotely-managed tunnel token from
+a Docker secret.
 
 A token exposed through chat, logs, or shell history is compromised and must
 not be reused. Rotate it in Cloudflare first, then create the local secret
@@ -155,22 +187,23 @@ Override the development private hostname without changing Compose files:
 
 ```bash
 TRADING_RPC_PRIVATE_HOSTNAME=trading-rpc.dev.internal \
+  ADMIN_RPC_PRIVATE_HOSTNAME=admin-rpc.dev.internal \
   make start-vpc-development
 ```
 
-Configure the Cloudflare VPC Service selected by the gateway's `TRADING_RPC`
-binding with:
+Configure two Cloudflare VPC Services on the same tunnel:
 
-- Tunnel: the remotely-managed tunnel represented by the token.
-- Type: `http`.
-- Host: `trading-rpc.internal` (the private network alias, not `localhost`).
-- HTTP port: `3001`.
+- `TRADING_RPC`: type `http`, host `trading-rpc.internal`, HTTP port `3001`.
+- `ADMIN_RPC`: type `http`, host `admin-rpc.internal`, HTTP port `3001`.
+
+Both use the remotely-managed tunnel represented by the token. Use the private
+network aliases, never `localhost`, and bind each resulting service ID to the
+matching gateway binding.
 
 Development exposes Connect only on `127.0.0.1:3003` to avoid colliding with
 the dapp's existing host port `3001`; native gRPC remains available on
 `127.0.0.1:50051`. These host mappings are for Postman/local diagnostics only.
-Workers VPC traffic always uses the private
-`trading-rpc.internal:3001` path.
+Workers VPC traffic always uses the appropriate private `*.internal:3001` path.
 
 At Nest bootstrap, trading-rpc waits for PostgreSQL, applies its generated
 feature-local Drizzle migrations, and then opens RPC listeners. Drizzle records
@@ -188,8 +221,10 @@ FROM market_data.market_snapshots
 ORDER BY coin_id;
 ```
 
-The repository's `env.development` binding is configured for this VPC Service.
-With the VPC profile healthy, run the Gateway locally through the real binding:
+The repository's `env.development` already contains the registered
+`TRADING_RPC` binding. Add the real `ADMIN_RPC` service ID after provisioning
+that external VPC Service. With the VPC profile healthy, run the Gateway locally
+through the remote bindings:
 
 ```bash
 pnpm dev:gateway

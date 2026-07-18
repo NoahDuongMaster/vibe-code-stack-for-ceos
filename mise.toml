@@ -13,7 +13,20 @@ run = "pnpm install --frozen-lockfile"
 
 [tasks.dev]
 description = "Start all application workspaces"
+depends = ["dev:infra"]
 run = "pnpm internal:dev"
+
+[tasks."dev:database"]
+description = "Start PostgreSQL for native service development"
+run = "make start-postgres-development"
+
+[tasks."dev:infra"]
+description = "Start PostgreSQL and the VPC origin for native development"
+run = "make start-native-development-infra"
+
+[tasks."dev:infra:stop"]
+description = "Stop native-development infrastructure"
+run = "make stop-native-development-infra"
 
 [tasks."dev:web"]
 description = "Start the dapp"
@@ -29,14 +42,21 @@ run = "pnpm internal:dev:landing"
 
 [tasks."dev:api"]
 description = "Start trading-rpc"
+depends = ["dev:database"]
 run = "pnpm internal:dev:api"
+
+[tasks."dev:admin-api"]
+description = "Start admin-rpc (requires trading-rpc native gRPC on port 50051)"
+run = "pnpm internal:dev:admin-api"
 
 [tasks."dev:gateway"]
 description = "Start the API gateway"
+depends = ["dev:infra"]
 run = "pnpm internal:dev:gateway"
 
 [tasks."dev:backend"]
-description = "Start both backend services"
+description = "Start the gateway, admin-rpc, and trading-rpc"
+depends = ["dev:infra"]
 run = "pnpm internal:dev:backend"
 
 [tasks.format]
@@ -73,7 +93,7 @@ run = "pnpm internal:build"
 
 [tasks."toolchain:check"]
 description = "Verify active Node.js and pnpm versions"
-run = "node scripts/check-toolchain.mjs"
+run = "node scripts/check-toolchain.ts"
 
 [tasks.verify]
 description = "Run every definition-of-done gate sequentially"
@@ -88,6 +108,30 @@ run = [
 [tasks."docker:start"]
 description = "Start the full Docker development environment"
 run = "make start-development"
+
+[tasks."docker:start:dapp"]
+description = "Start the dapp Docker development service and its dependencies"
+run = "make start-dapp-development"
+
+[tasks."docker:start:admin"]
+description = "Start the admin Docker development service and its dependencies"
+run = "make start-admin-development"
+
+[tasks."docker:start:landing"]
+description = "Start the landing Docker development service and its dependencies"
+run = "make start-landing-development"
+
+[tasks."docker:start:api-gateway"]
+description = "Start the API gateway Docker development service and its dependencies"
+run = "make start-api-gateway-development"
+
+[tasks."docker:start:trading-rpc"]
+description = "Start the trading RPC Docker development service and its dependencies"
+run = "make start-trading-rpc-development"
+
+[tasks."docker:start:admin-rpc"]
+description = "Start the admin RPC Docker development service and its dependencies"
+run = "make start-admin-rpc-development"
 
 [tasks."docker:stop"]
 description = "Stop the full Docker development environment"

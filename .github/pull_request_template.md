@@ -27,7 +27,7 @@
 - [ ] `apps/dapp` — @apps/dapp (Next.js / vinext)
 - [ ] `apps/admin` — @apps/admin (React / Rsbuild)
 - [ ] `apps/landing` — @apps/landing (Astro)
-- [ ] `services/*` — Connect RPC (trading-rpc / api-gateway)
+- [ ] `services/*` — RPC services (admin-rpc / trading-rpc / api-gateway)
 - [ ] `packages/*` — shared (protocol / api-core / api-client)
 - [ ] Tooling — CI / Docker / config / scripts
 

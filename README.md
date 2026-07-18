@@ -91,7 +91,7 @@ And because trust is good but gates are better, **nothing ships without passing 
 <td><b>Full monorepo (3 apps + RPC backend)</b></td>
 <td align="center">-</td>
 <td align="center">-</td>
-<td align="center">Turborepo, 8 workspaces</td>
+<td align="center">Turborepo, 9 workspaces</td>
 </tr>
 <tr>
 <td><b>Type-safe end to end</b></td>
@@ -142,7 +142,7 @@ We ran a **multi-agent production-readiness audit**: 10 specialist auditors tore
 **The result: 86 findings. 0 refuted. All 9 high-severity blockers fixed** — including a CSP nonce bug that would have broken production, a Turborepo cache flaw that could have shipped mock-auth to prod, and full backend CORS. Then the fix wave: 4 parallel agent teams, 300+ files touched, every gate re-run green.
 
 ```
-✅ typecheck   8/8 workspaces
+✅ typecheck   9/9 workspaces
 ✅ biome       190 files, 0 errors
 ✅ eslint      6/6 workspaces
 ✅ tests       94/94 passing
@@ -189,6 +189,7 @@ apps/dapp/
 | 🛍️  | `apps/dapp`            | Next.js 16 App Router on vinext (Vite)                                          | Cloudflare Workers |
 | 🛠️  | `apps/admin`           | React 19 SPA — Rsbuild, route-split, code-split                                 | Cloudflare Pages   |
 | 🪧  | `apps/landing`         | Astro — ships **literally zero JS**                                             | Cloudflare Workers |
+| 🧭  | `services/admin-rpc`   | Admin RPC facade — Connect + gRPC client to trading-rpc                         | Docker             |
 | ⚙️  | `services/trading-rpc` | Nest/Fastify hybrid — Connect + gRPC, PostgreSQL 18, `/healthz`                  | Docker             |
 | 🌐  | `services/api-gateway` | Edge gateway Worker — CORS allowlist, upstream proxy                            | Cloudflare Workers |
 | 📜  | `packages/protocol`    | Protobuf schemas, buf lint + breaking-change gate in CI                         | —                  |
@@ -261,28 +262,40 @@ git clone https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos.git
 cd vibe-code-stack-for-ceos
 
 # Install the locked Node.js/pnpm toolchain and frozen dependencies
-mise setup
+mise run setup
 
-# Start the whole company
-mise dev
+# Native admin-rpc validates its service identity and trading-rpc endpoint
+cp services/admin-rpc/.env.sample services/admin-rpc/.env
+
+# Start native hot reload plus its Docker VPC infrastructure
+mise run dev
 
 # …or one department
-mise dev:web        # Next.js app      → http://localhost:3000
-mise dev:admin      # React admin SPA
-mise dev:landing    # Astro landing
-mise dev:api        # Connect-RPC Node backend
-mise dev:gateway    # Gateway → real development VPC → trading-rpc
-mise dev:backend    # Gateway VPC mode + direct local trading-rpc process
+mise run dev:web        # Next.js app      → http://localhost:3000
+mise run dev:admin      # React admin SPA  → http://localhost:3002
+mise run dev:landing    # Astro landing    → http://localhost:4321
+mise run dev:api        # Native Connect-RPC; starts PostgreSQL first
+mise run dev:admin-api  # Admin RPC facade → trading-rpc native gRPC
+mise run dev:gateway    # Gateway; starts the development VPC origin first
+mise run dev:backend    # Gateway + native admin-rpc + native trading-rpc
 ```
 
-### Development gateway → trading-rpc through Workers VPC
-
-Start the Docker origin and Tunnel, then run the Worker locally with its remote
-development binding:
+`mise run dev` starts PostgreSQL, the VPC-visible trading-rpc origin, and
+cloudflared before Turbo starts the six native hot-reload processes. Ctrl-C
+stops the native processes but keeps that infrastructure ready for a fast
+restart. Stop it explicitly when finished:
 
 ```bash
-make start-vpc-development
-mise dev:gateway
+mise run dev:infra:stop
+```
+
+### Development gateway → private RPC services through Workers VPC
+
+The gateway task starts its Docker origin and Tunnel dependency before running
+the Worker locally with its remote development binding:
+
+```bash
+mise run dev:gateway
 
 # In a second terminal
 curl -sS -X POST http://127.0.0.1:8787/trading.v1.TradingService/GetMarkets \
@@ -291,7 +304,7 @@ curl -sS -X POST http://127.0.0.1:8787/trading.v1.TradingService/GetMarkets \
   --data '{"coinIds":["bitcoin","ethereum"],"vsCurrency":"usd"}'
 ```
 
-`mise dev:gateway` selects `env.development` from `wrangler.jsonc`; Worker code
+`mise run dev:gateway` selects `env.development` from `wrangler.jsonc`; Worker code
 runs locally while `TRADING_RPC.fetch()` executes through Cloudflare's remote
 VPC binding. The binding is mandatory in every environment; the gateway fails
 closed when it is absent and never falls back to a direct URL.
@@ -300,13 +313,33 @@ The development VPC Service targets the network-scoped Docker alias
 `TRADING_RPC_PRIVATE_HOSTNAME` when an environment needs a different internal
 DNS suffix.
 
-`trading-rpc` keeps Connect on HTTP/1.1 port `3001` inside its container.
-Native Nest gRPC listens separately on `127.0.0.1:50051`. For a
+`trading-rpc` keeps Connect on HTTP/1.1 port `3001` inside its container. In the
+hybrid topology the container publishes gRPC on `50052`, leaving `50051` for
+the native Nest process. The regular full-Docker topology continues to publish
+container gRPC on `50051`. For a
 reliable CoinGecko quota, add a free Demo key as `COINGECKO_API_KEY` in
 `services/trading-rpc/.env`: the Node service owns the `TradingService` use
 case and its CoinGecko adapter, while the gateway only proxies the Connect
 request. Staging and production require isolated `TRADING_RPC` VPC Service IDs
 before those environments can proxy this capability.
+
+`admin-rpc` exposes `admin.v1.AdminService/GetMarkets`. It validates the admin
+request, calls `trading.v1.TradingService/GetMarkets` over native gRPC,
+validates the downstream response, and returns the coin market fields without
+owning CoinGecko or database logic. Browser/admin traffic calls it through the
+gateway's separate `ADMIN_RPC` VPC Service binding:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8787/admin.v1.AdminService/GetMarkets \
+  -H 'content-type: application/json' \
+  -H 'connect-protocol-version: 1' \
+  --data '{"coinIds":["bitcoin","ethereum"],"vsCurrency":"usd"}'
+```
+
+Register `admin-rpc.internal:3001` as a VPC Service and add its real service ID
+as `ADMIN_RPC` in `services/api-gateway/wrangler.jsonc`. Until that external
+resource exists, AdminService requests fail closed with 502 and are never sent
+to trading-rpc by mistake.
 
 Then point your AI tool of choice at the repo. It reads [`AGENTS.md`](./AGENTS.md) and behaves. That's it — that's the onboarding.
 
@@ -314,24 +347,26 @@ Then point your AI tool of choice at the repo. It reads [`AGENTS.md`](./AGENTS.m
 <summary><b>🐳 Docker environments</b></summary>
 
 `infra/docker` is the single source of truth for container builds. Development
-uses one shared non-root workspace image for the Cloudflare-native apps, the
-dedicated `trading-rpc` image, the official PostgreSQL 18 image, and
-`cloudflare/cloudflared:latest`. Every build uses the repo root as its context.
+uses one shared non-root workspace image for the Cloudflare-native apps,
+dedicated `admin-rpc` and `trading-rpc` images, the official PostgreSQL 18
+image, and `cloudflare/cloudflared:latest`. Every build uses the repo root as
+its context.
 
 ```bash
-# Development: five apps + PostgreSQL + cloudflared
-make start-development
+# Development: six runtimes + PostgreSQL + cloudflared
+mise run docker:start
 
 # Development: one app/service plus its declared dependencies
-make start-dapp-development
-make start-admin-development
-make start-landing-development
-make start-api-gateway-development
-make start-trading-rpc-development
+mise run docker:start:dapp
+mise run docker:start:admin
+mise run docker:start:landing
+mise run docker:start:api-gateway
+mise run docker:start:admin-rpc
+mise run docker:start:trading-rpc
 
 # Follow or stop the complete development stack
 make logs-development
-make stop-development
+mise run docker:stop
 
 # Staging      → http://localhost:3002
 docker compose -f infra/docker/compose.yaml -f infra/docker/compose.staging.yaml up --build
@@ -341,7 +376,9 @@ docker compose -f infra/docker/compose.yaml -f infra/docker/compose.prod.yaml up
 ```
 
 Development exposes dapp on `3000`, admin on `3002`, landing on `4321`, the
-gateway on `8787`, trading-rpc Connect on `3003`, and native gRPC on `50051`.
+gateway on `8787`, trading-rpc Connect/gRPC on `3003`/`50051`, and admin-rpc
+Connect/gRPC on `3004`/`50052` in the full Docker stack. Native admin-rpc uses
+gRPC port `50053` while the hybrid VPC origin occupies host port `50052`.
 PostgreSQL is available only on loopback port `5433` and persists through the
 named `postgres-data` volume.
 The trading-rpc capability owns its Drizzle schema and generated migration
@@ -385,18 +422,21 @@ Declared in `apps/dapp/src/shared/config/env.ts` with Zod validation. Never use 
 
 | Command (repo root)                                                                  | What it does                                                |
 | ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| `mise setup`                                                                         | Install the locked toolchain and frozen dependencies         |
-| `mise dev`                                                                           | Start every app through Turborepo                            |
-| `mise dev:web` / `dev:admin` / `dev:landing` / `dev:api` / `dev:gateway`             | Start one workspace                                         |
-| `mise dev:backend`                                                                   | Start the local gateway and trading-rpc together             |
-| `mise build`                                                                         | Build every workspace                                       |
-| `mise typecheck`                                                                     | Run TypeScript checks across all workspaces                  |
-| `mise lint`                                                                          | Run ESLint, Biome, buf, and architecture checks              |
-| `mise check` / `check:ci` / `format`                                                 | Apply Biome fixes / run the read-only gate / format files    |
-| `mise test`                                                                          | Run toolchain and workspace unit tests                       |
-| `mise test:e2e`                                                                      | Run dapp Playwright tests                                    |
-| `mise verify`                                                                        | Run every definition-of-done gate sequentially               |
-| `mise docker:start` / `docker:stop` / `docker:check`                                 | Operate or validate the Docker development environment       |
+| `mise run setup`                                                                     | Install the locked toolchain and frozen dependencies         |
+| `mise run dev`                                                                       | Start native apps and their PostgreSQL/VPC infrastructure    |
+| `mise run dev:web` / `dev:admin` / `dev:landing` / `dev:api` / `dev:admin-api` / `dev:gateway` | Start one workspace and its required infrastructure |
+| `mise run dev:backend`                                                               | Start the gateway, admin-rpc, and trading-rpc together       |
+| `mise run dev:infra:stop`                                                            | Stop infrastructure created for native development           |
+| `mise run build`                                                                     | Build every workspace                                       |
+| `mise run typecheck`                                                                 | Run TypeScript checks across all workspaces                  |
+| `mise run lint`                                                                      | Run ESLint, Biome, buf, and architecture checks              |
+| `mise run check` / `check:ci` / `format`                                             | Apply Biome fixes / run the read-only gate / format files    |
+| `mise run test`                                                                      | Run toolchain and workspace unit tests                       |
+| `mise run test:e2e`                                                                  | Run dapp Playwright tests                                    |
+| `mise run verify`                                                                    | Run every definition-of-done gate sequentially               |
+| `mise run docker:start` / `docker:stop` / `docker:check`                             | Operate or validate the complete Docker development stack    |
+| `mise run docker:start:dapp` / `docker:start:admin` / `docker:start:landing`         | Start one frontend container and its declared dependencies   |
+| `mise run docker:start:api-gateway` / `docker:start:admin-rpc` / `docker:start:trading-rpc` | Start one backend container and its dependencies     |
 
 Use direct pnpm only for targeted workspace commands that have no mise task.
 Deployment remains GitHub Actions-only.
@@ -417,7 +457,8 @@ Deployment remains GitHub Actions-only.
 │   └── api-client/               End-to-end typed Connect RPC client
 ├── services/
 │   ├── api-gateway/              Connect RPC on Cloudflare Workers (edge + upstream proxy)
-│   └── trading-rpc/              Connect RPC on Node.js (tsup build, /healthz)
+│   ├── admin-rpc/                Admin RPC facade → trading-rpc over native gRPC
+│   └── trading-rpc/              Coin market source of truth on Node.js
 ├── infra/docker/                All Dockerfiles + shared Compose/environment overlays
 ├── AGENTS.md                     ★ The company handbook — every AI agent reads this
 ├── CLAUDE.md                     → symlink to AGENTS.md
@@ -432,7 +473,7 @@ Deployment remains GitHub Actions-only.
 1. Fork the repo
 2. Create a branch: `feat(scope)/short-description` (Conventional Commits, lowercase kebab)
 3. Follow the handbook: [`AGENTS.md`](AGENTS.md)
-4. Pass the gates: `mise verify`
+4. Pass the gates: `mise run verify`
 5. Open a PR
 
 Yes — your AI agent can do all five steps. That's the point. 🎩

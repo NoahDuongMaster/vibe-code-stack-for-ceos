@@ -4,6 +4,8 @@ import type { TGatewayBindings } from '@/adapters/cloudflare/gateway-bindings';
 import worker, { createGatewayWorker, type RateLimiterDO } from '@/index';
 
 const HEALTH_URL = 'http://gateway.test/health.v1.HealthService/Health';
+const ADMIN_MARKETS_URL =
+  'http://gateway.test/admin.v1.AdminService/GetMarkets';
 const MARKETS_URL = 'http://gateway.test/trading.v1.TradingService/GetMarkets';
 const PROTECTED_URL = 'http://gateway.test/private.v1.PrivateService/Read';
 const JWT_SECRET = 'test-secret';
@@ -278,6 +280,51 @@ describe('gateway fetch handler', () => {
     );
   });
 
+  it('should proxy AdminService through ADMIN_RPC without calling TRADING_RPC', async () => {
+    const adminFetch = vi.fn(async (input: RequestInfo | URL) => {
+      const request = input as Request;
+      return new Response('admin-rpc body', {
+        headers: { 'x-served-by': request.url },
+      });
+    });
+    const tradingFetch = vi.fn(async () => new Response('trading-rpc body'));
+
+    const res = await fetchGateway(
+      rpcRequest(ADMIN_MARKETS_URL, {
+        coinIds: ['bitcoin'],
+        vsCurrency: 'usd',
+      }),
+      {
+        ADMIN_RPC: { fetch: adminFetch } as unknown as Fetcher,
+        TRADING_RPC: { fetch: tradingFetch } as unknown as Fetcher,
+      },
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('admin-rpc body');
+    expect(adminFetch).toHaveBeenCalledOnce();
+    expect(tradingFetch).not.toHaveBeenCalled();
+    expect(res.headers.get('x-served-by')).toBe(
+      'http://admin-rpc.internal/admin.v1.AdminService/GetMarkets',
+    );
+  });
+
+  it('should return 502 instead of falling back when ADMIN_RPC is unbound', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const tradingFetch = vi.fn(async () => new Response('trading-rpc body'));
+
+    const res = await fetchGateway(
+      rpcRequest(ADMIN_MARKETS_URL, {
+        coinIds: ['bitcoin'],
+        vsCurrency: 'usd',
+      }),
+      { TRADING_RPC: { fetch: tradingFetch } as unknown as Fetcher },
+    );
+
+    expect(res.status).toBe(502);
+    expect(tradingFetch).not.toHaveBeenCalled();
+  });
+
   it('should return the same request ID that it forwards to trading RPC', async () => {
     const fetch = vi.fn(async (input: RequestInfo | URL) => {
       const request = input as Request;
@@ -472,6 +519,38 @@ describe('gateway fetch handler', () => {
 
     expect(res.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('should require a valid bearer token for AdminService when auth is enabled', async () => {
+    const adminFetch = vi.fn(async () => new Response('ok'));
+
+    const unauthenticated = await fetchGateway(
+      rpcRequest(ADMIN_MARKETS_URL, {
+        coinIds: ['bitcoin'],
+        vsCurrency: 'usd',
+      }),
+      {
+        ADMIN_RPC: { fetch: adminFetch } as unknown as Fetcher,
+        JWT_SECRET,
+      },
+    );
+
+    const token = await sign({ sub: 'admin-1' }, JWT_SECRET);
+    const authenticated = await fetchGateway(
+      rpcRequest(
+        ADMIN_MARKETS_URL,
+        { coinIds: ['bitcoin'], vsCurrency: 'usd' },
+        token,
+      ),
+      {
+        ADMIN_RPC: { fetch: adminFetch } as unknown as Fetcher,
+        JWT_SECRET,
+      },
+    );
+
+    expect(unauthenticated.status).toBe(401);
+    expect(authenticated.status).toBe(200);
+    expect(adminFetch).toHaveBeenCalledOnce();
   });
 
   it('should keep the Health route public even when auth is enabled', async () => {

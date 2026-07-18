@@ -2,6 +2,7 @@ import type { TGatewayBindings } from '@/adapters/cloudflare/gateway-bindings';
 import { createGatewayApp } from '@/adapters/http/gateway-app';
 import type { GatewayRequestScopeFactory } from '@/adapters/http/gateway-request-scope.factory';
 import {
+  ADMIN_RPC_ORIGIN,
   AUTH_PUBLIC_PATHS,
   RATE_LIMIT_EXEMPT_PATHS,
   RATE_LIMIT_POLICY,
@@ -18,6 +19,7 @@ import {
   RateLimitPolicy,
 } from '@/features/rate-limiting';
 import {
+  createCloudflareAdminRpcAdapter,
   createCloudflareTradingRpcAdapter,
   createLocalApiCoreAdapter,
   RouteRpcRequestUseCase,
@@ -66,6 +68,13 @@ const createRequestScope: GatewayRequestScopeFactory = (bindings, config) => {
         target: tradingRpc,
         timeoutMs: UPSTREAM_TIMEOUT_MS,
       }),
+      bindings.ADMIN_RPC
+        ? createCloudflareAdminRpcAdapter({
+            origin: ADMIN_RPC_ORIGIN,
+            target: bindings.ADMIN_RPC,
+            timeoutMs: UPSTREAM_TIMEOUT_MS,
+          })
+        : undefined,
     ),
   };
 };

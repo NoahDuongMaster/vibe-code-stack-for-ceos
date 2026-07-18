@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@repo/architecture-checker": [
+        "../../scripts/check-backend-architecture.mjs"
+      ],
+      "@scripts/*": ["./scripts/*"]
+    },
+    "types": ["node"]
+  },
+  "include": ["src", "scripts"]
+}

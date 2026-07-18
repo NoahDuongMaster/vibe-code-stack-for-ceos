@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package admin.v1;
+
+import "trading/v1/trading.proto";
+
+message AdminServiceGetMarketsRequest {
+  repeated string coin_ids = 1;
+  string vs_currency = 2;
+}
+
+message AdminServiceGetMarketsResponse {
+  repeated trading.v1.CryptoMarket markets = 1;
+  string vs_currency = 2;
+}
+
+// Admin-facing market-data facade. The admin service owns orchestration while
+// the trading service remains the source of truth for crypto market data.
+service AdminService {
+  rpc GetMarkets(AdminServiceGetMarketsRequest) returns (AdminServiceGetMarketsResponse) {}
+}

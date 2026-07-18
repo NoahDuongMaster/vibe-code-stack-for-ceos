@@ -6,6 +6,7 @@ DOCKER_COMPOSE_PROD := $(DOCKER_COMPOSE) -f $(DOCKER_DIR)/compose.prod.yaml
 DOCKER_DEV_PROFILES := --profile dev --profile vpc
 DOCKER_DEV_SERVICE_UP := $(DOCKER_COMPOSE_DEV) $(DOCKER_DEV_PROFILES) up -d --build
 DOCKER_PROD_PROFILES := --profile vpc --profile backup
+NATIVE_DEV_TRADING_RPC_GRPC_HOST_PORT ?= 50052
 CLOUDFLARE_TUNNEL_TOKEN_FILE ?= $(abspath $(DOCKER_DIR)/secrets/cloudflare-tunnel-token)
 CLOUDFLARE_API_TOKEN_FILE ?= $(abspath $(DOCKER_DIR)/secrets/cloudflare-api-token)
 POSTGRES_BACKUP_SECRET_DIR ?= /run/vibe-code-stack/secrets
@@ -89,8 +90,22 @@ build-development: ## Build all images used by the full development stack.
 build-workspace-development: ## Build the shared development workspace image.
 	$(DOCKER_COMPOSE_DEV) build dapp
 
+.PHONY: start-postgres-development
+start-postgres-development: ## Start only PostgreSQL for native service development.
+	$(DOCKER_COMPOSE_DEV) --profile dev up -d --build postgres
+
+.PHONY: start-native-development-infra
+start-native-development-infra: check-vpc-tunnel-token ## Start PostgreSQL and the VPC origin for native app development.
+	TRADING_RPC_GRPC_HOST_PORT="$(NATIVE_DEV_TRADING_RPC_GRPC_HOST_PORT)" \
+		$(DOCKER_COMPOSE_DEV) --profile dev --profile vpc up -d --build postgres trading-rpc cloudflared
+
+.PHONY: stop-native-development-infra
+stop-native-development-infra: ## Stop native-development PostgreSQL and VPC origin containers.
+	TRADING_RPC_GRPC_HOST_PORT="$(NATIVE_DEV_TRADING_RPC_GRPC_HOST_PORT)" \
+		$(DOCKER_COMPOSE_DEV) --profile dev --profile vpc rm --stop --force cloudflared trading-rpc postgres
+
 .PHONY: start-development
-start-development: check-vpc-tunnel-token sync-cloudflare-api-token build-development ## Start all five apps plus PostgreSQL and cloudflared.
+start-development: check-vpc-tunnel-token sync-cloudflare-api-token build-development ## Start all six runtimes plus PostgreSQL and cloudflared.
 	$(DOCKER_COMPOSE_DEV) $(DOCKER_DEV_PROFILES) up -d
 
 .PHONY: start-dapp-development
@@ -112,6 +127,10 @@ start-api-gateway-development: check-vpc-tunnel-token sync-cloudflare-api-token 
 .PHONY: start-trading-rpc-development
 start-trading-rpc-development: ## Start only trading-rpc and its declared dependencies.
 	$(DOCKER_DEV_SERVICE_UP) trading-rpc
+
+.PHONY: start-admin-rpc-development
+start-admin-rpc-development: ## Start admin-rpc and its trading-rpc dependency.
+	$(DOCKER_DEV_SERVICE_UP) admin-rpc
 
 .PHONY: stop-development
 stop-development: ## Stop the full development stack.
@@ -212,7 +231,7 @@ check-docker: test-development-service-targets ## Validate Compose overlays, Doc
 	@services="$$( \
 		$(DOCKER_COMPOSE) $(DOCKER_DEV_PROFILES) config --services \
 	)"; \
-	for service in dapp admin landing api-gateway postgres trading-rpc cloudflared; do \
+	for service in dapp admin landing api-gateway postgres admin-rpc trading-rpc cloudflared; do \
 		echo "$$services" | grep -qx "$$service" || { \
 			echo "Missing development service: $$service" >&2; \
 			exit 1; \
@@ -220,6 +239,8 @@ check-docker: test-development-service-targets ## Validate Compose overlays, Doc
 	done
 	@$(DOCKER_COMPOSE_DEV) $(DOCKER_DEV_PROFILES) --profile backup config --format json | \
 		node -e 'let raw = ""; process.stdin.setEncoding("utf8"); process.stdin.on("data", (chunk) => { raw += chunk; }); process.stdin.on("end", () => { const config = JSON.parse(raw); const networks = config.services?.["trading-rpc"]?.networks ?? {}; const expected = process.env.TRADING_RPC_PRIVATE_HOSTNAME || "trading-rpc.internal"; const privateAliases = networks["trading-rpc-private"]?.aliases ?? []; if (!privateAliases.includes(expected)) throw new Error(`Missing private trading-rpc alias: $${expected}`); for (const name of ["trading-rpc-data", "trading-rpc-egress"]) { if ((networks[name]?.aliases ?? []).includes(expected)) throw new Error(`Private trading-rpc alias leaked to $${name}`); } if (config.networks?.["trading-rpc-data"]?.internal !== true) throw new Error("trading-rpc-data must be internal"); const postgres = config.services?.postgres; const backup = config.services?.["postgres-backup"]; if (!postgres?.build?.dockerfile?.endsWith("infra/docker/postgres.Dockerfile")) throw new Error("PostgreSQL must use the repository backup image"); if (!postgres?.ports?.some((port) => port.host_ip === "127.0.0.1")) throw new Error("Development PostgreSQL must publish loopback only"); if (!("postgres-development-host" in (postgres?.networks ?? {}))) throw new Error("Development PostgreSQL needs a non-internal host bridge"); if (!backup) throw new Error("Missing postgres-backup service"); if (backup.user) throw new Error("postgres-backup must bootstrap as root before dropping privileges"); if (!(backup.cap_add ?? []).includes("CHOWN") || !(backup.cap_add ?? []).includes("SETUID") || !(backup.cap_add ?? []).includes("SETGID")) throw new Error("postgres-backup is missing minimal bootstrap capabilities"); if (backup.volumes?.some((mount) => mount.source === "/var/run/docker.sock")) throw new Error("postgres-backup must not mount the Docker socket"); if (backup.ports?.length) throw new Error("postgres-backup must not publish ports"); for (const name of ["postgres-socket", "pgbackrest-spool", "postgres-backup-state", "postgres-backup-stage", "postgres-restore-stage"]) { if (!config.volumes?.[name]) throw new Error(`Missing backup volume: $${name}`); } const restoreMount = (backup.volumes ?? []).find((mount) => mount.target === "/var/lib/postgres-backup/restores"); if (restoreMount?.source !== "postgres-restore-stage") throw new Error("Restore drills require a dedicated volume"); if (backup.environment?.POSTGRES_RESTORE_ROOT !== "/var/lib/postgres-backup/restores") throw new Error("Restore root must use the dedicated volume"); });'
+	@$(DOCKER_COMPOSE_DEV) $(DOCKER_DEV_PROFILES) config --format json | \
+		node -e 'let raw = ""; process.stdin.setEncoding("utf8"); process.stdin.on("data", (chunk) => { raw += chunk; }); process.stdin.on("end", () => { const config = JSON.parse(raw); const admin = config.services?.["admin-rpc"]; const trading = config.services?.["trading-rpc"]; const cloudflared = config.services?.cloudflared; if (!admin) throw new Error("Missing admin-rpc service"); const adminNetworks = Object.keys(admin.networks ?? {}).sort(); if (adminNetworks.join(",") !== "admin-rpc-internal,admin-rpc-private") throw new Error("admin-rpc must use only its gRPC and VPC private networks"); const expected = process.env.ADMIN_RPC_PRIVATE_HOSTNAME || "admin-rpc.internal"; const privateAliases = admin.networks?.["admin-rpc-private"]?.aliases ?? []; if (!privateAliases.includes(expected)) throw new Error(`Missing private admin-rpc alias: $${expected}`); if ((admin.networks?.["admin-rpc-internal"]?.aliases ?? []).includes(expected)) throw new Error("Private admin-rpc alias leaked to admin-rpc-internal"); if (!("admin-rpc-private" in (cloudflared?.networks ?? {}))) throw new Error("cloudflared must share admin-rpc-private"); if (!("admin-rpc-internal" in (trading?.networks ?? {}))) throw new Error("trading-rpc must share admin-rpc-internal"); for (const name of ["admin-rpc-internal", "admin-rpc-private"]) { if (config.networks?.[name]?.internal !== true) throw new Error(`${name} must be internal`); } if (admin.environment?.TRADING_RPC_GRPC_URL !== "http://trading-rpc:50051") throw new Error("admin-rpc must call trading-rpc native gRPC through private Docker DNS"); });'
 	@POSTGRES_BACKUP_SERVICE_NAME=trading-rpc-example \
 		POSTGRES_ARCHIVE_AGE_RECIPIENT=age1ywhyzhzs70xzcyleft4cagvtn5qnsfeln4fte9d7g4ar6jhrgd9q233rhe \
 		POSTGRES_BACKUP_RECOVERY_SECRET_ID=example/monthly-recovery-key \
@@ -246,5 +267,6 @@ check-docker: test-development-service-targets ## Validate Compose overlays, Doc
 		exit 1; \
 	fi
 	@docker build --check -f $(DOCKER_DIR)/dapp.Dockerfile .
+	@docker build --check -f $(DOCKER_DIR)/admin-rpc.Dockerfile .
 	@docker build --check -f $(DOCKER_DIR)/trading-rpc.Dockerfile .
 	@docker build --check -f $(DOCKER_DIR)/workspace-dev.Dockerfile .

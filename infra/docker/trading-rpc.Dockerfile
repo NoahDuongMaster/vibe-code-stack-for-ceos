@@ -15,7 +15,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.js
 COPY packages/protocol/package.json ./packages/protocol/
 COPY packages/api-core/package.json ./packages/api-core/
 COPY services/trading-rpc/package.json ./services/trading-rpc/
-RUN pnpm install --frozen-lockfile --ignore-scripts
+COPY .pnpmfile.mjs ./
+COPY scripts/check-install-context.ts ./scripts/
+RUN MISE_TASK_NAME=setup pnpm install --frozen-lockfile --ignore-scripts
 
 # 2. Build: tsup bundles @packages/api-core + @packages/protocol source directly into a
 #    single dist/index.js — only true npm deps stay external.

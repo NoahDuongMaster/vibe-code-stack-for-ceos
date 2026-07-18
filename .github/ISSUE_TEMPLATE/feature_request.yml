@@ -17,6 +17,7 @@ body:
         - "apps/admin — @apps/admin (React / Rsbuild)"
         - "apps/landing — @apps/landing (Astro)"
         - "services/trading-rpc — @services/trading-rpc (Connect RPC, Node)"
+        - "services/admin-rpc — @services/admin-rpc (admin RPC facade, Node)"
         - "services/api-gateway — @services/api-gateway (Connect RPC, Workers)"
         - "packages — protocol / api-core / api-client (shared)"
         - "Tooling — CI / Docker / config / scripts"

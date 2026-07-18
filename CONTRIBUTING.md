@@ -25,7 +25,7 @@ We welcome your pull requests! Before submitting a pull request, please make sur
 1. Fork the repository and create a branch following the naming convention below.
 2. Follow the architecture rules in [`CLAUDE.md`](CLAUDE.md) — it's the single source of truth for folder structure, dependency direction, and naming.
 3. Write commit messages following the convention below.
-4. Run `mise verify` for any workspace you touched.
+4. Run `mise run verify` for any workspace you touched.
 5. Update `CLAUDE.md` or the relevant `README.md` if your change affects documented behavior.
 
 ### Development Setup
@@ -33,9 +33,12 @@ We welcome your pull requests! Before submitting a pull request, please make sur
 Install and activate [mise](https://mise.jdx.dev/installing-mise.html), then run:
 
 ```bash
-mise setup
-mise dev            # starts every app in the monorepo (Turborepo)
+mise run setup
+mise run dev         # native hot reload + managed PostgreSQL/VPC infrastructure
 ```
+
+Ctrl-C stops the native processes. Run `mise run dev:infra:stop` when you also
+want to stop the development infrastructure containers.
 
 See the root [`README.md`](README.md) for per-app mise tasks and the [Docker environments](README.md) section for containerized setup. pnpm remains the internal package/workspace engine; invoke it directly only for targeted commands without a mise task.
 

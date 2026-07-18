@@ -24,7 +24,7 @@ const ZEnv = z.object({
 export const env = ZEnv.parse({
   API_URL:
     import.meta.env.PUBLIC_API_URL ??
-    (import.meta.env.DEV ? 'http://localhost:3001' : undefined),
+    (import.meta.env.DEV ? 'http://localhost:8787' : undefined),
   // Treat an empty string as "not set" so `PUBLIC_SENTRY_DSN=` disables Sentry.
   SENTRY_DSN: import.meta.env.PUBLIC_SENTRY_DSN || undefined,
   // import.meta.env.DEV is statically replaced at build time, so a production
@@ -34,7 +34,7 @@ export const env = ZEnv.parse({
     : undefined,
 });
 
-/** Base URL of the backend serving HealthService (trading-rpc or api-gateway). */
+/** Public api-gateway URL used by every browser RPC client. */
 export const API_URL = env.API_URL;
 
 /** Whether the page-local mock login is allowed to authenticate anyone. */

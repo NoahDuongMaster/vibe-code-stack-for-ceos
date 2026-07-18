@@ -1,6 +1,7 @@
 export interface GatewayRpcRequest<TRequest> {
   request: TRequest;
   requestId: string;
+  rpcPath: string;
 }
 
 export interface GatewayRpcEndpointResult<TResponse> {
@@ -8,7 +9,7 @@ export interface GatewayRpcEndpointResult<TResponse> {
   response: TResponse;
 }
 
-/** Driven port for either a local RPC runtime or a remote trading endpoint. */
+/** Driven port for a local RPC runtime or one private service endpoint. */
 export interface GatewayRpcEndpoint<TRequest, TResponse> {
   handle(
     command: GatewayRpcRequest<TRequest>,

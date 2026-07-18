@@ -1,54 +1,74 @@
 import { useUsers } from '@/entities/user';
 import { HealthStatus } from '@/pages/dashboard/ui/health-status';
+import { MarketDashboard } from '@/pages/dashboard/ui/market-dashboard';
 import { css } from '@/styled-system/css';
-import { flex, grid } from '@/styled-system/patterns';
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div
-      className={css({
-        p: '5',
-        rounded: 'xl',
-        borderWidth: '1px',
-        borderColor: 'border',
-        bg: 'card',
-      })}
-    >
-      <div className={css({ fontSize: 'sm', color: 'muted.foreground' })}>
-        {label}
-      </div>
-      <div className={css({ fontSize: '3xl', fontWeight: 'bold', mt: '1' })}>
-        {value}
-      </div>
-    </div>
-  );
-}
+import { flex } from '@/styled-system/patterns';
 
 export function DashboardPage() {
-  const { data: users = [] } = useUsers();
-  const admins = users.filter((u) => u.role === 'admin').length;
+  const { data: users, isError: isUsersError } = useUsers();
+  const userSummary = isUsersError
+    ? 'Team accounts unavailable'
+    : users
+      ? `${users.length} team accounts`
+      : 'Loading team accounts…';
 
   return (
-    <div className={flex({ direction: 'column', gap: '6' })}>
+    <main className={flex({ direction: 'column', gap: '7' })}>
       <div
         className={flex({
-          justify: 'space-between',
-          align: 'center',
-          wrap: 'wrap',
+          align: { base: 'start', md: 'center' },
+          direction: { base: 'column', md: 'row' },
           gap: '4',
+          justify: 'space-between',
         })}
       >
-        <h1 className={css({ fontSize: '2xl', fontWeight: 'bold' })}>
-          Dashboard
-        </h1>
-        <HealthStatus />
+        <div>
+          <p
+            className={css({
+              color: 'muted.foreground',
+              fontSize: 'xs',
+              fontWeight: 'semibold',
+              letterSpacing: 'wider',
+              textTransform: 'uppercase',
+            })}
+          >
+            Operations console
+          </p>
+          <h1
+            className={css({
+              fontSize: { base: '2xl', md: '3xl' },
+              fontWeight: 'bold',
+              letterSpacing: 'tight',
+              mt: '1',
+            })}
+          >
+            Market dashboard
+          </h1>
+          <p
+            className={css({
+              color: 'muted.foreground',
+              fontSize: 'sm',
+              mt: '1',
+            })}
+          >
+            Live coin information routed securely through the admin service.
+          </p>
+        </div>
+        <div
+          className={flex({
+            direction: 'column',
+            align: { base: 'start', md: 'end' },
+            gap: '2',
+          })}
+        >
+          <HealthStatus />
+          <span className={css({ color: 'muted.foreground', fontSize: 'xs' })}>
+            {userSummary}
+          </span>
+        </div>
       </div>
 
-      <div className={grid({ columns: { base: 1, sm: 3 }, gap: '4' })}>
-        <StatCard label="Total users" value={users.length} />
-        <StatCard label="Admins" value={admins} />
-        <StatCard label="Members + viewers" value={users.length - admins} />
-      </div>
-    </div>
+      <MarketDashboard />
+    </main>
   );
 }

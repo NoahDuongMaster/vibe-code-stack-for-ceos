@@ -21,6 +21,13 @@ services:
     env_file:
       - ../../services/trading-rpc/.env.staging
 
+  admin-rpc:
+    image: vibe-admin-rpc:staging
+    env_file:
+      - ../../services/admin-rpc/.env.staging
+    environment:
+      TRADING_RPC_GRPC_URL: http://trading-rpc:50051
+
   postgres:
     environment:
       POSTGRES_BACKUP_MODE: disabled
