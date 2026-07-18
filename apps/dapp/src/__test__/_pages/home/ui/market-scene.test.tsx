@@ -28,6 +28,7 @@ vi.mock('@react-three/fiber', () => ({
   },
 }));
 vi.mock('@react-three/drei', () => ({
+  Grid: () => null,
   Sparkles: () => null,
 }));
 vi.mock('@/_pages/home/ui/use-market-scene-activity', () => ({
@@ -59,23 +60,27 @@ const nodes: TMarketSceneNode[] = [
   {
     id: 'bitcoin',
     symbol: 'BTC',
-    scale: 1.2,
-    orbitRadius: 2.4,
-    orbitSpeed: 0.1,
-    phase: 0,
-    verticalOffset: 0,
-    color: '#67e8f9',
+    position: [-0.625, 0, -1.45],
+    height: 3.2,
+    width: 0.82,
+    depth: 0.72,
+    lean: 0.11,
+    pulseStrength: 0.9,
+    revealDelay: 0,
+    color: '#C7FF2F',
     emissiveIntensity: 1,
   },
   {
     id: 'ethereum',
     symbol: 'ETH',
-    scale: 1,
-    orbitRadius: 3,
-    orbitSpeed: 0.09,
-    phase: 1,
-    verticalOffset: 0.4,
-    color: '#fb7185',
+    position: [0.625, 0, 1.45],
+    height: 2.4,
+    width: 0.72,
+    depth: 0.64,
+    lean: -0.1,
+    pulseStrength: 0.6,
+    revealDelay: 0.06,
+    color: '#FF3B5C',
     emissiveIntensity: 0.8,
   },
 ];
@@ -100,14 +105,22 @@ describe('[MarketScene]', () => {
     );
 
     expect(r3fMocks.canvasProps?.dpr).toEqual([1, 1.5]);
+    expect(r3fMocks.canvasProps?.['aria-hidden']).toBe('true');
     expect(r3fMocks.canvasProps?.frameloop).toBe('always');
     expect(r3fMocks.canvasProps?.fallback).toBeTruthy();
-    expect(screen.getByRole('status').textContent).toContain('Bitcoin');
+    expect(r3fMocks.canvasProps?.gl).toMatchObject({
+      alpha: true,
+      powerPreference: 'high-performance',
+    });
+    expect(screen.getByRole('status').textContent).toContain(
+      'Active market / USD',
+    );
+    expect(screen.getByRole('status').textContent).toContain('BTC');
     expect(screen.getByRole('status').textContent).toContain('$70,000.00');
     expect(screen.getByRole('status').textContent).toContain('+2.50%');
   });
 
-  it('should pause the frame loop and orbital mutation', () => {
+  it('should use a demand frame loop without mutation for reduced motion', () => {
     activityState.reducedMotion = true;
     activityState.shouldAnimate = false;
 
@@ -131,7 +144,7 @@ describe('[MarketScene]', () => {
     }
   });
 
-  it('should select a token from a scene pointer interaction', () => {
+  it('should select a liquidity blade from a pointer interaction', () => {
     const onActiveMarketChange = vi.fn();
     const { container } = render(
       <MarketScene
@@ -144,6 +157,8 @@ describe('[MarketScene]', () => {
 
     const ethereumMesh = container.querySelector('mesh[name="ethereum"]');
     expect(ethereumMesh).toBeTruthy();
+    expect(container.querySelector('icosahedronGeometry')).toBeNull();
+    expect(container.querySelectorAll('boxGeometry').length).toBeGreaterThan(0);
     fireEvent.click(ethereumMesh as Element);
     expect(onActiveMarketChange).toHaveBeenCalledWith('ethereum');
   });
@@ -161,5 +176,6 @@ describe('[MarketScene]', () => {
     );
 
     expect(screen.getByTestId('market-scene-fallback')).toBeTruthy();
+    expect(screen.getAllByTestId('reactor-fallback-blade')).toHaveLength(10);
   });
 });

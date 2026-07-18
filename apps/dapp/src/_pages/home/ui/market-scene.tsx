@@ -1,10 +1,10 @@
 'use client';
 
-import { Sparkles } from '@react-three/drei';
+import { Grid, Sparkles } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Group } from 'three';
-import { CylinderGeometry, MathUtils, TorusGeometry } from 'three';
+import { MathUtils } from 'three';
 import {
   formatMarketChange,
   formatMarketPrice,
@@ -23,53 +23,100 @@ export type TMarketSceneProps = {
   onActiveMarketChange: (marketId: TMarket['id']) => void;
 };
 
-type TMarketTokenProps = {
+type TMarketBladeProps = {
   active: boolean;
   animate: boolean;
   node: TMarketSceneNode;
   onActiveMarketChange: (marketId: TMarket['id']) => void;
-  tokenGeometry: CylinderGeometry;
-  tokenRingGeometry: TorusGeometry;
 };
 
-function MarketToken({
+const activeReadoutStyle = css({
+  position: 'absolute',
+  insetInlineStart: { base: '4', md: '6' },
+  bottom: { base: '4', md: '6' },
+  minW: { base: '56', md: '72' },
+  p: '4',
+  pointerEvents: 'none',
+  bgColor: 'rgba(5, 5, 7, 0.82)',
+  backdropFilter: 'blur(10px)',
+  borderInlineStartWidth: '2px',
+  borderColor: 'toxic',
+});
+
+const readoutLabelStyle = css({
+  color: 'bone/46',
+  fontFamily: 'mono',
+  fontSize: '2xs',
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+});
+
+const readoutSymbolStyle = css({
+  mt: '2',
+  fontFamily: 'display',
+  fontSize: { base: '4xl', md: '6xl' },
+  fontWeight: '800',
+  letterSpacing: '-0.08em',
+  lineHeight: '0.9',
+});
+
+const readoutValueStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '3',
+  mt: '3',
+  fontFamily: 'mono',
+  fontSize: { base: 'sm', md: 'md' },
+});
+
+const changeTone = (change: number | undefined): string => {
+  if ((change ?? 0) > 0) return '#C7FF2F';
+  if ((change ?? 0) < 0) return '#FF3B5C';
+  return '#8B5CF6';
+};
+
+function MarketBlade({
   active,
   animate,
   node,
   onActiveMarketChange,
-  tokenGeometry,
-  tokenRingGeometry,
-}: TMarketTokenProps) {
-  const tokenRef = useRef<Group>(null);
+}: TMarketBladeProps) {
+  const bladeRef = useRef<Group>(null);
   const [hovered, setHovered] = useState(false);
   const highlighted = active || hovered;
 
   useFrame(({ clock }, delta) => {
-    if (!animate || !tokenRef.current) return;
-    const angle = node.phase + clock.elapsedTime * node.orbitSpeed;
-    tokenRef.current.position.set(
-      Math.cos(angle) * node.orbitRadius,
-      node.verticalOffset + Math.sin(angle * 1.35) * 0.42,
-      Math.sin(angle) * node.orbitRadius * 0.34,
+    if (!animate || !bladeRef.current) return;
+    const reveal = MathUtils.clamp(
+      (clock.elapsedTime - node.revealDelay) * 1.8,
+      0,
+      1,
     );
-    tokenRef.current.rotation.z += delta * 0.28;
+    bladeRef.current.position.y = MathUtils.damp(
+      bladeRef.current.position.y,
+      (node.height * reveal) / 2,
+      5,
+      delta,
+    );
+    const pulseAmplitude = 0.012 + node.pulseStrength * 0.018;
+    const pulse =
+      1 + Math.sin(clock.elapsedTime * 1.6 + node.revealDelay) * pulseAmplitude;
+    bladeRef.current.scale.y = highlighted ? pulse * 1.035 : pulse;
   });
 
   return (
     <group
-      ref={tokenRef}
+      ref={bladeRef}
       position={[
-        Math.cos(node.phase) * node.orbitRadius,
-        node.verticalOffset,
-        Math.sin(node.phase) * node.orbitRadius * 0.34,
+        node.position[0],
+        animate ? 0 : node.height / 2,
+        node.position[2],
       ]}
-      rotation={[Math.PI / 2, 0, node.phase]}
-      scale={node.scale * (highlighted ? 1.16 : 1)}
+      rotation={[0, 0, node.lean]}
     >
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: WebGL pointer target; equivalent keyboard controls live in MarketTable. */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: equivalent keyboard selection is provided by MarketWatchlist and MarketTable. */}
       <mesh
         name={node.id}
-        geometry={tokenGeometry}
         onClick={(event) => {
           event.stopPropagation();
           onActiveMarketChange(node.id);
@@ -80,26 +127,47 @@ function MarketToken({
           setHovered(true);
         }}
       >
+        <boxGeometry args={[node.width, node.height, node.depth]} />
         <meshStandardMaterial
-          color={node.color}
+          color={highlighted ? '#E9F1E2' : node.color}
           emissive={node.color}
-          emissiveIntensity={node.emissiveIntensity * (highlighted ? 1.45 : 1)}
+          emissiveIntensity={
+            node.emissiveIntensity * (highlighted ? 1.5 : node.pulseStrength)
+          }
           metalness={0.72}
-          roughness={0.2}
+          roughness={0.24}
         />
       </mesh>
-      <mesh geometry={tokenRingGeometry} position={[0, 0.09, 0]}>
-        <meshBasicMaterial
-          color="#e8f5f7"
-          opacity={highlighted ? 0.95 : 0.46}
-          transparent
-        />
+      {highlighted ? (
+        <mesh position={[0, node.height / 2 + 0.05, 0]}>
+          <boxGeometry args={[node.width * 1.35, 0.025, node.depth * 1.35]} />
+          <meshBasicMaterial color="#C7FF2F" />
+        </mesh>
+      ) : null}
+    </group>
+  );
+}
+
+function ScanPlane({ animate }: { animate: boolean }) {
+  const scanRef = useRef<Group>(null);
+
+  useFrame(({ clock }) => {
+    if (!animate || !scanRef.current) return;
+    const progress = (clock.elapsedTime * 0.18) % 1;
+    scanRef.current.position.x = MathUtils.lerp(-3.8, 3.8, progress);
+  });
+
+  return (
+    <group ref={scanRef} position={[-3.8, 1.5, 0]}>
+      <mesh>
+        <boxGeometry args={[0.018, 3.4, 7]} />
+        <meshBasicMaterial color="#C7FF2F" opacity={0.2} transparent />
       </mesh>
     </group>
   );
 }
 
-function MarketWorld({
+function ReactorWorld({
   activeMarketId,
   animate,
   nodes,
@@ -109,26 +177,18 @@ function MarketWorld({
   'activeMarketId' | 'nodes' | 'onActiveMarketChange'
 > & { animate: boolean }) {
   const worldRef = useRef<Group>(null);
-  const tokenGeometry = useMemo(
-    () => new CylinderGeometry(0.54, 0.54, 0.16, 24),
-    [],
-  );
-  const tokenRingGeometry = useMemo(
-    () => new TorusGeometry(0.38, 0.035, 8, 24),
-    [],
-  );
 
   useFrame(({ pointer }, delta) => {
     if (!animate || !worldRef.current) return;
     worldRef.current.rotation.x = MathUtils.damp(
       worldRef.current.rotation.x,
-      -pointer.y * 0.08,
+      -pointer.y * 0.045,
       3,
       delta,
     );
     worldRef.current.rotation.y = MathUtils.damp(
       worldRef.current.rotation.y,
-      pointer.x * 0.12,
+      pointer.x * 0.045,
       3,
       delta,
     );
@@ -136,44 +196,41 @@ function MarketWorld({
 
   return (
     <group ref={worldRef}>
-      <mesh rotation={[0.4, 0.2, -0.24]}>
-        <icosahedronGeometry args={[1.12, 2]} />
-        <meshStandardMaterial
-          color="#a78bfa"
-          emissive="#67e8f9"
-          emissiveIntensity={1.25}
-          metalness={0.58}
-          roughness={0.18}
-        />
-      </mesh>
-      <mesh rotation={[Math.PI / 2.4, 0.2, 0]}>
-        <torusGeometry args={[1.72, 0.018, 8, 96]} />
-        <meshBasicMaterial color="#67e8f9" opacity={0.48} transparent />
-      </mesh>
-      <mesh rotation={[Math.PI / 2.1, -0.42, 0.8]}>
-        <torusGeometry args={[2.15, 0.012, 8, 96]} />
-        <meshBasicMaterial color="#a78bfa" opacity={0.3} transparent />
-      </mesh>
-      <Sparkles
-        color="#e8f5f7"
-        count={72}
-        noise={1.2}
-        opacity={0.55}
-        scale={[9, 5, 4]}
-        size={1.4}
-        speed={animate ? 0.18 : 0}
+      <Grid
+        args={[14, 8]}
+        cellColor="#8B5CF6"
+        cellSize={0.5}
+        cellThickness={0.35}
+        fadeDistance={12}
+        fadeStrength={1.4}
+        infiniteGrid={false}
+        position={[0, 0, 0]}
+        sectionColor="#C7FF2F"
+        sectionSize={2.5}
+        sectionThickness={0.55}
       />
+      <mesh position={[0, 0.04, 0]}>
+        <boxGeometry args={[7.2, 0.06, 0.72]} />
+        <meshStandardMaterial color="#050507" metalness={0.9} roughness={0.3} />
+      </mesh>
+      <ScanPlane animate={animate} />
       {nodes.map((node) => (
-        <MarketToken
+        <MarketBlade
           key={node.id}
           active={node.id === activeMarketId}
           animate={animate}
           node={node}
           onActiveMarketChange={onActiveMarketChange}
-          tokenGeometry={tokenGeometry}
-          tokenRingGeometry={tokenRingGeometry}
         />
       ))}
+      <Sparkles
+        color="#E9F1E2"
+        count={38}
+        opacity={0.36}
+        scale={[11, 5, 7]}
+        size={0.8}
+        speed={animate ? 0.12 : 0}
+      />
     </group>
   );
 }
@@ -192,68 +249,41 @@ export function MarketScene({
     <div ref={containerRef} className={MARKET_SCENE_SHELL_STYLE}>
       <Canvas
         aria-hidden="true"
+        camera={{ position: [0, 5.4, 9.4], fov: 38 }}
         dpr={[1, 1.5]}
-        frameloop={shouldAnimate ? 'always' : 'demand'}
         fallback={<MarketSceneFallback />}
-        camera={{ position: [0, 1.2, 9], fov: 42 }}
+        frameloop={shouldAnimate ? 'always' : 'demand'}
         gl={{
           alpha: true,
           antialias: true,
           powerPreference: 'high-performance',
         }}
+        onCreated={({ camera }) => camera.lookAt(0, 1.1, 0)}
       >
-        <ambientLight intensity={0.55} />
-        <pointLight position={[0, 1, 3]} intensity={18} color="#67e8f9" />
-        <pointLight position={[-4, -2, 2]} intensity={9} color="#fb7185" />
-        <MarketWorld
-          nodes={nodes}
+        <ambientLight intensity={0.34} />
+        <pointLight color="#C7FF2F" intensity={18} position={[2, 7, 4]} />
+        <pointLight color="#8B5CF6" intensity={12} position={[-5, 3, 1]} />
+        <pointLight color="#FF3B5C" intensity={8} position={[4, 1, -3]} />
+        <ReactorWorld
           activeMarketId={activeMarketId}
           animate={shouldAnimate}
+          nodes={nodes}
           onActiveMarketChange={onActiveMarketChange}
         />
       </Canvas>
 
-      <div
-        role="status"
-        aria-live="polite"
-        className={css({
-          position: 'absolute',
-          insetInlineStart: { base: '4', md: '6' },
-          bottom: { base: '4', md: '6' },
-          minW: '44',
-          p: '4',
-          pointerEvents: 'none',
-          bgColor: 'rgba(7, 16, 24, 0.78)',
-          backdropFilter: 'blur(12px)',
-          borderWidth: '1px',
-          borderColor: 'rgba(103, 232, 249, 0.24)',
-          rounded: 'lg',
-        })}
-      >
-        <p
-          className={css({
-            color: '#91a9b4',
-            fontFamily: 'mono',
-            fontSize: '2xs',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-          })}
-        >
-          Active body
-        </p>
-        <p className={css({ mt: '1', fontSize: 'lg', fontWeight: 'bold' })}>
-          {selectedMarket?.name ?? 'Awaiting market data'}
-        </p>
-        <p
-          className={css({
-            mt: '2',
-            color: '#e8f5f7',
-            fontFamily: 'mono',
-            fontSize: 'sm',
-          })}
-        >
-          {formatMarketPrice(selectedMarket?.currentPrice)} ·{' '}
-          {formatMarketChange(selectedMarket?.priceChangePercentage24h)}
+      <div role="status" aria-live="polite" className={activeReadoutStyle}>
+        <p className={readoutLabelStyle}>Active market / USD</p>
+        <p className={readoutSymbolStyle}>{selectedMarket?.symbol ?? '—'}</p>
+        <p className={readoutValueStyle}>
+          {formatMarketPrice(selectedMarket?.currentPrice)}
+          <span
+            style={{
+              color: changeTone(selectedMarket?.priceChangePercentage24h),
+            }}
+          >
+            {formatMarketChange(selectedMarket?.priceChangePercentage24h)}
+          </span>
         </p>
       </div>
     </div>

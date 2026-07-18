@@ -1,79 +1,72 @@
 import { MARKET_COIN_IDS } from '@/_pages/home/model/market.constants';
 import { css } from '@/styled-system/css';
 
-const FALLBACK_POSITIONS = [
-  { left: '12%', top: '22%' },
-  { left: '28%', top: '10%' },
-  { left: '49%', top: '17%' },
-  { left: '72%', top: '9%' },
-  { left: '85%', top: '31%' },
-  { left: '80%', top: '65%' },
-  { left: '62%', top: '78%' },
-  { left: '39%', top: '72%' },
-  { left: '18%', top: '76%' },
-  { left: '8%', top: '51%' },
-] as const;
+const FALLBACK_COLORS = ['#C7FF2F', '#8B5CF6', '#FF3B5C'] as const;
+
+const fallbackStyle = css({
+  position: 'absolute',
+  inset: 0,
+  overflow: 'hidden',
+  bgColor: 'void',
+  backgroundImage:
+    'linear-gradient(135deg, rgba(139, 92, 246, 0.2), transparent 44%), repeating-linear-gradient(90deg, rgba(233, 241, 226, 0.035) 0, rgba(233, 241, 226, 0.035) 1px, transparent 1px, transparent 7.5%)',
+});
+
+const trenchStyle = css({
+  position: 'absolute',
+  insetInlineStart: '8%',
+  top: '50%',
+  w: '84%',
+  h: '12',
+  bgColor: 'void',
+  backgroundImage:
+    'repeating-linear-gradient(90deg, rgba(199, 255, 47, 0.2) 0, rgba(199, 255, 47, 0.2) 1px, transparent 1px, transparent 12%)',
+  borderBlockWidth: '1px',
+  borderColor: 'plasma/60',
+  transform: 'translateY(-50%) skewX(-8deg)',
+  boxShadow: '0 0 34px rgba(139, 92, 246, 0.24)',
+});
+
+const bladeStyle = css({
+  position: 'absolute',
+  display: 'block',
+  w: { base: '5', md: '7' },
+  borderWidth: '1px',
+  borderColor: 'bone/38',
+  clipPath: 'polygon(18% 0, 100% 0, 82% 100%, 0 100%)',
+  boxShadow:
+    '0 0 20px rgba(199, 255, 47, 0.16), 0 0 38px rgba(139, 92, 246, 0.12)',
+});
 
 export function MarketSceneFallback() {
   return (
     <div
       data-testid="market-scene-fallback"
       aria-hidden="true"
-      className={css({
-        position: 'absolute',
-        inset: 0,
-        overflow: 'hidden',
-        bgColor: 'rgba(7, 16, 24, 0.92)',
-        backgroundImage:
-          'radial-gradient(circle at center, rgba(103, 232, 249, 0.12), transparent 42%)',
-      })}
+      className={fallbackStyle}
     >
-      <div
-        className={css({
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          w: '28',
-          h: '28',
-          bgColor: '#a78bfa',
-          borderWidth: '1px',
-          borderColor: '#e8f5f7',
-          rounded: '40%',
-          transform: 'translate(-50%, -50%) rotate(24deg)',
-          boxShadow:
-            '0 0 28px rgba(167, 139, 250, 0.78), 0 0 110px rgba(103, 232, 249, 0.34)',
-        })}
-      />
-      {MARKET_COIN_IDS.map((marketId, index) => (
-        <span
-          key={marketId}
-          className={css({
-            position: 'absolute',
-            display: 'block',
-            w: { base: '4', md: '5' },
-            h: { base: '4', md: '5' },
-            bgColor: index % 3 === 0 ? '#fb7185' : '#67e8f9',
-            borderWidth: '2px',
-            borderColor: 'rgba(232, 245, 247, 0.72)',
-            rounded: 'full',
-            boxShadow: '0 0 18px currentColor',
-          })}
-          style={FALLBACK_POSITIONS[index]}
-        />
-      ))}
-      <span
-        className={css({
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          w: '60%',
-          aspectRatio: '1',
-          borderWidth: '1px',
-          borderColor: 'rgba(103, 232, 249, 0.2)',
-          rounded: 'full',
-          transform: 'translate(-50%, -50%) rotate(-12deg) scaleY(0.42)',
-        })}
-      />
+      <div className={trenchStyle} />
+      {MARKET_COIN_IDS.map((marketId, index) => {
+        const upperRow = index % 2 === 0;
+        const height = 24 + (index * 48) / (MARKET_COIN_IDS.length - 1);
+
+        return (
+          <span
+            key={marketId}
+            data-testid="reactor-fallback-blade"
+            className={bladeStyle}
+            style={{
+              backgroundColor: FALLBACK_COLORS[index % FALLBACK_COLORS.length],
+              bottom: upperRow ? '50%' : undefined,
+              height: `${height}%`,
+              left: `${7 + index * 9.5}%`,
+              top: upperRow ? undefined : '50%',
+              transform: upperRow ? 'skewX(-5deg)' : 'skewX(5deg)',
+              transformOrigin: upperRow ? 'bottom' : 'top',
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
