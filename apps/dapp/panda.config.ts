@@ -22,9 +22,23 @@ export default defineConfig({
   theme: {
     extend: {
       tokens: {
+        colors: {
+          void: { value: '#050507' },
+          carbon: { value: '#0A0D0B' },
+          bone: { value: '#E9F1E2' },
+          toxic: { value: '#C7FF2F' },
+          plasma: { value: '#8B5CF6' },
+          rekt: { value: '#FF3B5C' },
+        },
         fonts: {
+          display: {
+            value: 'var(--font-display), ui-sans-serif, system-ui, sans-serif',
+          },
           sans: {
             value: 'var(--font-sans), ui-sans-serif, system-ui, sans-serif',
+          },
+          mono: {
+            value: 'var(--font-mono), ui-monospace, monospace',
           },
         },
         radii: {

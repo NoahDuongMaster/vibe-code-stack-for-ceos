@@ -15,10 +15,17 @@ import {
   MarketStaleNotice,
 } from '@/_pages/home/ui/market-state';
 import { MarketTable } from '@/_pages/home/ui/market-table';
+import { MarketWatchlist } from '@/_pages/home/ui/market-watchlist';
 import { css } from '@/styled-system/css';
 import { grid } from '@/styled-system/patterns';
 
 const EMPTY_MARKETS: TMarket[] = [];
+
+const reactorGridStyle = grid({
+  columns: { base: 1, xl: 12 },
+  gap: '3',
+  mt: '3',
+});
 
 export function MarketDashboard() {
   const query = useMarkets();
@@ -64,18 +71,13 @@ export function MarketDashboard() {
     >
       <MarketHeader
         lastUpdatedAt={query.dataUpdatedAt || undefined}
+        markets={markets}
         onRefresh={() => void query.refetch()}
         status={status}
       />
 
-      <div
-        className={grid({
-          columns: { base: 1, xl: 12 },
-          gap: '5',
-          mt: '7',
-        })}
-      >
-        <div className={css({ gridColumn: { xl: 'span 8' } })}>
+      <div className={reactorGridStyle}>
+        <div className={css({ gridColumn: { xl: 'span 9' } })}>
           <MarketSceneLoader
             activeMarketId={activeMarketId}
             markets={markets}
@@ -83,46 +85,13 @@ export function MarketDashboard() {
             onActiveMarketChange={setRequestedMarketId}
           />
         </div>
-        <aside
-          className={css({
-            gridColumn: { xl: 'span 4' },
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'flex-end',
-            p: { base: '5', md: '7' },
-            bgColor: 'rgba(13, 25, 35, 0.78)',
-            borderWidth: '1px',
-            borderColor: 'rgba(167, 139, 250, 0.24)',
-            rounded: '2xl',
-          })}
-        >
-          <p
-            className={css({
-              color: '#a78bfa',
-              fontFamily: 'mono',
-              fontSize: 'xs',
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-            })}
-          >
-            Scene telemetry
-          </p>
-          <p
-            className={css({
-              mt: '3',
-              fontSize: { base: '2xl', md: '3xl' },
-              fontWeight: 'bold',
-              letterSpacing: '-0.04em',
-              lineHeight: '1.1',
-            })}
-          >
-            Market cap controls mass. Momentum controls glow.
-          </p>
-          <p className={css({ mt: '4', color: '#91a9b4', lineHeight: '1.7' })}>
-            Cyan bodies are gaining, coral bodies are losing, and violet marks
-            neutral or unavailable change.
-          </p>
-        </aside>
+        <div className={css({ gridColumn: { xl: 'span 3' }, minH: 0 })}>
+          <MarketWatchlist
+            activeMarketId={activeMarketId}
+            markets={markets}
+            onActiveMarketChange={setRequestedMarketId}
+          />
+        </div>
       </div>
 
       <div className={css({ mt: '5' })}>

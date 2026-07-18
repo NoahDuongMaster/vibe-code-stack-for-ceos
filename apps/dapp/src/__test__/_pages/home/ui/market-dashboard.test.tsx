@@ -103,7 +103,10 @@ describe('[MarketDashboard]', () => {
 
     render(<MarketDashboard />);
 
-    expect(screen.getByRole('heading', { name: 'Vibe Markets' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'VIBE//X' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Market watch' })).toBeTruthy();
+    expect(screen.getByText('Market matrix')).toBeTruthy();
+    expect(screen.queryByText('Scene telemetry')).toBeNull();
     expect(screen.getAllByText('$70,000.00').length).toBeGreaterThan(0);
     expect(screen.getByText('Selected market cap')).toBeTruthy();
     expect(screen.getByText('Selected 24h volume')).toBeTruthy();
@@ -174,11 +177,7 @@ describe('[MarketDashboard]', () => {
     mocks.useMarkets.mockReturnValue(queryState({ data: SNAPSHOT }));
     render(<MarketDashboard />);
 
-    fireEvent.focus(
-      screen.getAllByRole('button', {
-        name: 'Highlight Ethereum in 3D',
-      })[0] as HTMLButtonElement,
-    );
+    fireEvent.focus(screen.getByRole('button', { name: 'Select Ethereum' }));
 
     expect(screen.getByTestId('market-scene').textContent).toContain(
       'Scene: 10 / ethereum',

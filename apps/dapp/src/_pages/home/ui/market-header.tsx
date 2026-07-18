@@ -1,11 +1,16 @@
 import { Activity, RefreshCw } from 'lucide-react';
+import {
+  formatMarketChange,
+  formatMarketPrice,
+} from '@/_pages/home/model/market.formatters';
+import type { TMarket } from '@/_pages/home/model/market.schema';
 import { css } from '@/styled-system/css';
-import { flex } from '@/styled-system/patterns';
 
 type TMarketHeaderStatus = 'live' | 'loading' | 'stale' | 'updating';
 
 type TMarketHeaderProps = {
   lastUpdatedAt?: number;
+  markets: TMarket[];
   onRefresh: () => void;
   status: TMarketHeaderStatus;
 };
@@ -17,118 +22,138 @@ const STATUS_LABELS: Record<TMarketHeaderStatus, string> = {
   updating: 'Updating',
 };
 
-const headerStyle = flex({
-  direction: { base: 'column', md: 'row' },
-  align: { base: 'flex-start', md: 'flex-end' },
-  justify: 'space-between',
-  gap: '6',
-  pb: '7',
-  borderBottomWidth: '1px',
-  borderColor: 'rgba(103, 232, 249, 0.16)',
+const changeTone = (change: number | undefined): string =>
+  change === undefined || change === 0
+    ? '#8B5CF6'
+    : change > 0
+      ? '#C7FF2F'
+      : '#FF3B5C';
+
+const headerStyle = css({
+  display: 'grid',
+  gridTemplateColumns: { base: '1fr auto', lg: 'auto minmax(0, 1fr) auto' },
+  alignItems: 'stretch',
+  color: 'bone',
+  bgColor: 'carbon',
+  borderWidth: '1px',
+  borderColor: 'bone/12',
 });
 
-const refreshButtonStyle = flex({
-  align: 'center',
+const identityStyle = css({
+  px: '4',
+  py: '3',
+  borderColor: 'bone/12',
+});
+
+const kickerStyle = css({
+  color: 'bone/42',
+  fontFamily: 'mono',
+  fontSize: '2xs',
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+});
+
+const wordmarkStyle = css({
+  mt: '1',
+  fontFamily: 'display',
+  fontSize: { base: '2xl', md: '3xl' },
+  fontWeight: '800',
+  letterSpacing: '-0.08em',
+});
+
+const tapeStyle = css({
+  display: { base: 'none', lg: 'flex' },
+  alignItems: 'stretch',
+  minW: 0,
+  overflow: 'hidden',
+  listStyle: 'none',
+  borderInlineWidth: '1px',
+  borderColor: 'bone/12',
+});
+
+const tapeItemStyle = css({
+  display: 'flex',
+  alignItems: 'center',
   gap: '2',
   px: '4',
-  py: '2.5',
-  color: '#e8f5f7',
-  bgColor: 'rgba(13, 25, 35, 0.86)',
-  borderWidth: '1px',
-  borderColor: 'rgba(103, 232, 249, 0.28)',
-  rounded: 'full',
   fontFamily: 'mono',
   fontSize: 'xs',
-  letterSpacing: '0.08em',
+  borderInlineEndWidth: '1px',
+  borderColor: 'bone/8',
+});
+
+const statusActionsStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: '3',
+  px: '4',
+});
+
+const statusStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '2',
+  color: 'toxic',
+  fontFamily: 'mono',
+  fontSize: '2xs',
   textTransform: 'uppercase',
+});
+
+const refreshButtonStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '2',
+  px: '3',
+  py: '2',
+  color: 'bone',
+  borderWidth: '1px',
+  borderColor: 'bone/18',
+  fontFamily: 'mono',
+  fontSize: '2xs',
   cursor: 'pointer',
-  transition: 'border-color 160ms ease, background-color 160ms ease',
-  _hover: {
-    bgColor: 'rgba(103, 232, 249, 0.1)',
-    borderColor: '#67e8f9',
-  },
-  _focusVisible: {
-    outline: '2px solid #67e8f9',
-    outlineOffset: '3px',
-  },
+  _hover: { color: 'toxic', borderColor: 'toxic' },
+  _focusVisible: { outline: '2px solid #C7FF2F', outlineOffset: '2px' },
 });
 
 export function MarketHeader({
   lastUpdatedAt,
+  markets,
   onRefresh,
   status,
 }: TMarketHeaderProps) {
   const isoTimestamp = lastUpdatedAt
     ? new Date(lastUpdatedAt).toISOString()
     : undefined;
+  const localTime = isoTimestamp
+    ? new Date(isoTimestamp).toLocaleTimeString('en-US')
+    : undefined;
 
   return (
     <header className={headerStyle}>
-      <div>
-        <p
-          className={css({
-            mb: '3',
-            color: '#67e8f9',
-            fontFamily: 'mono',
-            fontSize: 'xs',
-            fontWeight: 'semibold',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-          })}
-        >
-          Public market command deck / USD
-        </p>
-        <h1
-          className={css({
-            maxW: '8xl',
-            fontSize: { base: '4xl', md: '6xl', lg: '7xl' },
-            fontWeight: 'black',
-            letterSpacing: '-0.055em',
-            lineHeight: '0.92',
-          })}
-        >
-          Vibe Markets
-        </h1>
-        <p
-          className={css({
-            mt: '4',
-            maxW: '2xl',
-            color: '#91a9b4',
-            fontSize: { base: 'sm', md: 'md' },
-            lineHeight: '1.7',
-          })}
-        >
-          Ten liquid crypto assets mapped into one live market topology. Compare
-          the numbers, then use the scene to feel the momentum.
-        </p>
+      <div className={identityStyle}>
+        <p className={kickerStyle}>On-chain market terminal / USD</p>
+        <h1 className={wordmarkStyle}>{'VIBE//X'}</h1>
       </div>
-
-      <div
-        className={flex({
-          direction: 'column',
-          align: { base: 'flex-start', md: 'flex-end' },
-          gap: '3',
-          flexShrink: 0,
-        })}
-      >
-        <div
-          className={flex({
-            align: 'center',
-            gap: '2',
-            color: status === 'stale' ? '#fb7185' : '#67e8f9',
-            fontFamily: 'mono',
-            fontSize: 'xs',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-          })}
-          aria-live="polite"
-        >
-          <Activity aria-hidden="true" size={15} />
+      <ul aria-label="Market tape" className={tapeStyle}>
+        {markets.slice(0, 3).map((market) => (
+          <li key={market.id} className={tapeItemStyle}>
+            <strong>{market.symbol}</strong>
+            <span>{formatMarketPrice(market.currentPrice)}</span>
+            <span
+              style={{ color: changeTone(market.priceChangePercentage24h) }}
+            >
+              {formatMarketChange(market.priceChangePercentage24h)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className={statusActionsStyle}>
+        <div aria-live="polite" className={statusStyle}>
+          <Activity aria-hidden="true" size={14} />
           <span>{STATUS_LABELS[status]}</span>
           {isoTimestamp ? (
-            <time dateTime={isoTimestamp} className={css({ color: '#91a9b4' })}>
-              · {new Date(isoTimestamp).toLocaleTimeString('en-US')}
-            </time>
+            <time dateTime={isoTimestamp}>{localTime}</time>
           ) : null}
         </div>
         <button
@@ -136,8 +161,8 @@ export function MarketHeader({
           className={refreshButtonStyle}
           onClick={onRefresh}
         >
-          <RefreshCw aria-hidden="true" size={15} />
-          Refresh snapshot
+          <RefreshCw aria-hidden="true" size={14} />
+          Refresh
         </button>
       </div>
     </header>
