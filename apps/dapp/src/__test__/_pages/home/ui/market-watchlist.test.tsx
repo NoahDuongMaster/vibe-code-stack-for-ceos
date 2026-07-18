@@ -20,6 +20,13 @@ const markets: TMarket[] = [
     priceChangePercentage24h: -1.25,
     marketCapRank: 2,
   },
+  {
+    id: 'solana',
+    symbol: 'SOL',
+    name: 'Solana',
+    currentPrice: 150,
+    marketCapRank: 3,
+  },
 ];
 
 describe('[MarketWatchlist]', () => {
@@ -41,5 +48,22 @@ describe('[MarketWatchlist]', () => {
     ).toBe('true');
     fireEvent.focus(screen.getByRole('button', { name: 'Select Ethereum' }));
     expect(onActiveMarketChange).toHaveBeenCalledWith('ethereum');
+  });
+
+  it('should render a missing change with neutral Plasma semantics', () => {
+    render(
+      <MarketWatchlist
+        activeMarketId="bitcoin"
+        markets={markets}
+        onActiveMarketChange={vi.fn()}
+      />,
+    );
+
+    const neutralChange = screen
+      .getByRole('button', { name: 'Select Solana' })
+      .querySelector('[data-tone]');
+
+    expect(neutralChange?.textContent).toBe('—');
+    expect(neutralChange?.getAttribute('data-tone')).toBe('plasma');
   });
 });

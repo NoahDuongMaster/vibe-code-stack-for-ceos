@@ -29,24 +29,39 @@ const changeTone = (change: number | undefined): string =>
       ? '#C7FF2F'
       : '#FF3B5C';
 
+const statusTone = (status: TMarketHeaderStatus): string => {
+  if (status === 'stale') return '#FF3B5C';
+  if (status === 'live') return '#C7FF2F';
+  return '#8B5CF6';
+};
+
 const headerStyle = css({
   display: 'grid',
   gridTemplateColumns: { base: '1fr auto', lg: 'auto minmax(0, 1fr) auto' },
   alignItems: 'stretch',
+  minH: '20',
+  overflow: 'clip',
   color: 'bone',
   bgColor: 'carbon',
   borderWidth: '1px',
   borderColor: 'bone/12',
+  clipPath:
+    'polygon(0 0, calc(100% - 0.75rem) 0, 100% 0.75rem, 100% 100%, 0 100%)',
 });
 
 const identityStyle = css({
   px: '4',
-  py: '3',
+  py: '2.5',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  minW: { lg: '15rem' },
+  borderInlineEndWidth: { lg: '1px' },
   borderColor: 'bone/12',
 });
 
 const kickerStyle = css({
-  color: 'bone/42',
+  color: 'bone/46',
   fontFamily: 'mono',
   fontSize: '2xs',
   letterSpacing: '0.14em',
@@ -54,20 +69,23 @@ const kickerStyle = css({
 });
 
 const wordmarkStyle = css({
-  mt: '1',
+  mt: '0.5',
   fontFamily: 'display',
-  fontSize: { base: '2xl', md: '3xl' },
+  fontSize: { base: 'xl', md: '2xl' },
   fontWeight: '800',
   letterSpacing: '-0.08em',
 });
 
 const tapeStyle = css({
-  display: { base: 'none', lg: 'flex' },
+  display: { base: 'none', md: 'flex' },
+  gridColumn: { md: '1 / -1', lg: 'auto' },
   alignItems: 'stretch',
   minW: 0,
-  overflow: 'hidden',
+  overflowX: 'auto',
+  overscrollBehaviorX: 'contain',
   listStyle: 'none',
-  borderInlineWidth: '1px',
+  borderTopWidth: { md: '1px', lg: '0' },
+  borderInlineEndWidth: { lg: '1px' },
   borderColor: 'bone/12',
 });
 
@@ -75,7 +93,9 @@ const tapeItemStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: '2',
+  minW: 'max-content',
   px: '4',
+  py: '2.5',
   fontFamily: 'mono',
   fontSize: 'xs',
   borderInlineEndWidth: '1px',
@@ -86,15 +106,16 @@ const statusActionsStyle = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'flex-end',
-  gap: '3',
-  px: '4',
+  gap: { base: '2', md: '3' },
+  px: { base: '3', md: '4' },
+  borderInlineStartWidth: { lg: '0' },
+  borderColor: 'bone/12',
 });
 
 const statusStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: '2',
-  color: 'toxic',
   fontFamily: 'mono',
   fontSize: '2xs',
   textTransform: 'uppercase',
@@ -106,14 +127,23 @@ const refreshButtonStyle = css({
   gap: '2',
   px: '3',
   py: '2',
+  minH: '9',
   color: 'bone',
   borderWidth: '1px',
   borderColor: 'bone/18',
   fontFamily: 'mono',
   fontSize: '2xs',
   cursor: 'pointer',
-  _hover: { color: 'toxic', borderColor: 'toxic' },
-  _focusVisible: { outline: '2px solid #C7FF2F', outlineOffset: '2px' },
+  transition: 'color 140ms ease, border-color 140ms ease',
+  _hover: { color: 'toxic', borderColor: 'toxic/70' },
+  _focusVisible: {
+    outline: '2px solid token(colors.toxic)',
+    outlineOffset: '2px',
+  },
+});
+
+const refreshLabelStyle = css({
+  display: { base: 'none', sm: 'inline' },
 });
 
 export function MarketHeader({
@@ -135,7 +165,8 @@ export function MarketHeader({
         <p className={kickerStyle}>On-chain market terminal / USD</p>
         <h1 className={wordmarkStyle}>{'VIBE//X'}</h1>
       </div>
-      <ul aria-label="Market tape" className={tapeStyle}>
+      {/* biome-ignore lint/a11y/noRedundantRoles: Safari drops list semantics when list-style is none. */}
+      <ul aria-label="Market tape" className={tapeStyle} role="list">
         {markets.slice(0, 3).map((market) => (
           <li key={market.id} className={tapeItemStyle}>
             <strong>{market.symbol}</strong>
@@ -149,7 +180,11 @@ export function MarketHeader({
         ))}
       </ul>
       <div className={statusActionsStyle}>
-        <div aria-live="polite" className={statusStyle}>
+        <div
+          aria-live="polite"
+          className={statusStyle}
+          style={{ color: statusTone(status) }}
+        >
           <Activity aria-hidden="true" size={14} />
           <span>{STATUS_LABELS[status]}</span>
           {isoTimestamp ? (
@@ -162,7 +197,7 @@ export function MarketHeader({
           onClick={onRefresh}
         >
           <RefreshCw aria-hidden="true" size={14} />
-          Refresh
+          <span className={refreshLabelStyle}>Refresh</span>
         </button>
       </div>
     </header>

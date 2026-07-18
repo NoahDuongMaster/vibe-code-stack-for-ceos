@@ -104,12 +104,20 @@ describe('[MarketDashboard]', () => {
     render(<MarketDashboard />);
 
     expect(screen.getByRole('heading', { name: 'VIBE//X' })).toBeTruthy();
+    expect(screen.getByLabelText('Market tape')).toBeTruthy();
+    expect(
+      screen.getByRole('list', { name: 'Market tape' }).getAttribute('role'),
+    ).toBe('list');
     expect(screen.getByRole('region', { name: 'Market watch' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Market pulse' })).toBeTruthy();
     expect(screen.getByText('Market matrix')).toBeTruthy();
     expect(screen.queryByText('Scene telemetry')).toBeNull();
+    expect(
+      screen.queryByText('Market cap controls mass. Momentum controls glow.'),
+    ).toBeNull();
     expect(screen.getAllByText('$70,000.00').length).toBeGreaterThan(0);
-    expect(screen.getByText('Selected market cap')).toBeTruthy();
-    expect(screen.getByText('Selected 24h volume')).toBeTruthy();
+    expect(screen.getByText('Selected cap')).toBeTruthy();
+    expect(screen.getByText('24h volume')).toBeTruthy();
     for (const [, , name] of MARKET_NAMES) {
       expect(screen.getAllByText(name).length).toBeGreaterThan(0);
     }
@@ -171,6 +179,7 @@ describe('[MarketDashboard]', () => {
 
     render(<MarketDashboard />);
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('0—')).toHaveLength(0);
   });
 
   it('should highlight a market in the scene from keyboard focus', () => {

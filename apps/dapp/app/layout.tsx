@@ -1,4 +1,4 @@
-import { Open_Sans } from 'next/font/google';
+import { IBM_Plex_Mono, Manrope, Unbounded } from 'next/font/google';
 import {
   META_DATA_DEFAULT,
   VIEWPORT_DEFAULT,
@@ -8,11 +8,25 @@ import { AppProviders } from '@/_app/providers';
 import { css, cx } from '@/styled-system/css';
 import '@/_app/styles/index.css';
 
-const fontSans = Open_Sans({
+const fontDisplay = Unbounded({
+  subsets: ['latin'],
+  variable: '--font-display',
+  display: 'swap',
+  weight: ['600', '800'],
+});
+
+const fontSans = Manrope({
   subsets: ['latin'],
   variable: '--font-sans',
   display: 'swap',
-  preload: true,
+  weight: ['400', '500', '600', '700'],
+});
+
+const fontMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+  weight: ['400', '500', '600'],
 });
 
 export const metadata = META_DATA_DEFAULT;
@@ -23,7 +37,9 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
     <html lang="en">
       <body
         className={cx(
+          fontDisplay.variable,
           fontSans.variable,
+          fontMono.variable,
           css({
             minH: '100vh',
             fontFamily: 'sans',

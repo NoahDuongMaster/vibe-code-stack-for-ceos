@@ -14,7 +14,7 @@ import type { TMarketSceneNode } from '@/_pages/home/model/market-scene.mapper';
 import { MarketSceneFallback } from '@/_pages/home/ui/market-scene-fallback';
 import { MARKET_SCENE_SHELL_STYLE } from '@/_pages/home/ui/market-scene-shell';
 import { useMarketSceneActivity } from '@/_pages/home/ui/use-market-scene-activity';
-import { css } from '@/styled-system/css';
+import { css, cx } from '@/styled-system/css';
 
 export type TMarketSceneProps = {
   activeMarketId?: TMarket['id'];
@@ -32,19 +32,37 @@ type TMarketBladeProps = {
 
 const activeReadoutStyle = css({
   position: 'absolute',
-  insetInlineStart: { base: '4', md: '6' },
-  bottom: { base: '4', md: '6' },
-  minW: { base: '56', md: '72' },
-  p: '4',
+  insetInlineStart: { base: '3', md: '5' },
+  bottom: { base: '3', md: '5' },
+  minW: { base: '52', md: '64' },
+  maxW: 'calc(100% - 1.5rem)',
+  px: '4',
+  py: '3',
+  overflow: 'clip',
   pointerEvents: 'none',
-  bgColor: 'rgba(5, 5, 7, 0.82)',
-  backdropFilter: 'blur(10px)',
+  color: 'bone',
+  bgColor: 'carbon/88',
+  backdropFilter: 'blur(12px)',
+  borderWidth: '1px',
+  borderColor: 'bone/14',
   borderInlineStartWidth: '2px',
-  borderColor: 'toxic',
+  borderInlineStartColor: 'toxic',
+  clipPath:
+    'polygon(0 0, calc(100% - 0.65rem) 0, 100% 0.65rem, 100% 100%, 0 100%)',
+  _after: {
+    content: '""',
+    position: 'absolute',
+    insetInlineEnd: '3',
+    top: '3',
+    w: '1.5',
+    h: '1.5',
+    bgColor: 'toxic',
+    boxShadow: '0 0 14px #C7FF2F',
+  },
 });
 
 const readoutLabelStyle = css({
-  color: 'bone/46',
+  color: 'bone/42',
   fontFamily: 'mono',
   fontSize: '2xs',
   letterSpacing: '0.12em',
@@ -52,9 +70,9 @@ const readoutLabelStyle = css({
 });
 
 const readoutSymbolStyle = css({
-  mt: '2',
+  mt: '1.5',
   fontFamily: 'display',
-  fontSize: { base: '4xl', md: '6xl' },
+  fontSize: { base: '3xl', md: '5xl' },
   fontWeight: '800',
   letterSpacing: '-0.08em',
   lineHeight: '0.9',
@@ -63,10 +81,31 @@ const readoutSymbolStyle = css({
 const readoutValueStyle = css({
   display: 'flex',
   alignItems: 'center',
-  gap: '3',
-  mt: '3',
+  gap: '2',
+  mt: '2',
   fontFamily: 'mono',
   fontSize: { base: 'sm', md: 'md' },
+});
+
+const sceneSurfaceStyle = css({
+  h: 'full',
+  backgroundImage:
+    'radial-gradient(circle at 72% 28%, rgba(139, 92, 246, 0.16), transparent 44%)',
+  _before: {
+    content: '""',
+    position: 'absolute',
+    zIndex: 1,
+    insetInline: '3',
+    top: '3',
+    h: '1px',
+    pointerEvents: 'none',
+    bgColor: 'bone/12',
+  },
+});
+
+const sceneActivitySurfaceStyle = css({
+  position: 'absolute',
+  inset: 0,
 });
 
 const changeTone = (change: number | undefined): string => {
@@ -246,46 +285,51 @@ export function MarketScene({
     markets.find(({ id }) => id === activeMarketId) ?? markets[0];
 
   return (
-    <div ref={containerRef} className={MARKET_SCENE_SHELL_STYLE}>
-      <Canvas
-        aria-hidden="true"
-        camera={{ position: [0, 5.4, 9.4], fov: 38 }}
-        dpr={[1, 1.5]}
-        fallback={<MarketSceneFallback />}
-        frameloop={shouldAnimate ? 'always' : 'demand'}
-        gl={{
-          alpha: true,
-          antialias: true,
-          powerPreference: 'high-performance',
-        }}
-        onCreated={({ camera }) => camera.lookAt(0, 1.1, 0)}
-      >
-        <ambientLight intensity={0.34} />
-        <pointLight color="#C7FF2F" intensity={18} position={[2, 7, 4]} />
-        <pointLight color="#8B5CF6" intensity={12} position={[-5, 3, 1]} />
-        <pointLight color="#FF3B5C" intensity={8} position={[4, 1, -3]} />
-        <ReactorWorld
-          activeMarketId={activeMarketId}
-          animate={shouldAnimate}
-          nodes={nodes}
-          onActiveMarketChange={onActiveMarketChange}
-        />
-      </Canvas>
+    <section
+      aria-label="Liquidity reactor"
+      className={cx(MARKET_SCENE_SHELL_STYLE, sceneSurfaceStyle)}
+    >
+      <div ref={containerRef} className={sceneActivitySurfaceStyle}>
+        <Canvas
+          aria-hidden="true"
+          camera={{ position: [0, 5.4, 9.4], fov: 38 }}
+          dpr={[1, 1.5]}
+          fallback={<MarketSceneFallback />}
+          frameloop={shouldAnimate ? 'always' : 'demand'}
+          gl={{
+            alpha: true,
+            antialias: true,
+            powerPreference: 'high-performance',
+          }}
+          onCreated={({ camera }) => camera.lookAt(0, 1.1, 0)}
+        >
+          <ambientLight intensity={0.34} />
+          <pointLight color="#C7FF2F" intensity={18} position={[2, 7, 4]} />
+          <pointLight color="#8B5CF6" intensity={12} position={[-5, 3, 1]} />
+          <pointLight color="#FF3B5C" intensity={8} position={[4, 1, -3]} />
+          <ReactorWorld
+            activeMarketId={activeMarketId}
+            animate={shouldAnimate}
+            nodes={nodes}
+            onActiveMarketChange={onActiveMarketChange}
+          />
+        </Canvas>
 
-      <div role="status" aria-live="polite" className={activeReadoutStyle}>
-        <p className={readoutLabelStyle}>Active market / USD</p>
-        <p className={readoutSymbolStyle}>{selectedMarket?.symbol ?? '—'}</p>
-        <p className={readoutValueStyle}>
-          {formatMarketPrice(selectedMarket?.currentPrice)}
-          <span
-            style={{
-              color: changeTone(selectedMarket?.priceChangePercentage24h),
-            }}
-          >
-            {formatMarketChange(selectedMarket?.priceChangePercentage24h)}
-          </span>
-        </p>
+        <div role="status" aria-live="polite" className={activeReadoutStyle}>
+          <p className={readoutLabelStyle}>Active market / USD</p>
+          <p className={readoutSymbolStyle}>{selectedMarket?.symbol ?? '—'}</p>
+          <p className={readoutValueStyle}>
+            {formatMarketPrice(selectedMarket?.currentPrice)}
+            <span
+              style={{
+                color: changeTone(selectedMarket?.priceChangePercentage24h),
+              }}
+            >
+              {formatMarketChange(selectedMarket?.priceChangePercentage24h)}
+            </span>
+          </p>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

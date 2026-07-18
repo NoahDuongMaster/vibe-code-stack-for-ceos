@@ -25,6 +25,34 @@ const reactorGridStyle = grid({
   columns: { base: 1, xl: 12 },
   gap: '3',
   mt: '3',
+  alignItems: 'stretch',
+  h: { xl: 'clamp(34rem, 62vh, 46rem)' },
+});
+
+const dashboardStyle = css({
+  position: 'relative',
+  zIndex: 1,
+  w: 'full',
+  maxW: '1800px',
+  mx: 'auto',
+  px: { base: '3', md: '4', xl: '6' },
+  py: { base: '3', md: '6' },
+  animation: 'terminalReveal 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
+  _motionReduce: { animation: 'none' },
+});
+
+const reactorSceneStageStyle = css({
+  gridColumn: { xl: 'span 9' },
+  h: { base: '28rem', md: '32rem', xl: 'full' },
+  minW: 0,
+  '& > *': { h: 'full' },
+});
+
+const reactorWatchStageStyle = css({
+  gridColumn: { xl: 'span 3' },
+  minH: 0,
+  h: { xl: 'full' },
+  '& > section': { h: { xl: 'full' } },
 });
 
 export function MarketDashboard() {
@@ -60,15 +88,7 @@ export function MarketDashboard() {
         : 'loading';
 
   return (
-    <div
-      className={css({
-        w: 'full',
-        maxW: '1600px',
-        mx: 'auto',
-        px: { base: '4', md: '8', xl: '12' },
-        py: { base: '8', md: '12' },
-      })}
-    >
+    <div className={dashboardStyle}>
       <MarketHeader
         lastUpdatedAt={query.dataUpdatedAt || undefined}
         markets={markets}
@@ -77,7 +97,7 @@ export function MarketDashboard() {
       />
 
       <div className={reactorGridStyle}>
-        <div className={css({ gridColumn: { xl: 'span 9' } })}>
+        <div className={reactorSceneStageStyle}>
           <MarketSceneLoader
             activeMarketId={activeMarketId}
             markets={markets}
@@ -85,7 +105,7 @@ export function MarketDashboard() {
             onActiveMarketChange={setRequestedMarketId}
           />
         </div>
-        <div className={css({ gridColumn: { xl: 'span 3' }, minH: 0 })}>
+        <div className={reactorWatchStageStyle}>
           <MarketWatchlist
             activeMarketId={activeMarketId}
             markets={markets}
@@ -94,14 +114,14 @@ export function MarketDashboard() {
         </div>
       </div>
 
-      <div className={css({ mt: '5' })}>
+      <div className={css({ mt: '3' })}>
         {isStale ? <MarketStaleNotice /> : null}
         {!query.data && query.isError ? (
           <MarketErrorState onRetry={() => void query.refetch()} />
         ) : null}
       </div>
 
-      <div className={css({ mt: '5' })}>
+      <div className={css({ mt: '3' })}>
         {!query.data && (query.isPending || query.isFetching) ? (
           <MarketLoadingState />
         ) : (
@@ -110,7 +130,7 @@ export function MarketDashboard() {
       </div>
 
       {query.data ? (
-        <div className={css({ mt: '12' })}>
+        <div className={css({ mt: '6' })}>
           <MarketTable
             activeMarketId={activeMarketId}
             markets={markets}

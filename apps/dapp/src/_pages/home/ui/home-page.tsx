@@ -2,18 +2,60 @@ import { MarketDashboard } from '@/_pages/home/ui/market-dashboard';
 import { css } from '@/styled-system/css';
 
 const dashboardRootStyle = css({
+  position: 'relative',
   minH: '100vh',
-  overflow: 'hidden',
-  color: '#e8f5f7',
-  bgColor: '#071018',
+  overflow: 'clip',
+  color: 'bone',
+  bgColor: 'void',
   backgroundImage:
-    'linear-gradient(rgba(103, 232, 249, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(103, 232, 249, 0.035) 1px, transparent 1px), radial-gradient(circle at 72% 12%, rgba(167, 139, 250, 0.14), transparent 34rem)',
-  backgroundSize: '48px 48px, 48px 48px, auto',
+    'radial-gradient(circle at 88% -8%, rgba(139, 92, 246, 0.26), transparent 34rem)',
+});
+
+const coordinateMarkStyle = css({
+  position: 'absolute',
+  zIndex: 0,
+  w: '7',
+  h: '7',
+  pointerEvents: 'none',
+  opacity: 0.28,
+  _before: {
+    content: '""',
+    position: 'absolute',
+    insetInlineStart: 0,
+    top: '50%',
+    w: 'full',
+    h: '1px',
+    bgColor: 'bone',
+  },
+  _after: {
+    content: '""',
+    position: 'absolute',
+    insetInlineStart: '50%',
+    top: 0,
+    w: '1px',
+    h: 'full',
+    bgColor: 'bone',
+  },
 });
 
 export function HomePage() {
   return (
     <main className={dashboardRootStyle}>
+      <span
+        aria-hidden="true"
+        className={coordinateMarkStyle}
+        style={{ left: '1.5rem', top: '7rem' }}
+      />
+      <span
+        aria-hidden="true"
+        className={coordinateMarkStyle}
+        style={{ right: '2rem', top: '46%' }}
+      />
+      <span
+        aria-hidden="true"
+        className={coordinateMarkStyle}
+        style={{ bottom: '6rem', left: '8%' }}
+      />
       <MarketDashboard />
     </main>
   );

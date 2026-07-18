@@ -11,77 +11,87 @@ type TMarketMetricsProps = {
 };
 
 const metricsGridStyle = grid({
-  columns: { base: 1, sm: 2, xl: 4 },
-  gap: '3',
+  columns: { base: 2, md: 4 },
+  gap: '0',
+  overflow: 'clip',
+  color: 'bone',
+  bgColor: 'carbon',
+  borderWidth: '1px',
+  borderColor: 'bone/12',
+  clipPath:
+    'polygon(0 0, calc(100% - 0.75rem) 0, 100% 0.75rem, 100% 100%, 0 100%)',
 });
 
-const metricCardStyle = css({
-  position: 'relative',
-  minH: '32',
-  p: '5',
-  overflow: 'hidden',
-  bgColor: 'rgba(13, 25, 35, 0.78)',
-  borderWidth: '1px',
-  borderColor: 'rgba(145, 169, 180, 0.16)',
-  rounded: 'xl',
-  _before: {
-    content: '""',
-    position: 'absolute',
-    insetInlineStart: 0,
-    top: '5',
-    h: '8',
-    w: '2px',
-    bgColor: '#67e8f9',
-    boxShadow: '0 0 16px rgba(103, 232, 249, 0.75)',
+const metricCellStyle = css({
+  minW: 0,
+  minH: { base: '22', md: '24' },
+  px: { base: '3', md: '4' },
+  py: '3',
+  borderInlineEndWidth: '1px',
+  borderBottomWidth: { base: '1px', md: '0' },
+  borderColor: 'bone/10',
+  '&:nth-child(2n)': {
+    borderInlineEndWidth: { base: '0', md: '1px' },
+  },
+  '&:nth-child(n + 3)': {
+    borderBottomWidth: '0',
+  },
+  '&:last-child': {
+    borderInlineEndWidth: '0',
   },
 });
 
 const metricLabelStyle = css({
-  color: '#91a9b4',
+  color: 'bone/44',
   fontFamily: 'mono',
-  fontSize: 'xs',
-  letterSpacing: '0.08em',
+  fontSize: '2xs',
+  letterSpacing: '0.12em',
   textTransform: 'uppercase',
 });
 
 const metricValueStyle = css({
-  mt: '4',
-  fontSize: { base: '2xl', md: '3xl' },
-  fontWeight: 'bold',
-  letterSpacing: '-0.04em',
-  lineHeight: '1',
+  mt: '2',
+  overflow: 'hidden',
+  color: 'bone',
+  fontFamily: 'mono',
+  fontSize: { base: 'md', md: 'lg' },
+  fontWeight: '600',
+  letterSpacing: '-0.03em',
+  lineHeight: '1.1',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 });
 
 export function MarketMetrics({ summary }: TMarketMetricsProps) {
   const strongestGainer = summary?.strongestGainer;
 
   return (
-    <section aria-label="Selected market metrics" className={metricsGridStyle}>
-      <article className={metricCardStyle}>
-        <p className={metricLabelStyle}>Selected market cap</p>
+    <section aria-label="Market pulse" className={metricsGridStyle}>
+      <article className={metricCellStyle}>
+        <p className={metricLabelStyle}>Selected cap</p>
         <p className={metricValueStyle}>
           {formatCompactUsd(summary?.selectedMarketCap)}
         </p>
       </article>
-      <article className={metricCardStyle}>
-        <p className={metricLabelStyle}>Selected 24h volume</p>
+      <article className={metricCellStyle}>
+        <p className={metricLabelStyle}>24h volume</p>
         <p className={metricValueStyle}>
           {formatCompactUsd(summary?.selectedVolume24h)}
         </p>
       </article>
-      <article className={metricCardStyle}>
-        <p className={metricLabelStyle}>Strongest gainer</p>
+      <article className={metricCellStyle}>
+        <p className={metricLabelStyle}>Momentum leader</p>
         <p className={metricValueStyle}>
           {strongestGainer
             ? `${strongestGainer.symbol} ${formatMarketChange(strongestGainer.priceChangePercentage24h)}`
             : '—'}
         </p>
       </article>
-      <article className={metricCardStyle}>
-        <p className={metricLabelStyle}>Gain / loss breadth</p>
+      <article className={metricCellStyle}>
+        <p className={metricLabelStyle}>Breadth</p>
         <p className={metricValueStyle}>
           {summary
-            ? `${summary.gainerCount} gainers / ${summary.loserCount} losers`
+            ? `${summary.gainerCount} up / ${summary.loserCount} down`
             : '—'}
         </p>
       </article>

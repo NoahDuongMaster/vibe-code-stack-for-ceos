@@ -28,35 +28,61 @@ const visuallyHiddenStyle = css({
 const assetButtonStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
+  minW: 0,
   gap: '3',
+  color: 'bone',
   textAlign: 'left',
   cursor: 'pointer',
-  rounded: 'md',
   _focusVisible: {
-    outline: '2px solid #67e8f9',
-    outlineOffset: '4px',
+    outline: '2px solid token(colors.toxic)',
+    outlineOffset: '3px',
   },
 });
 
 const tokenStyle = css({
   display: 'grid',
   placeItems: 'center',
-  w: '9',
-  h: '9',
+  w: '8',
+  h: '8',
   flexShrink: 0,
-  color: '#071018',
-  bgColor: '#67e8f9',
-  rounded: 'full',
+  color: 'bone',
+  bgColor: 'plasma/18',
+  borderWidth: '1px',
+  borderColor: 'plasma/58',
+  clipPath:
+    'polygon(0 0, calc(100% - 0.45rem) 0, 100% 0.45rem, 100% 100%, 0 100%)',
   fontFamily: 'mono',
   fontSize: '2xs',
-  fontWeight: 'black',
-  boxShadow: '0 0 24px rgba(103, 232, 249, 0.2)',
+  fontWeight: '600',
+});
+
+const activeTokenStyle = css({
+  color: 'void',
+  bgColor: 'toxic',
+  borderColor: 'toxic',
+});
+
+const cellStyle = css({
+  px: '4',
+  py: '3',
+  borderBottomWidth: '1px',
+  borderColor: 'bone/8',
+});
+
+const numericCellStyle = css({
+  fontFamily: 'mono',
+  fontSize: 'xs',
+  textAlign: 'right',
+  whiteSpace: 'nowrap',
 });
 
 const changeTone = (change: number | undefined): string => {
-  if (change === undefined || change === 0) return '#91a9b4';
-  return change > 0 ? '#67e8f9' : '#fb7185';
+  if (change === undefined || change === 0) return '#8B5CF6';
+  return change > 0 ? '#C7FF2F' : '#FF3B5C';
 };
+
+const formatRank = (rank: number | undefined): string =>
+  rank === undefined ? '—' : String(rank).padStart(2, '0');
 
 function MarketChange({ value }: { value: number | undefined }) {
   const Icon =
@@ -71,16 +97,18 @@ function MarketChange({ value }: { value: number | undefined }) {
       className={flex({ align: 'center', justify: 'flex-end', gap: '1' })}
       style={{ color: changeTone(value) }}
     >
-      <Icon aria-hidden="true" size={15} />
+      <Icon aria-hidden="true" size={14} />
       {formatMarketChange(value)}
     </span>
   );
 }
 
 function AssetButton({
+  active,
   market,
   onActiveMarketChange,
 }: {
+  active: boolean;
   market: TMarket;
   onActiveMarketChange: (marketId: TMarket['id']) => void;
 }) {
@@ -89,17 +117,33 @@ function AssetButton({
       type="button"
       className={assetButtonStyle}
       aria-label={`Highlight ${market.name} in 3D`}
+      aria-pressed={active}
       onFocus={() => onActiveMarketChange(market.id)}
       onMouseEnter={() => onActiveMarketChange(market.id)}
     >
-      <span className={tokenStyle}>{market.symbol.slice(0, 2)}</span>
-      <span>
-        <strong className={css({ display: 'block' })}>{market.name}</strong>
+      <span className={cx(tokenStyle, active ? activeTokenStyle : undefined)}>
+        {market.symbol.slice(0, 2)}
+      </span>
+      <span className={css({ minW: 0 })}>
+        <strong
+          className={css({
+            display: 'block',
+            overflow: 'hidden',
+            fontSize: 'sm',
+            fontWeight: '600',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          })}
+        >
+          {market.name}
+        </strong>
         <span
           className={css({
-            color: '#91a9b4',
+            display: 'block',
+            mt: '0.5',
+            color: 'bone/44',
             fontFamily: 'mono',
-            fontSize: 'xs',
+            fontSize: '2xs',
           })}
         >
           {market.symbol}
@@ -121,30 +165,45 @@ export function MarketTable({
           align: 'end',
           justify: 'space-between',
           gap: '4',
-          mb: '4',
+          mb: '3',
         })}
       >
         <div>
           <p
             className={css({
-              color: '#a78bfa',
+              color: 'plasma',
               fontFamily: 'mono',
-              fontSize: 'xs',
-              letterSpacing: '0.1em',
+              fontSize: '2xs',
+              letterSpacing: '0.14em',
               textTransform: 'uppercase',
             })}
           >
-            Fixed watchlist
+            Spot snapshot / USD
           </p>
           <h2
             id="market-list-heading"
-            className={css({ mt: '1', fontSize: '2xl', fontWeight: 'bold' })}
+            className={css({
+              mt: '1',
+              fontFamily: 'display',
+              fontSize: { base: 'xl', md: '2xl' },
+              fontWeight: '600',
+              letterSpacing: '-0.05em',
+            })}
           >
             Market matrix
           </h2>
         </div>
-        <p className={css({ color: '#91a9b4', fontSize: 'sm' })}>
-          Focus an asset to highlight its 3D token.
+        <p
+          className={css({
+            display: { base: 'none', md: 'block' },
+            color: 'bone/42',
+            fontFamily: 'mono',
+            fontSize: '2xs',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          })}
+        >
+          {markets.length} assets / live selection
         </p>
       </div>
 
@@ -152,31 +211,43 @@ export function MarketTable({
         className={css({
           display: { base: 'none', md: 'block' },
           overflowX: 'auto',
-          bgColor: 'rgba(13, 25, 35, 0.72)',
+          overscrollBehaviorX: 'contain',
+          scrollbarGutter: 'stable',
+          bgColor: 'carbon',
           borderWidth: '1px',
-          borderColor: 'rgba(145, 169, 180, 0.16)',
-          rounded: 'xl',
+          borderColor: 'bone/12',
+          clipPath:
+            'polygon(0 0, calc(100% - 0.9rem) 0, 100% 0.9rem, 100% 100%, 0 100%)',
         })}
       >
-        <table className={css({ w: 'full', borderCollapse: 'collapse' })}>
+        <table
+          className={css({
+            w: 'full',
+            minW: '52rem',
+            borderCollapse: 'collapse',
+          })}
+        >
           <thead>
             <tr>
-              {['Asset', 'Price', '24h', 'Market cap', 'Volume'].map(
+              {['Rank', 'Asset', 'Price', '24h', 'Market cap', 'Volume'].map(
                 (heading) => (
                   <th
                     key={heading}
                     scope="col"
                     className={css({
-                      px: '5',
-                      py: '4',
-                      color: '#91a9b4',
+                      px: '4',
+                      py: '3',
+                      color: 'bone/42',
                       borderBottomWidth: '1px',
-                      borderColor: 'rgba(145, 169, 180, 0.14)',
+                      borderColor: 'bone/12',
                       fontFamily: 'mono',
-                      fontSize: 'xs',
-                      fontWeight: 'medium',
-                      letterSpacing: '0.08em',
-                      textAlign: heading === 'Asset' ? 'left' : 'right',
+                      fontSize: '2xs',
+                      fontWeight: '500',
+                      letterSpacing: '0.12em',
+                      textAlign:
+                        heading === 'Asset' || heading === 'Rank'
+                          ? 'left'
+                          : 'right',
                       textTransform: 'uppercase',
                     })}
                   >
@@ -187,47 +258,56 @@ export function MarketTable({
             </tr>
           </thead>
           <tbody>
-            {markets.map((market) => (
-              <tr
-                key={market.id}
-                className={css({
-                  bgColor:
-                    activeMarketId === market.id
-                      ? 'rgba(103, 232, 249, 0.055)'
-                      : 'transparent',
-                  _hover: { bgColor: 'rgba(103, 232, 249, 0.035)' },
-                })}
-              >
-                <th
-                  scope="row"
+            {markets.map((market) => {
+              const active = activeMarketId === market.id;
+
+              return (
+                <tr
+                  key={market.id}
                   className={css({
-                    px: '5',
-                    py: '4',
-                    borderBottomWidth: '1px',
-                    borderColor: 'rgba(145, 169, 180, 0.1)',
-                    fontWeight: 'normal',
-                    textAlign: 'left',
+                    bgColor: active ? 'toxic/5' : 'transparent',
+                    boxShadow: active ? 'inset 2px 0 0 #C7FF2F' : 'none',
+                    _hover: { bgColor: active ? 'toxic/7' : 'bone/3' },
                   })}
                 >
-                  <AssetButton
-                    market={market}
-                    onActiveMarketChange={onActiveMarketChange}
-                  />
-                </th>
-                <td className={cx(cellStyle, numericCellStyle)}>
-                  {formatMarketPrice(market.currentPrice)}
-                </td>
-                <td className={cx(cellStyle, numericCellStyle)}>
-                  <MarketChange value={market.priceChangePercentage24h} />
-                </td>
-                <td className={cx(cellStyle, numericCellStyle)}>
-                  {formatCompactUsd(market.marketCap)}
-                </td>
-                <td className={cx(cellStyle, numericCellStyle)}>
-                  {formatCompactUsd(market.totalVolume)}
-                </td>
-              </tr>
-            ))}
+                  <td
+                    className={cx(
+                      cellStyle,
+                      css({
+                        w: '16',
+                        color: active ? 'toxic' : 'bone/38',
+                        fontFamily: 'mono',
+                        fontSize: '2xs',
+                      }),
+                    )}
+                  >
+                    {formatRank(market.marketCapRank)}
+                  </td>
+                  <th
+                    scope="row"
+                    className={cx(cellStyle, css({ fontWeight: 'normal' }))}
+                  >
+                    <AssetButton
+                      active={active}
+                      market={market}
+                      onActiveMarketChange={onActiveMarketChange}
+                    />
+                  </th>
+                  <td className={cx(cellStyle, numericCellStyle)}>
+                    {formatMarketPrice(market.currentPrice)}
+                  </td>
+                  <td className={cx(cellStyle, numericCellStyle)}>
+                    <MarketChange value={market.priceChangePercentage24h} />
+                  </td>
+                  <td className={cx(cellStyle, numericCellStyle)}>
+                    {formatCompactUsd(market.marketCap)}
+                  </td>
+                  <td className={cx(cellStyle, numericCellStyle)}>
+                    {formatCompactUsd(market.totalVolume)}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -236,59 +316,95 @@ export function MarketTable({
         className={grid({
           display: { base: 'grid', md: 'none' },
           columns: 1,
-          gap: '3',
+          gap: '2',
         })}
       >
-        {markets.map((market) => (
-          <article
-            key={market.id}
-            className={css({
-              p: '4',
-              bgColor:
-                activeMarketId === market.id
-                  ? 'rgba(103, 232, 249, 0.08)'
-                  : 'rgba(13, 25, 35, 0.72)',
-              borderWidth: '1px',
-              borderColor:
-                activeMarketId === market.id
-                  ? 'rgba(103, 232, 249, 0.4)'
-                  : 'rgba(145, 169, 180, 0.16)',
-              rounded: 'xl',
-            })}
-          >
-            <div
-              className={flex({ align: 'center', justify: 'space-between' })}
+        {markets.map((market) => {
+          const active = activeMarketId === market.id;
+
+          return (
+            <article
+              key={market.id}
+              className={css({
+                p: '3',
+                overflow: 'clip',
+                bgColor: active ? 'toxic/5' : 'carbon',
+                borderWidth: '1px',
+                borderColor: active ? 'toxic/62' : 'bone/12',
+                boxShadow: active ? 'inset 2px 0 0 #C7FF2F' : 'none',
+                clipPath:
+                  'polygon(0 0, calc(100% - 0.7rem) 0, 100% 0.7rem, 100% 100%, 0 100%)',
+              })}
             >
-              <AssetButton
-                market={market}
-                onActiveMarketChange={onActiveMarketChange}
-              />
-              <MarketChange value={market.priceChangePercentage24h} />
-            </div>
-            <dl className={grid({ columns: 3, gap: '3', mt: '5' })}>
-              {[
-                ['Price', formatMarketPrice(market.currentPrice)],
-                ['Cap', formatCompactUsd(market.marketCap)],
-                ['Volume', formatCompactUsd(market.totalVolume)],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <dt className={css({ color: '#91a9b4', fontSize: 'xs' })}>
-                    {label}
-                  </dt>
-                  <dd
+              <div
+                className={flex({
+                  align: 'center',
+                  justify: 'space-between',
+                  gap: '3',
+                })}
+              >
+                <div className={flex({ align: 'center', gap: '3', minW: 0 })}>
+                  <span
                     className={css({
-                      mt: '1',
+                      color: active ? 'toxic' : 'bone/38',
                       fontFamily: 'mono',
-                      fontSize: 'sm',
+                      fontSize: '2xs',
                     })}
                   >
-                    {value}
-                  </dd>
+                    {formatRank(market.marketCapRank)}
+                  </span>
+                  <AssetButton
+                    active={active}
+                    market={market}
+                    onActiveMarketChange={onActiveMarketChange}
+                  />
                 </div>
-              ))}
-            </dl>
-          </article>
-        ))}
+                <MarketChange value={market.priceChangePercentage24h} />
+              </div>
+              <dl
+                className={grid({
+                  columns: 3,
+                  gap: '2',
+                  mt: '3',
+                  pt: '3',
+                  borderTopWidth: '1px',
+                  borderColor: 'bone/8',
+                })}
+              >
+                {[
+                  ['Price', formatMarketPrice(market.currentPrice)],
+                  ['Cap', formatCompactUsd(market.marketCap)],
+                  ['Volume', formatCompactUsd(market.totalVolume)],
+                ].map(([label, value]) => (
+                  <div key={label} className={css({ minW: 0 })}>
+                    <dt
+                      className={css({
+                        color: 'bone/40',
+                        fontFamily: 'mono',
+                        fontSize: '2xs',
+                        textTransform: 'uppercase',
+                      })}
+                    >
+                      {label}
+                    </dt>
+                    <dd
+                      className={css({
+                        mt: '1',
+                        overflow: 'hidden',
+                        fontFamily: 'mono',
+                        fontSize: 'xs',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      })}
+                    >
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </article>
+          );
+        })}
       </div>
       <span className={visuallyHiddenStyle} aria-live="polite">
         {activeMarketId ? `${activeMarketId} highlighted in 3D` : ''}
@@ -296,17 +412,3 @@ export function MarketTable({
     </section>
   );
 }
-
-const cellStyle = css({
-  px: '5',
-  py: '4',
-  borderBottomWidth: '1px',
-  borderColor: 'rgba(145, 169, 180, 0.1)',
-});
-
-const numericCellStyle = css({
-  fontFamily: 'mono',
-  fontSize: 'sm',
-  textAlign: 'right',
-  whiteSpace: 'nowrap',
-});
