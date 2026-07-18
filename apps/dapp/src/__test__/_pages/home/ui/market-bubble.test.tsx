@@ -3,10 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TMarketBubbleNode } from '@/_pages/home/model/market-scene.mapper';
 import { MarketBubble } from '@/_pages/home/ui/market-bubble';
 
-vi.mock('@/_pages/home/ui/market-logo-texture', () => ({
-  MarketLogoTexture: ({ symbol }: { symbol: string }) => (
-    <mesh name={`market-logo-${symbol}`} />
-  ),
+vi.mock('@/_pages/home/ui/market-logo-billboard', () => ({
+  MarketLogoBillboard: ({
+    imageUrl,
+    symbol,
+  }: {
+    imageUrl?: string;
+    symbol: string;
+  }) => <mesh data-image-url={imageUrl} name={`market-logo-${symbol}`} />,
 }));
 
 const node: TMarketBubbleNode = {
@@ -41,6 +45,11 @@ describe('[MarketBubble]', () => {
     expect(
       container.querySelector('mesh[name="market-logo-ETH"]'),
     ).toBeTruthy();
+    expect(
+      container
+        .querySelector('mesh[name="market-logo-ETH"]')
+        ?.getAttribute('data-image-url'),
+    ).toBe('https://coin-images.coingecko.com/ethereum.png');
     expect(container.querySelector('boxGeometry')).toBeNull();
     expect(container.querySelector('[name^="liquidity-lane-"]')).toBeNull();
     expect(container.querySelector('[data-market-id]')).toBeNull();

@@ -146,12 +146,14 @@ styled symbol fallback.
 
 ### WebGL scene
 
-Each bubble contains a billboarded logo disc that always faces the camera. A
-per-bubble texture loader requests `imageUrl` with anonymous cross-origin mode.
-Successful textures use sRGB color space, preserve aspect ratio, and are
-disposed when replaced or unmounted. A failed or missing URL produces a local
-symbol texture for that bubble only; it must not reject or suspend the entire
-scene.
+Each bubble contains a Drei HTML billboard that is anchored to the simulated
+Three.js group and always faces the camera. The billboard reuses `MarketLogo`,
+so the visible badge is a real `next/image` logo with the same per-coin symbol
+fallback as the rest of the dashboard. This avoids uploading cross-origin CDN
+images into a WebGL texture: CoinGecko serves the assets for normal image use
+but does not guarantee the CORS response headers required by a canvas texture.
+The billboard has no pointer events; selection stays on the sphere and on the
+keyboard-accessible watchlist/table controls.
 
 The sphere uses a restrained physical material treatment: dark translucent
 body, clearcoat highlight, low emissive tint, and no expensive transmission,
@@ -171,6 +173,7 @@ apps/dapp/src/_pages/home/
     market-scene.tsx                Canvas and DOM readout composition
     market-gravity-world.tsx        R3F simulation bridge and chamber
     market-bubble.tsx               sphere, halo, badge, pointer handlers
+    market-logo-billboard.tsx       DOM logo anchored to the 3D bubble group
     market-logo.tsx                 reusable DOM logo with symbol fallback
     market-scene-fallback.tsx       static logo-bearing bubble composition
     market-watchlist.tsx            consumes MarketLogo
@@ -247,8 +250,7 @@ motion.
   allow it;
 - no shadows, post-processing, physics WASM, remote 3D models, or continuous
   React state updates;
-- textures use a bounded logo resolution appropriate for on-screen bubble
-  sizes;
+- 3D billboards reuse the bounded 40px `next/image` logo asset;
 - below-the-fold loading behavior remains controlled by the existing dynamic
   scene loader and activity hook.
 

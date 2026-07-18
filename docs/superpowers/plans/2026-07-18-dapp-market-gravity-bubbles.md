@@ -4,7 +4,15 @@
 
 **Goal:** Replace the liquidity-canyon scene with a deterministic zero-gravity field of real-logo crypto bubbles and use the same logos throughout the market dashboard.
 
-**Architecture:** Keep ConnectRPC and `TMarket` unchanged. Map markets into deterministic bubble view models, step a small explicit-state physics simulation from one R3F world component, and isolate DOM logos, WebGL logo textures, individual bubbles, and the scene shell into focused home Page-slice modules.
+**Architecture:** Keep ConnectRPC and `TMarket` unchanged. Map markets into deterministic bubble view models, step a small explicit-state physics simulation from one R3F world component, and isolate DOM logos, camera-facing 3D logo billboards, individual bubbles, and the scene shell into focused home Page-slice modules.
+
+> **Browser-QA implementation note (2026-07-18):** The original Task 4
+> proposed `TextureLoader`, but CoinGecko's image CDN does not guarantee the
+> CORS headers WebGL requires. The final implementation therefore supersedes
+> that task's texture snippets with `market-logo-billboard.tsx`: a Drei HTML
+> billboard anchored to each simulated group and backed by the tested
+> `next/image` `MarketLogo` fallback path. Bubble physics and rendering remain
+> in the R3F scene; only the logo pixels use the DOM image pipeline.
 
 **Tech Stack:** Next.js 16/vinext, React 19, TypeScript 6 strict, React Three Fiber 9, Drei 10, Three.js 0.185, Panda CSS, Vitest 4, Testing Library, Playwright, ConnectRPC 2.
 
@@ -26,13 +34,12 @@
 
 - `apps/dapp/src/_pages/home/model/market-gravity.simulation.ts` — explicit-state deterministic attraction, collision, damping, pointer repulsion, and bounds.
 - `apps/dapp/src/_pages/home/ui/market-logo.tsx` — reusable `next/image` coin logo with symbol fallback for DOM surfaces.
-- `apps/dapp/src/_pages/home/ui/market-logo-texture.tsx` — isolated WebGL logo disc with remote texture loading and local symbol texture fallback.
+- `apps/dapp/src/_pages/home/ui/market-logo-billboard.tsx` — pointer-transparent `MarketLogo` billboard anchored to each simulated 3D bubble.
 - `apps/dapp/src/_pages/home/ui/market-bubble.tsx` — one sphere, halo, logo disc, and pointer selection surface.
 - `apps/dapp/src/_pages/home/ui/market-gravity-world.tsx` — R3F bridge that owns simulation state and Object3D refs.
 - `apps/dapp/src/__test__/_pages/home/model/market-gravity.simulation.test.ts` — deterministic physics behavior.
 - `apps/dapp/src/__test__/_pages/home/ui/market-logo.test.tsx` — DOM success and failure behavior.
 - `apps/dapp/src/__test__/_pages/home/ui/market-table.test.tsx` — real-logo table selection behavior.
-- `apps/dapp/src/__test__/_pages/home/ui/market-logo-texture.test.tsx` — local symbol texture and remote-loader isolation.
 - `apps/dapp/src/__test__/_pages/home/ui/market-bubble.test.tsx` — bubble geometry, halo, logo, and click behavior.
 - `apps/dapp/src/__test__/_pages/home/ui/market-gravity-world.test.tsx` — simulation bridge, identity preservation, and reduced motion.
 

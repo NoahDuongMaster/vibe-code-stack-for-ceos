@@ -1,6 +1,27 @@
 import type { Page, Route } from '@playwright/test';
 
 const MARKET_RPC_PATTERN = '**/trading.v1.TradingService/GetMarkets' as const;
+const MARKET_LOGO_PATTERN =
+  'https://coin-images.coingecko.com/e2e-fixtures/market-logo/*.svg' as const;
+
+const logoUrl = (symbol: string): string =>
+  `https://coin-images.coingecko.com/e2e-fixtures/market-logo/${symbol}.svg`;
+
+const LOGO_COLORS: Record<string, string> = {
+  ADA: '#2A6FFF',
+  AVAX: '#E84142',
+  BNB: '#F3BA2F',
+  BTC: '#F7931A',
+  DOGE: '#C2A633',
+  ETH: '#8C8CFF',
+  SOL: '#14F195',
+  USDC: '#2775CA',
+  USDT: '#26A17B',
+  XRP: '#E9F1E2',
+};
+
+const logoSvg = (symbol: string): string =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="31" fill="${LOGO_COLORS[symbol] ?? '#8B5CF6'}"/><text x="32" y="38" text-anchor="middle" fill="#050507" font-family="monospace" font-size="18" font-weight="700">${symbol}</text></svg>`;
 
 const MARKET_RESPONSE = {
   markets: [
@@ -8,6 +29,7 @@ const MARKET_RESPONSE = {
       id: 'bitcoin',
       symbol: 'btc',
       name: 'Bitcoin',
+      imageUrl: logoUrl('BTC'),
       currentPrice: 118_420.12,
       marketCap: 2_356_000_000_000,
       marketCapRank: 1,
@@ -20,6 +42,7 @@ const MARKET_RESPONSE = {
       id: 'ethereum',
       symbol: 'eth',
       name: 'Ethereum',
+      imageUrl: logoUrl('ETH'),
       currentPrice: 4_180.42,
       marketCap: 504_000_000_000,
       marketCapRank: 2,
@@ -32,6 +55,7 @@ const MARKET_RESPONSE = {
       id: 'tether',
       symbol: 'usdt',
       name: 'Tether',
+      imageUrl: logoUrl('USDT'),
       currentPrice: 1,
       marketCap: 158_000_000_000,
       marketCapRank: 3,
@@ -44,6 +68,7 @@ const MARKET_RESPONSE = {
       id: 'binancecoin',
       symbol: 'bnb',
       name: 'BNB',
+      imageUrl: logoUrl('BNB'),
       currentPrice: 812.64,
       marketCap: 113_000_000_000,
       marketCapRank: 4,
@@ -56,6 +81,7 @@ const MARKET_RESPONSE = {
       id: 'solana',
       symbol: 'sol',
       name: 'Solana',
+      imageUrl: logoUrl('SOL'),
       currentPrice: 218.19,
       marketCap: 109_000_000_000,
       marketCapRank: 5,
@@ -68,6 +94,7 @@ const MARKET_RESPONSE = {
       id: 'ripple',
       symbol: 'xrp',
       name: 'XRP',
+      imageUrl: logoUrl('XRP'),
       currentPrice: 3.22,
       marketCap: 190_000_000_000,
       marketCapRank: 6,
@@ -80,6 +107,7 @@ const MARKET_RESPONSE = {
       id: 'usd-coin',
       symbol: 'usdc',
       name: 'USDC',
+      imageUrl: logoUrl('USDC'),
       currentPrice: 1,
       marketCap: 63_000_000_000,
       marketCapRank: 7,
@@ -92,6 +120,7 @@ const MARKET_RESPONSE = {
       id: 'dogecoin',
       symbol: 'doge',
       name: 'Dogecoin',
+      imageUrl: logoUrl('DOGE'),
       currentPrice: 0.31,
       marketCap: 46_000_000_000,
       marketCapRank: 8,
@@ -104,6 +133,7 @@ const MARKET_RESPONSE = {
       id: 'cardano',
       symbol: 'ada',
       name: 'Cardano',
+      imageUrl: logoUrl('ADA'),
       currentPrice: 0.88,
       marketCap: 31_000_000_000,
       marketCapRank: 9,
@@ -116,6 +146,7 @@ const MARKET_RESPONSE = {
       id: 'avalanche-2',
       symbol: 'avax',
       name: 'Avalanche',
+      imageUrl: logoUrl('AVAX'),
       currentPrice: 36.78,
       marketCap: 15_600_000_000,
       marketCapRank: 10,
@@ -133,6 +164,7 @@ type TMarketApiMockOptions = {
 };
 
 type TMarketApiMock = {
+  getLogoRequestCount: () => number;
   getRequestCount: () => number;
 };
 
@@ -157,7 +189,22 @@ export const installMarketApiMock = async (
   page: Page,
   { failFirstRequests = 0 }: TMarketApiMockOptions = {},
 ): Promise<TMarketApiMock> => {
+  let logoRequestCount = 0;
   let requestCount = 0;
+
+  await page.route(MARKET_LOGO_PATTERN, async (route) => {
+    logoRequestCount += 1;
+    const symbol = new URL(route.request().url()).pathname
+      .split('/')
+      .at(-1)
+      ?.replace('.svg', '');
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      headers: { 'access-control-allow-origin': '*' },
+      body: logoSvg(symbol ?? ''),
+    });
+  });
 
   await page.route(MARKET_RPC_PATTERN, async (route) => {
     if (route.request().method() === 'OPTIONS') {
@@ -183,5 +230,8 @@ export const installMarketApiMock = async (
     await route.fulfill({ status: 200, headers, json: MARKET_RESPONSE });
   });
 
-  return { getRequestCount: () => requestCount };
+  return {
+    getLogoRequestCount: () => logoRequestCount,
+    getRequestCount: () => requestCount,
+  };
 };

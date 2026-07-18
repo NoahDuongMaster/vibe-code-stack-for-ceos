@@ -5,7 +5,7 @@ import type { Group } from 'three';
 import { BackSide } from 'three';
 import type { TMarket } from '@/_pages/home/model/market.schema';
 import type { TMarketBubbleNode } from '@/_pages/home/model/market-scene.mapper';
-import { MarketLogoTexture } from '@/_pages/home/ui/market-logo-texture';
+import { MarketLogoBillboard } from '@/_pages/home/ui/market-logo-billboard';
 
 export function MarketBubble({
   active,
@@ -64,8 +64,9 @@ export function MarketBubble({
           transparent
         />
       </mesh>
-      <MarketLogoTexture
+      <MarketLogoBillboard
         imageUrl={node.imageUrl}
+        name={node.name}
         radius={node.radius}
         symbol={node.symbol}
       />

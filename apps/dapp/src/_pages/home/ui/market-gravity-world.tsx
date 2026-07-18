@@ -34,14 +34,15 @@ export function MarketGravityWorld({
   const [simulation] = useState(() => createGravitySimulation(nodes));
   const bubbleRefs = useRef(new Map<TMarket['id'], Group>());
   const pointerActiveRef = useRef(false);
-  const { gl } = useThree();
+  const { gl, invalidate } = useThree();
 
   useEffect(() => {
     syncGravityBodies(simulation, nodes);
     for (const body of simulation.bodies) {
       bubbleRefs.current.get(body.id)?.position.set(...body.position);
     }
-  }, [nodes, simulation]);
+    invalidate(2);
+  }, [invalidate, nodes, simulation]);
 
   useEffect(() => {
     const activatePointer = () => {

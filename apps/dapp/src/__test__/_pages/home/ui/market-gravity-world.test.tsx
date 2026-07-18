@@ -8,6 +8,7 @@ const r3fMocks = vi.hoisted(() => ({
   frameCallbacks: [] as Array<
     (state: { pointer: { x: number; y: number } }, delta: number) => void
   >,
+  invalidate: vi.fn(),
 }));
 
 const physicsMocks = vi.hoisted(() => ({
@@ -29,7 +30,10 @@ vi.mock('@react-three/fiber', () => ({
   ) => {
     r3fMocks.frameCallbacks.push(callback);
   },
-  useThree: () => ({ gl: { domElement: r3fMocks.domElement } }),
+  useThree: () => ({
+    gl: { domElement: r3fMocks.domElement },
+    invalidate: r3fMocks.invalidate,
+  }),
 }));
 
 vi.mock('@react-three/drei', () => ({ Sparkles: () => null }));
@@ -88,6 +92,7 @@ describe('[MarketGravityWorld]', () => {
   beforeEach(() => {
     r3fMocks.domElement = document.createElement('canvas');
     r3fMocks.frameCallbacks = [];
+    r3fMocks.invalidate.mockReset();
     bubbleMocks.objects.clear();
     physicsMocks.advanceGravitySimulation
       .mockReset()
@@ -211,6 +216,7 @@ describe('[MarketGravityWorld]', () => {
       r3fMocks.frameCallbacks[0]?.({ pointer: { x: 0, y: 0 } }, 1 / 60);
     });
     expect(physicsMocks.advanceGravitySimulation).not.toHaveBeenCalled();
+    expect(r3fMocks.invalidate).toHaveBeenCalledWith(2);
     expect(
       container
         .querySelector('group[name="market-gravity-world"]')
