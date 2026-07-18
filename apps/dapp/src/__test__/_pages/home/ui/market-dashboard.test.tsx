@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TMarketsSnapshot } from '@/_pages/home/model/market.schema';
+import type { TMarketBubbleNode } from '@/_pages/home/model/market-scene.mapper';
 import { MarketDashboard } from '@/_pages/home/ui/market-dashboard';
 
 const mocks = vi.hoisted(() => ({
@@ -20,11 +21,16 @@ vi.mock('@/_pages/home/ui/market-scene-loader', () => ({
   MarketSceneLoader: ({
     activeMarketId,
     markets,
+    nodes,
   }: {
     activeMarketId?: string;
     markets: TMarketsSnapshot['markets'];
+    nodes: TMarketBubbleNode[];
   }) => (
-    <div data-testid="market-scene">
+    <div
+      data-bubble-nodes={nodes.every(({ radius }) => radius > 0)}
+      data-testid="market-scene"
+    >
       Scene: {markets.length} / {activeMarketId ?? 'none'}
     </div>
   ),
@@ -197,6 +203,9 @@ describe('[MarketDashboard]', () => {
     expect(screen.getByTestId('market-scene').textContent).toContain(
       'Scene: 10 / ethereum',
     );
+    expect(
+      screen.getByTestId('market-scene').getAttribute('data-bubble-nodes'),
+    ).toBe('true');
   });
 
   it('should activate a market in the scene from a table click', () => {

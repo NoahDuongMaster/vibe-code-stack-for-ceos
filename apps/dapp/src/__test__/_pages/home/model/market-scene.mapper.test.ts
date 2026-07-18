@@ -5,7 +5,6 @@ import {
   MARKET_NEUTRAL_COLOR,
   MARKET_POSITIVE_COLOR,
   mapMarketsToBubbles,
-  mapMarketsToScene,
 } from '@/_pages/home/model/market-scene.mapper';
 
 const markets: TMarket[] = [
@@ -29,62 +28,6 @@ const markets: TMarket[] = [
   },
   { id: 'solana', symbol: 'SOL', name: 'Solana' },
 ];
-
-describe('[MarketSceneMapper]', () => {
-  it('should produce finite and bounded liquidity blade values', () => {
-    const nodes = mapMarketsToScene(markets);
-
-    expect(nodes).toHaveLength(3);
-    for (const node of nodes) {
-      const numericValues = [
-        ...node.position,
-        node.height,
-        node.width,
-        node.depth,
-        node.lean,
-        node.pulseStrength,
-        node.revealDelay,
-        node.emissiveIntensity,
-      ];
-      expect(numericValues.every(Number.isFinite)).toBe(true);
-      expect(node.height).toBeGreaterThanOrEqual(0.9);
-      expect(node.height).toBeLessThanOrEqual(3.6);
-      expect(node.width).toBeGreaterThanOrEqual(0.54);
-      expect(node.width).toBeLessThanOrEqual(0.86);
-      expect(Math.abs(node.lean)).toBeLessThanOrEqual(0.26);
-      expect(node.pulseStrength).toBeGreaterThanOrEqual(0.18);
-      expect(node.pulseStrength).toBeLessThanOrEqual(1);
-    }
-  });
-
-  it('should encode direction, volume, and stable request-order lanes', () => {
-    const nodes = mapMarketsToScene(markets);
-
-    expect(nodes[0]?.color).toBe(MARKET_POSITIVE_COLOR);
-    expect(nodes[1]?.color).toBe(MARKET_NEGATIVE_COLOR);
-    expect(nodes[2]?.color).toBe(MARKET_NEUTRAL_COLOR);
-    expect(nodes[0]?.pulseStrength).toBeGreaterThan(
-      nodes[1]?.pulseStrength ?? 0,
-    );
-    expect(nodes.map(({ position }) => position)).toEqual([
-      [-2.5, 0, -1.45],
-      [-1.25, 0, -1.45],
-      [0, 0, -1.45],
-    ]);
-  });
-
-  it('should map missing optional data to deterministic neutral values', () => {
-    const first = mapMarketsToScene([markets[2] as TMarket])[0];
-    const second = mapMarketsToScene([markets[2] as TMarket])[0];
-
-    expect(first).toEqual(second);
-    expect(first).toMatchObject({
-      color: MARKET_NEUTRAL_COLOR,
-      height: 1.386,
-      pulseStrength: 0.3276,
-    });
-  });
-});
 
 describe('[MarketBubbleMapper]', () => {
   it('should map real market identity into finite bounded bubbles', () => {

@@ -1,7 +1,25 @@
-import { MARKET_COIN_IDS } from '@/_pages/home/model/market.constants';
-import { css } from '@/styled-system/css';
+import type { TMarket } from '@/_pages/home/model/market.schema';
+import {
+  mapMarketsToBubbles,
+  type TMarketBubbleNode,
+} from '@/_pages/home/model/market-scene.mapper';
+import { MarketLogo } from '@/_pages/home/ui/market-logo';
+import { css, cx } from '@/styled-system/css';
 
-const FALLBACK_COLORS = ['#C7FF2F', '#8B5CF6', '#FF3B5C'] as const;
+const DEFAULT_MARKETS: TMarket[] = [
+  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin' },
+  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum' },
+  { id: 'tether', symbol: 'USDT', name: 'Tether' },
+  { id: 'binancecoin', symbol: 'BNB', name: 'BNB' },
+  { id: 'solana', symbol: 'SOL', name: 'Solana' },
+  { id: 'ripple', symbol: 'XRP', name: 'XRP' },
+  { id: 'usd-coin', symbol: 'USDC', name: 'USDC' },
+  { id: 'dogecoin', symbol: 'DOGE', name: 'Dogecoin' },
+  { id: 'cardano', symbol: 'ADA', name: 'Cardano' },
+  { id: 'avalanche-2', symbol: 'AVAX', name: 'Avalanche' },
+];
+
+const DEFAULT_NODES = mapMarketsToBubbles(DEFAULT_MARKETS);
 
 const fallbackStyle = css({
   position: 'absolute',
@@ -9,62 +27,105 @@ const fallbackStyle = css({
   overflow: 'hidden',
   bgColor: 'void',
   backgroundImage:
-    'linear-gradient(135deg, rgba(139, 92, 246, 0.2), transparent 44%), repeating-linear-gradient(90deg, rgba(233, 241, 226, 0.035) 0, rgba(233, 241, 226, 0.035) 1px, transparent 1px, transparent 7.5%)',
+    'radial-gradient(circle at 18% 22%, rgba(139, 92, 246, 0.24), transparent 34%), radial-gradient(circle at 78% 70%, rgba(199, 255, 47, 0.1), transparent 32%), linear-gradient(145deg, #050507 0%, #090B12 56%, #050507 100%)',
+  _after: {
+    content: '""',
+    position: 'absolute',
+    inset: 0,
+    opacity: 0.35,
+    backgroundImage:
+      'radial-gradient(circle, rgba(233, 241, 226, 0.8) 0 1px, transparent 1.5px)',
+    backgroundSize: '47px 47px',
+    maskImage: 'linear-gradient(to bottom, black, transparent 85%)',
+  },
 });
 
-const trenchStyle = css({
+const bubbleStyle = css({
   position: 'absolute',
-  insetInlineStart: '8%',
-  top: '50%',
-  w: '84%',
-  h: '12',
-  bgColor: 'void',
-  backgroundImage:
-    'repeating-linear-gradient(90deg, rgba(199, 255, 47, 0.2) 0, rgba(199, 255, 47, 0.2) 1px, transparent 1px, transparent 12%)',
-  borderBlockWidth: '1px',
-  borderColor: 'plasma/60',
-  transform: 'translateY(-50%) skewX(-8deg)',
-  boxShadow: '0 0 34px rgba(139, 92, 246, 0.24)',
-});
-
-const bladeStyle = css({
-  position: 'absolute',
-  display: 'block',
-  w: { base: '5', md: '7' },
+  zIndex: 1,
+  display: 'grid',
+  placeItems: 'center',
   borderWidth: '1px',
-  borderColor: 'bone/38',
-  clipPath: 'polygon(18% 0, 100% 0, 82% 100%, 0 100%)',
-  boxShadow:
-    '0 0 20px rgba(199, 255, 47, 0.16), 0 0 38px rgba(139, 92, 246, 0.12)',
+  borderRadius: 'full',
+  bgColor: 'carbon/86',
+  backdropFilter: 'blur(8px)',
+  transform: 'translate(-50%, -50%)',
 });
 
-export function MarketSceneFallback() {
+const activeBubbleStyle = css({
+  zIndex: 3,
+  transform: 'translate(-50%, -50%) scale(1.08)',
+});
+
+const labelStyle = css({
+  position: 'absolute',
+  top: 'calc(100% + 0.35rem)',
+  insetInlineStart: '50%',
+  maxW: '28',
+  overflow: 'hidden',
+  color: 'bone/72',
+  fontFamily: 'var(--font-mono), ui-monospace, monospace',
+  fontSize: '2xs',
+  fontWeight: '500',
+  letterSpacing: '0.06em',
+  textOverflow: 'ellipsis',
+  textTransform: 'uppercase',
+  transform: 'translateX(-50%)',
+  whiteSpace: 'nowrap',
+});
+
+const clampPercent = (value: number): number =>
+  Math.min(90, Math.max(10, value));
+
+const logoSize = (radius: number): 28 | 32 | 40 => {
+  if (radius >= 0.9) return 40;
+  return radius >= 0.65 ? 32 : 28;
+};
+
+export function MarketSceneFallback({
+  activeMarketId,
+  markets = DEFAULT_MARKETS,
+  nodes = DEFAULT_NODES,
+}: {
+  activeMarketId?: TMarket['id'];
+  markets?: TMarket[];
+  nodes?: TMarketBubbleNode[];
+} = {}) {
+  const marketById = new Map(markets.map((market) => [market.id, market]));
+
   return (
     <div
       data-testid="market-scene-fallback"
       aria-hidden="true"
       className={fallbackStyle}
     >
-      <div className={trenchStyle} />
-      {MARKET_COIN_IDS.map((marketId, index) => {
-        const upperRow = index % 2 === 0;
-        const height = 24 + (index * 48) / (MARKET_COIN_IDS.length - 1);
+      {nodes.map((node) => {
+        const market = marketById.get(node.id);
+        const active = node.id === activeMarketId;
+        const size = Math.round(48 + ((node.radius - 0.48) / 0.57) * 38);
 
         return (
-          <span
-            key={marketId}
-            data-testid="reactor-fallback-blade"
-            className={bladeStyle}
+          <div
+            key={node.id}
+            data-testid="gravity-fallback-bubble"
+            className={cx(bubbleStyle, active ? activeBubbleStyle : undefined)}
             style={{
-              backgroundColor: FALLBACK_COLORS[index % FALLBACK_COLORS.length],
-              bottom: upperRow ? '50%' : undefined,
-              height: `${height}%`,
-              left: `${7 + index * 9.5}%`,
-              top: upperRow ? undefined : '50%',
-              transform: upperRow ? 'skewX(-5deg)' : 'skewX(5deg)',
-              transformOrigin: upperRow ? 'bottom' : 'top',
+              borderColor: node.haloColor,
+              boxShadow: `inset 0 0 24px ${node.haloColor}22, 0 0 ${active ? 34 : 20}px ${node.haloColor}44`,
+              height: size,
+              left: `${clampPercent(50 + (node.seedPosition[0] / 4.25) * 42)}%`,
+              top: `${clampPercent(50 - (node.seedPosition[1] / 2.35) * 36)}%`,
+              width: size,
             }}
-          />
+          >
+            <MarketLogo
+              imageUrl={market?.imageUrl ?? node.imageUrl}
+              name={market?.name ?? node.name}
+              size={logoSize(node.radius)}
+              symbol={market?.symbol ?? node.symbol}
+            />
+            <span className={labelStyle}>{market?.symbol ?? node.symbol}</span>
+          </div>
         );
       })}
     </div>

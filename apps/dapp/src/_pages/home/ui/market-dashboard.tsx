@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createMarketSummary } from '@/_pages/home/model/market.mapper';
 import type { TMarket } from '@/_pages/home/model/market.schema';
-import { mapMarketsToScene } from '@/_pages/home/model/market-scene.mapper';
+import { mapMarketsToBubbles } from '@/_pages/home/model/market-scene.mapper';
 import { useMarkets } from '@/_pages/home/model/use-markets';
 import { MarketHeader } from '@/_pages/home/ui/market-header';
 import { MarketMetrics } from '@/_pages/home/ui/market-metrics';
@@ -70,7 +70,7 @@ export function MarketDashboard() {
     () => (query.data ? createMarketSummary(query.data) : undefined),
     [query.data],
   );
-  const sceneNodes = useMemo(() => mapMarketsToScene(markets), [markets]);
+  const sceneNodes = useMemo(() => mapMarketsToBubbles(markets), [markets]);
 
   useEffect(() => {
     if (query.error && query.errorUpdatedAt > reportedErrorAtRef.current) {
