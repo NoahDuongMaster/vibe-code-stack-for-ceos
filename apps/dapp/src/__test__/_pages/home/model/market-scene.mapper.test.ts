@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TMarket } from '@/_pages/home/model/market.schema';
 import {
   MARKET_NEGATIVE_COLOR,
+  MARKET_NEUTRAL_COLOR,
   MARKET_POSITIVE_COLOR,
   mapMarketsToScene,
 } from '@/_pages/home/model/market-scene.mapper';
@@ -12,6 +13,7 @@ const markets: TMarket[] = [
     symbol: 'BTC',
     name: 'Bitcoin',
     marketCap: 1_400_000_000_000,
+    totalVolume: 52_000_000_000,
     priceChangePercentage24h: 12,
   },
   {
@@ -19,38 +21,64 @@ const markets: TMarket[] = [
     symbol: 'ETH',
     name: 'Ethereum',
     marketCap: 500_000_000_000,
+    totalVolume: 19_000_000_000,
     priceChangePercentage24h: -8,
   },
-  {
-    id: 'solana',
-    symbol: 'SOL',
-    name: 'Solana',
-  },
+  { id: 'solana', symbol: 'SOL', name: 'Solana' },
 ];
 
 describe('[MarketSceneMapper]', () => {
-  it('should produce finite and bounded scene values', () => {
+  it('should produce finite and bounded liquidity blade values', () => {
     const nodes = mapMarketsToScene(markets);
 
-    expect(nodes).toHaveLength(markets.length);
+    expect(nodes).toHaveLength(3);
     for (const node of nodes) {
-      expect(
-        Object.values(node).filter((value) => typeof value === 'number'),
-      ).toSatisfy((values: number[]) => values.every(Number.isFinite));
-      expect(node.scale).toBeGreaterThanOrEqual(0.72);
-      expect(node.scale).toBeLessThanOrEqual(1.32);
-      expect(node.emissiveIntensity).toBeGreaterThanOrEqual(0.35);
-      expect(node.emissiveIntensity).toBeLessThanOrEqual(1.4);
-      expect(node.orbitRadius).toBeGreaterThanOrEqual(2.4);
-      expect(node.orbitRadius).toBeLessThanOrEqual(4.8);
+      const numericValues = [
+        ...node.position,
+        node.height,
+        node.width,
+        node.depth,
+        node.lean,
+        node.pulseStrength,
+        node.revealDelay,
+        node.emissiveIntensity,
+      ];
+      expect(numericValues.every(Number.isFinite)).toBe(true);
+      expect(node.height).toBeGreaterThanOrEqual(0.9);
+      expect(node.height).toBeLessThanOrEqual(3.6);
+      expect(node.width).toBeGreaterThanOrEqual(0.54);
+      expect(node.width).toBeLessThanOrEqual(0.86);
+      expect(Math.abs(node.lean)).toBeLessThanOrEqual(0.26);
+      expect(node.pulseStrength).toBeGreaterThanOrEqual(0.18);
+      expect(node.pulseStrength).toBeLessThanOrEqual(1);
     }
   });
 
-  it('should encode positive and negative changes with different colors', () => {
+  it('should encode direction, volume, and stable request-order lanes', () => {
     const nodes = mapMarketsToScene(markets);
 
     expect(nodes[0]?.color).toBe(MARKET_POSITIVE_COLOR);
     expect(nodes[1]?.color).toBe(MARKET_NEGATIVE_COLOR);
-    expect(nodes[0]?.color).not.toBe(nodes[1]?.color);
+    expect(nodes[2]?.color).toBe(MARKET_NEUTRAL_COLOR);
+    expect(nodes[0]?.pulseStrength).toBeGreaterThan(
+      nodes[1]?.pulseStrength ?? 0,
+    );
+    expect(nodes.map(({ position }) => position)).toEqual([
+      [-2.5, 0, -1.45],
+      [-1.25, 0, -1.45],
+      [0, 0, -1.45],
+    ]);
+  });
+
+  it('should map missing optional data to deterministic neutral values', () => {
+    const first = mapMarketsToScene([markets[2] as TMarket])[0];
+    const second = mapMarketsToScene([markets[2] as TMarket])[0];
+
+    expect(first).toEqual(second);
+    expect(first).toMatchObject({
+      color: MARKET_NEUTRAL_COLOR,
+      height: 1.386,
+      pulseStrength: 0.3276,
+    });
   });
 });

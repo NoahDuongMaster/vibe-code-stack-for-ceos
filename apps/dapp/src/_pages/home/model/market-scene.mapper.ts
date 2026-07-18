@@ -1,41 +1,52 @@
 import type { TMarket } from '@/_pages/home/model/market.schema';
 
-export const MARKET_POSITIVE_COLOR = '#67e8f9';
-export const MARKET_NEGATIVE_COLOR = '#fb7185';
-export const MARKET_NEUTRAL_COLOR = '#a78bfa';
+export const MARKET_POSITIVE_COLOR = '#C7FF2F';
+export const MARKET_NEGATIVE_COLOR = '#FF3B5C';
+export const MARKET_NEUTRAL_COLOR = '#8B5CF6';
 
-const MIN_SCALE = 0.72;
-const MAX_SCALE = 1.32;
-const MIN_EMISSIVE_INTENSITY = 0.35;
-const MAX_EMISSIVE_INTENSITY = 1.4;
+const MIN_HEIGHT = 0.9;
+const MAX_HEIGHT = 3.6;
+const MIN_WIDTH = 0.54;
+const MAX_WIDTH = 0.86;
+const MIN_DEPTH = 0.5;
+const MAX_DEPTH = 0.78;
+const MIN_PULSE = 0.18;
+const MAX_PULSE = 1;
+const MIN_EMISSIVE = 0.3;
+const MAX_EMISSIVE = 1.35;
 const MAX_CHANGE_MAGNITUDE = 15;
-const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 export type TMarketSceneNode = {
   id: TMarket['id'];
   symbol: string;
-  scale: number;
-  orbitRadius: number;
-  orbitSpeed: number;
-  phase: number;
-  verticalOffset: number;
+  position: readonly [number, number, number];
+  height: number;
+  width: number;
+  depth: number;
+  lean: number;
+  pulseStrength: number;
+  revealDelay: number;
   color: string;
   emissiveIntensity: number;
 };
 
-const normalizeMarketCaps = (
+const normalizeLogValues = (
   markets: TMarket[],
+  select: (market: TMarket) => number | undefined,
 ): Map<TMarket['id'], number> => {
-  const logarithmicCaps = markets.flatMap(({ id, marketCap }) =>
-    marketCap === undefined ? [] : [[id, Math.log1p(marketCap)] as const],
-  );
-  const values = logarithmicCaps.map(([, value]) => value);
+  const entries = markets.flatMap((market) => {
+    const value = select(market);
+    return value === undefined
+      ? []
+      : ([[market.id, Math.log1p(value)]] as const);
+  });
+  const values = entries.map(([, value]) => value);
   const minimum = values.length > 0 ? Math.min(...values) : 0;
   const maximum = values.length > 0 ? Math.max(...values) : 0;
   const range = maximum - minimum;
 
   return new Map(
-    logarithmicCaps.map(([id, value]) => [
+    entries.map(([id, value]) => [
       id,
       range === 0 ? 0.5 : (value - minimum) / range,
     ]),
@@ -43,22 +54,37 @@ const normalizeMarketCaps = (
 };
 
 export const mapMarketsToScene = (markets: TMarket[]): TMarketSceneNode[] => {
-  const normalizedCaps = normalizeMarketCaps(markets);
+  const normalizedCaps = normalizeLogValues(
+    markets,
+    ({ marketCap }) => marketCap,
+  );
+  const normalizedVolumes = normalizeLogValues(
+    markets,
+    ({ totalVolume }) => totalVolume,
+  );
 
   return markets.map((market, index) => {
     const change = market.priceChangePercentage24h ?? 0;
     const normalizedChange =
       Math.min(Math.abs(change), MAX_CHANGE_MAGNITUDE) / MAX_CHANGE_MAGNITUDE;
     const normalizedCap = normalizedCaps.get(market.id) ?? 0.18;
+    const normalizedVolume = normalizedVolumes.get(market.id) ?? 0.18;
+    const column = index % 5;
+    const row = index < 5 ? -1 : 1;
 
     return {
       id: market.id,
       symbol: market.symbol,
-      scale: MIN_SCALE + normalizedCap * (MAX_SCALE - MIN_SCALE),
-      orbitRadius: 2.4 + (index % 5) * 0.6,
-      orbitSpeed: 0.08 + normalizedChange * 0.1,
-      phase: (index * GOLDEN_ANGLE) % (Math.PI * 2),
-      verticalOffset: ((index % 3) - 1) * 0.55,
+      position: [(column - 2) * 1.25, 0, row * 1.45],
+      height:
+        Math.round(
+          (MIN_HEIGHT + normalizedCap * (MAX_HEIGHT - MIN_HEIGHT)) * 10_000,
+        ) / 10_000,
+      width: MIN_WIDTH + normalizedCap * (MAX_WIDTH - MIN_WIDTH),
+      depth: MIN_DEPTH + normalizedCap * (MAX_DEPTH - MIN_DEPTH),
+      lean: Math.sign(change) * (0.08 + normalizedChange * 0.18),
+      pulseStrength: MIN_PULSE + normalizedVolume * (MAX_PULSE - MIN_PULSE),
+      revealDelay: index * 0.06,
       color:
         change > 0
           ? MARKET_POSITIVE_COLOR
@@ -66,8 +92,7 @@ export const mapMarketsToScene = (markets: TMarket[]): TMarketSceneNode[] => {
             ? MARKET_NEGATIVE_COLOR
             : MARKET_NEUTRAL_COLOR,
       emissiveIntensity:
-        MIN_EMISSIVE_INTENSITY +
-        normalizedChange * (MAX_EMISSIVE_INTENSITY - MIN_EMISSIVE_INTENSITY),
+        MIN_EMISSIVE + normalizedChange * (MAX_EMISSIVE - MIN_EMISSIVE),
     };
   });
 };
