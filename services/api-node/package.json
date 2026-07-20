@@ -17,7 +17,7 @@
     "@connectrpc/connect-node": "^2.1.2",
     "@repo/api-core": "workspace:*",
     "@repo/protocol": "workspace:*",
-    "@sentry/node": "^10.64.0"
+    "@sentry/node": "^10.66.0"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
