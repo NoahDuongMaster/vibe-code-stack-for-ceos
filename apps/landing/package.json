@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.3",
-    "@sentry/astro": "^10.64.0",
-    "astro": "^7.0.6"
+    "@sentry/astro": "^10.66.0",
+    "astro": "^7.1.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
