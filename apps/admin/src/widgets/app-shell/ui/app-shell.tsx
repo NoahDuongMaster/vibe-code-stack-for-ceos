@@ -1,8 +1,8 @@
 import { Switch } from '@ark-ui/react/switch';
 import { useQueryClient } from '@tanstack/react-query';
 import { LayoutDashboard, LogOut, Users } from 'lucide-react';
-import { NuqsAdapter } from 'nuqs/adapters/react-router/v7';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NuqsAdapter } from 'nuqs/adapters/react-router/v8';
+import { NavLink, Outlet, useNavigate } from 'react-router';
 import { useSession } from '@/entities/session';
 import { useMediaQuery } from '@/shared/lib/media-query';
 import { useUiStore } from '@/shared/model';

@@ -56,8 +56,7 @@ const nextConfig: NextConfig = {
     webVitalsAttribution: ['FCP', 'TTFB'],
   },
   images: {
-    formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: process.env.NODE_ENV === 'production' ? 60 : 0,
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: 'coin-images.coingecko.com' },
       ...(env.server.CORS_RESOURCE?.split(',').map((remote) => ({

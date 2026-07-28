@@ -43,7 +43,7 @@ describe('[EnforceRateLimitUseCase]', () => {
       }),
     ).resolves.toEqual({ allowed: false });
     expect(consume).toHaveBeenCalledWith(
-      expect.objectContaining({ value: '203.0.113.7' }),
+      expect.objectContaining({ value: 'global:203.0.113.7' }),
       policy,
     );
   });
@@ -73,5 +73,40 @@ describe('[EnforceRateLimitUseCase]', () => {
       errorName: 'Error',
       requestId: 'request-1',
     });
+  });
+
+  it('should apply a scoped override and fail closed when an auth limiter is unavailable', async () => {
+    const loginPolicy = RateLimitPolicy.create({ limit: 10, periodMs: 60_000 });
+    const warning = vi.fn();
+    const consume = vi.fn(async () => {
+      throw new Error('unavailable');
+    });
+    const useCase = new EnforceRateLimitUseCase(
+      accessPolicy,
+      { consume },
+      policy,
+      { error: vi.fn(), info: vi.fn(), warning },
+      [
+        {
+          failClosed: true,
+          identifierScope: 'admin-login',
+          pathname: '/auth.v1.AuthService/Login',
+          policy: loginPolicy,
+        },
+      ],
+    );
+
+    await expect(
+      useCase.execute({
+        pathname: '/auth.v1.AuthService/Login',
+        clientIdentifier: '203.0.113.9',
+        requestId: 'request-login',
+      }),
+    ).resolves.toEqual({ allowed: false });
+
+    expect(consume).toHaveBeenCalledWith(
+      expect.objectContaining({ value: 'admin-login:203.0.113.9' }),
+      loginPolicy,
+    );
   });
 });

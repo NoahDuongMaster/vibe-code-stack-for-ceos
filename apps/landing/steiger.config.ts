@@ -7,10 +7,19 @@ export default defineConfig([
     ignores: ['src/**/*.d.ts'],
   },
   {
-    files: ['./src/pages/**', './src/widgets/site-shell/**'],
+    files: ['./src/screens/**'],
     rules: {
-      // Astro route wrappers live outside the FSD root, so Page slices and the
-      // shared route shell intentionally have no in-root consumer.
+      // Astro route wrappers live outside the FSD root, so Screen slices
+      // intentionally have no in-root consumer.
+      'fsd/insignificant-slice': 'off',
+      // `screens` is the project's clearer name for the FSD page role.
+      'fsd/typo-in-layer-name': 'off',
+    },
+  },
+  {
+    files: ['./src/widgets/site-shell/**'],
+    rules: {
+      // The shared route shell is consumed by Astro entrypoints outside src/.
       'fsd/insignificant-slice': 'off',
     },
   },

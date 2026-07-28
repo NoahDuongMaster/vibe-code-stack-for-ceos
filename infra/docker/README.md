@@ -16,6 +16,7 @@ infra/docker/
 ├── compose.dev.yaml         # local runtime/port overrides
 ├── compose.staging.yaml     # staging dapp overrides
 ├── compose.prod.yaml        # production dapp overrides
+├── compose.ec2.yaml         # private AWS RPC/PostgreSQL runtime from ECR
 ├── dapp.Dockerfile          # vinext standalone image
 ├── admin-rpc.Dockerfile     # admin facade: Connect + native gRPC
 ├── trading-rpc.Dockerfile   # Nest/Fastify Connect + gRPC image
@@ -32,8 +33,17 @@ docker compose \
   -f infra/docker/compose.dev.yaml \
   --profile dev \
   --profile vpc \
-  up --build
+up --build
 ```
+
+`compose.ec2.yaml` is intentionally standalone. Terraform installs it on the
+private host; it runs `admin-rpc`, `trading-rpc`, PostgreSQL, the complete
+pgBackRest/R2 backup scheduler, and a digest-pinned Cloudflare Tunnel. It
+publishes no host ports, keeps database/backup/restore data on protected
+encrypted EBS mounts, reads credentials only from file-backed Docker secrets,
+and sends container logs to pre-created CloudWatch log groups. Application CI
+supplies immutable ECR image tags and invokes the host deployment command
+through AWS Systems Manager.
 
 All nine containers are declared in `compose.yaml`. Profiles only select the
 runtime topology: `admin`, `landing`, `api-gateway`, and `postgres` use `dev`;
@@ -49,8 +59,9 @@ truth. Run `mise run docker:check` after changing Docker configuration.
 
 `mise run dev` starts PostgreSQL, the VPC-visible trading-rpc origin, and
 cloudflared before launching all native development processes through Turbo.
-The VPC origin publishes gRPC on host port `50052` in this topology so native
-trading-rpc can retain `50051`; native admin-rpc uses `50053`.
+The trading/admin VPC origins publish Connect/gRPC on `46104`–`46107`, while
+native trading-rpc uses `46004`/`46005` and native admin-rpc uses
+`46006`/`46007`.
 
 Ctrl-C stops the native processes and leaves the infrastructure available for
 fast restarts. Stop and remove those containers without deleting PostgreSQL
@@ -94,15 +105,21 @@ and `api-gateway`; this does not start the dapp container.
 
 | Runtime | Local URL |
 | --- | --- |
-| dapp | `http://localhost:3000` |
-| admin | `http://localhost:3002` |
-| landing | `http://localhost:4321` |
-| api-gateway | `http://localhost:8787` |
-| admin-rpc Connect | `http://localhost:3004` |
-| admin-rpc native gRPC | `localhost:50052` |
-| trading-rpc Connect | `http://localhost:3003` |
-| trading-rpc native gRPC | `localhost:50051` |
-| PostgreSQL | `postgresql://trading_rpc:trading_rpc_local@localhost:5433/trading_rpc` |
+| dapp | `http://localhost:46000` |
+| admin | `http://localhost:46001` |
+| landing | `http://localhost:46002` |
+| api-gateway | `http://localhost:46003` |
+| admin-rpc VPC-origin Connect | `http://localhost:46106` |
+| admin-rpc VPC-origin gRPC | `localhost:46107` |
+| trading-rpc VPC-origin Connect | `http://localhost:46104` |
+| trading-rpc VPC-origin gRPC | `localhost:46105` |
+| PostgreSQL | `postgresql://trading_rpc:trading_rpc_local@localhost:46008/trading_rpc` |
+
+These defaults deliberately avoid common framework and database ports. Copy
+the repository root `.env.sample` to `.env` to make the map explicit or
+override a single host port without changing Compose files. Native trading-rpc
+uses `46004`/`46005` and native admin-rpc uses `46006`/`46007`; their Docker VPC
+origins use `46104`–`46107` so both pairs can run during `mise run dev`.
 
 The gateway is not attached to the origin's private Compose network. It reaches
 `trading-rpc.internal:3001` only through the remote `TRADING_RPC` VPC Service
@@ -123,7 +140,7 @@ make psql-development
 `postgres-data` persists PostgreSQL 18 data across container recreation. The
 database uses the dedicated `trading-rpc-data` network, shared only with
 `trading-rpc`; neither the gateway nor cloudflared can resolve the database
-service. The loopback port `5433` exists only in the development overlay for
+service. The loopback port `46008` exists only in the development overlay for
 `psql` and database GUI tools, avoiding collisions with a host PostgreSQL on
 `5432`.
 
@@ -200,9 +217,9 @@ Both use the remotely-managed tunnel represented by the token. Use the private
 network aliases, never `localhost`, and bind each resulting service ID to the
 matching gateway binding.
 
-Development exposes Connect only on `127.0.0.1:3003` to avoid colliding with
-the dapp's existing host port `3001`; native gRPC remains available on
-`127.0.0.1:50051`. These host mappings are for Postman/local diagnostics only.
+Development exposes the Docker VPC origin on `127.0.0.1:46104` (Connect) and
+`127.0.0.1:46105` (gRPC); native trading-rpc uses `46004`/`46005`. These host
+mappings are for Postman/local diagnostics only.
 Workers VPC traffic always uses the appropriate private `*.internal:3001` path.
 
 At Nest bootstrap, trading-rpc waits for PostgreSQL, applies its generated
@@ -476,23 +493,21 @@ Scheduled evidence is written to:
 /var/lib/postgres-backup/state/monthly-drill.last-result.json
 ```
 
-Alert when `backup-health.sh` exits nonzero. A host systemd timer may publish a
-binary metric without exposing backup data:
+Terraform installs `vibe-rpc-monitor.timer` on the EC2 host. Every five minutes
+it publishes `BackupHealthy`, `ContainersHealthy`, maximum disk/inode usage, and
+memory usage to `VibeCodeStack/RpcHost` without exposing backup data. The
+matching alarms treat missing metrics as breaching and notify the encrypted SNS
+operations topic.
 
 ```bash
-if make db-backup-health >/var/log/vibe-postgres-backup-health.json; then
-  value=1
-else
-  value=0
-fi
-aws cloudwatch put-metric-data --region "$AWS_REGION" \
-  --namespace VibeCodeStack/PostgreSQL \
-  --metric-data "MetricName=BackupHealthy,Value=$value,Unit=Count"
+systemctl status vibe-rpc-monitor.timer
+sudo systemctl start vibe-rpc-monitor.service
+journalctl -u vibe-rpc-monitor.service
 ```
 
-Alarm on `BackupHealthy < 1` or a missing metric. Keep the detailed JSON on the
-host/log platform; do not put credentials or raw command output into metric
-dimensions.
+Confirm the email sent by the Terraform-managed SNS subscription before
+accepting traffic. Detailed backup JSON remains on the host/log platform;
+credentials and raw command output never enter metric dimensions.
 
 ### Failure procedures
 

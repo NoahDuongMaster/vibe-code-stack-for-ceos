@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { handleProxy } from '@/_app/proxy';
+import { handleProxy } from '@/bootstrap/proxy';
 
 export function proxy(request: NextRequest) {
   return handleProxy(request);

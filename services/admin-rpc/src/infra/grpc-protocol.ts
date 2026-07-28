@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const PROTO_FILES = [
   ['health', 'v1', 'health.proto'],
+  ['auth', 'v1', 'auth.proto'],
   ['admin', 'v1', 'admin.proto'],
 ] as const;
 

@@ -3,10 +3,10 @@ import {
   META_DATA_DEFAULT,
   VIEWPORT_DEFAULT,
   WebsiteJsonLd,
-} from '@/_app/metadata';
-import { AppProviders } from '@/_app/providers';
+} from '@/bootstrap/metadata';
+import { AppProviders } from '@/bootstrap/providers';
 import { css, cx } from '@/styled-system/css';
-import '@/_app/styles/index.css';
+import '@/bootstrap/styles/index.css';
 
 const fontDisplay = Unbounded({
   subsets: ['latin'],

@@ -1,1 +1,1 @@
-export { AccountPage as default } from '@/_pages/account/index.server';
+export { AccountPage as default } from '@/screens/account/index.server';

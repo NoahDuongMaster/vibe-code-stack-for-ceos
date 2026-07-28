@@ -5,7 +5,10 @@ import type {
 import type { RouteRpcRequest } from '@/features/rpc-routing/application/route-rpc-request.port';
 import { UpstreamUnavailableError } from '@/features/rpc-routing/domain/errors';
 
-const ADMIN_RPC_PATH_PREFIX = '/admin.v1.AdminService/';
+const ADMIN_RPC_PATH_PREFIXES = [
+  '/admin.v1.AdminService/',
+  '/auth.v1.AuthService/',
+] as const;
 
 /** Application service keeping edge-owned RPCs local and delegating misses. */
 export class RouteRpcRequestUseCase<TRequest, TResponse>
@@ -23,7 +26,11 @@ export class RouteRpcRequestUseCase<TRequest, TResponse>
       return localResult.response;
     }
 
-    if (command.rpcPath.startsWith(ADMIN_RPC_PATH_PREFIX)) {
+    if (
+      ADMIN_RPC_PATH_PREFIXES.some((prefix) =>
+        command.rpcPath.startsWith(prefix),
+      )
+    ) {
       if (!this.adminEndpoint) throw new UpstreamUnavailableError();
       return (await this.adminEndpoint.handle(command)).response;
     }

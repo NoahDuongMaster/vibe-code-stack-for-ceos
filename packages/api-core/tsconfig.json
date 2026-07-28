@@ -1,7 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "lib": ["ES2022", "DOM"]
   },
-  "include": ["src"]
+  "include": ["src", "scripts", "*.config.ts", "*.config.mts", "*.config.cts"]
 }

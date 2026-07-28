@@ -1,12 +1,16 @@
 import { Code, ConnectError, type Interceptor } from '@connectrpc/connect';
-import { createAdminClient, createApiClient } from '@packages/api-client';
+import {
+  createAdminClient,
+  createApiClient,
+  createAuthClient,
+} from '@packages/api-client';
 import { emitUnauthenticated } from '@/shared/api/auth-events';
 import { getAuthToken } from '@/shared/api/auth-token';
 import { API_URL } from '@/shared/config';
 
 // Attaches the current session token (if any) to every RPC, and signals
 // `shared/api/auth-events` when the backend rejects it as unauthenticated —
-// the App layer subscribes to that signal to sign out and
+// Bootstrap subscribes to that signal to sign out and
 // redirect to /login. This runs for every slice API that uses `apiClient`, so
 // higher layers never have to wire auth handling themselves.
 const authInterceptor: Interceptor = (next) => async (req) => {
@@ -31,5 +35,10 @@ export const apiClient = createApiClient(API_URL, {
 
 /** Admin facade client — always targets api-gateway, never admin-rpc directly. */
 export const adminApiClient = createAdminClient(API_URL, {
+  interceptors: [authInterceptor],
+});
+
+/** Authentication client — Login is public; other calls still share auth handling. */
+export const authApiClient = createAuthClient(API_URL, {
   interceptors: [authInterceptor],
 });

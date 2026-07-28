@@ -2,6 +2,7 @@ import { type Client, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
 import {
   AdminService,
+  AuthService,
   HealthService,
   TradingService,
 } from '@packages/protocol';
@@ -12,7 +13,7 @@ import {
  * Point it at any runtime serving HealthService (trading-rpc, api-gateway, …).
  * Every call is typed from the proto contract — no drift, gRPC-compatible:
  *
- *   const client = createApiClient('http://localhost:3001')
+ *   const client = createApiClient('http://localhost:46004')
  *   const res = await client.health({})
  *   res.status // 'ok' — fully typed
  */
@@ -42,12 +43,24 @@ export const createAdminClient = (
 
 export type AdminClient = Client<typeof AdminService>;
 
+/** Typed authentication client, routed to admin-rpc through the gateway. */
+export const createAuthClient = (
+  baseUrl: string,
+  options?: Omit<Parameters<typeof createConnectTransport>[0], 'baseUrl'>,
+): Client<typeof AuthService> =>
+  createClient(AuthService, createConnectTransport({ baseUrl, ...options }));
+
+export type AuthClient = Client<typeof AuthService>;
+
 // Re-export the generated message types for consumers/UI.
 export type {
   AdminServiceGetMarketsRequest,
   AdminServiceGetMarketsResponse,
+  AuthUser,
   CryptoMarket,
   GetMarketsRequest,
   GetMarketsResponse,
   HealthResponse,
+  LoginRequest,
+  LoginResponse,
 } from '@packages/protocol';

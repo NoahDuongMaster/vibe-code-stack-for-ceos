@@ -1,3 +1,3 @@
-export { getMock as GET } from '@/_app/routes/index.server';
+export { getMock as GET } from '@/bootstrap/routes/index.server';
 
 export const runtime = 'edge';

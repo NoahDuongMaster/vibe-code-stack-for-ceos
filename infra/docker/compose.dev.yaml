@@ -18,7 +18,7 @@ services:
       - --port
       - '3000'
     ports:
-      - '127.0.0.1:${DAPP_HOST_PORT:-3000}:3000'
+      - '127.0.0.1:${DAPP_HOST_PORT:-46000}:3000'
     env_file:
       - ../../apps/dapp/.env.sample
     volumes:
@@ -43,22 +43,27 @@ services:
       args:
         INCLUDE_PRETTY_LOGGER: 'true'
     ports:
-      - '127.0.0.1:${TRADING_RPC_HTTP_HOST_PORT:-3003}:3001'
-      - '127.0.0.1:${TRADING_RPC_GRPC_HOST_PORT:-50051}:50051'
+      - '127.0.0.1:${TRADING_RPC_HTTP_HOST_PORT:-46104}:3001'
+      - '127.0.0.1:${TRADING_RPC_GRPC_HOST_PORT:-46105}:50051'
     env_file:
       - ../../services/trading-rpc/.env.sample
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-trading_rpc}:${POSTGRES_PASSWORD:-trading_rpc_local}@postgres:5432/${POSTGRES_DB:-trading_rpc}
+      PORT: 3001
+      GRPC_PORT: 50051
     depends_on:
       postgres:
         condition: service_healthy
 
   admin-rpc:
     image: vibe-admin-rpc:development
+    build:
+      args:
+        INCLUDE_PRETTY_LOGGER: 'true'
     ports:
-      - '127.0.0.1:${ADMIN_RPC_HTTP_HOST_PORT:-3004}:3001'
-      - '127.0.0.1:${ADMIN_RPC_GRPC_HOST_PORT:-50052}:50051'
+      - '127.0.0.1:${ADMIN_RPC_HTTP_HOST_PORT:-46106}:3001'
+      - '127.0.0.1:${ADMIN_RPC_GRPC_HOST_PORT:-46107}:50051'
     env_file:
       - ../../services/admin-rpc/.env.sample
     environment:
@@ -72,7 +77,7 @@ services:
       POSTGRES_BACKUP_MODE: disabled
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trading_rpc_local}
     ports:
-      - '127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432'
+      - '127.0.0.1:${POSTGRES_HOST_PORT:-46008}:5432'
     networks:
       postgres-development-host:
 

@@ -7,22 +7,21 @@ export default defineConfig([
     ignores: ['src/__test__/**', 'src/styled-system/**', 'src/**/*.d.ts'],
   },
   {
-    files: ['./src/_pages/**'],
+    files: ['./src/screens/**'],
     rules: {
       // Next route wrappers live outside the FSD root, so this heuristic
-      // cannot see the valid external consumer of each page slice.
+      // cannot see the valid external consumer of each screen slice.
       'fsd/insignificant-slice': 'off',
-      // `_pages` avoids activating Next's legacy Pages Router. Steiger only
-      // recognizes the unprefixed canonical layer name.
+      // `screens` is the project's clearer name for the FSD page role.
       'fsd/typo-in-layer-name': 'off',
     },
   },
   {
-    files: ['./src/_app/**'],
+    files: ['./src/bootstrap/**'],
     rules: {
-      // The real Next `app/` directory lives at the workspace root. `_app`
-      // is the FSD App layer, whose children are segments rather than slices;
-      // Steiger 0.5 cannot model that underscored framework workaround.
+      // The real Next `app/` directory lives at the workspace root. Bootstrap
+      // owns application composition and its children are segments rather
+      // than slices; ESLint models this project-specific layer.
       'fsd/no-segmentless-slices': 'off',
       'fsd/typo-in-layer-name': 'off',
     },
@@ -30,8 +29,8 @@ export default defineConfig([
   {
     files: ['./src/features/**', './src/entities/**'],
     rules: {
-      // The valid consumers of these slices live in underscored `_pages` and
-      // `_app` layers that Steiger 0.5 cannot include in its reference count.
+      // Valid consumers also live in `screens` and `bootstrap`, which Steiger
+      // does not include in its canonical-layer reference count.
       // ESLint still enforces their direction and Public API boundaries.
       'fsd/insignificant-slice': 'off',
     },

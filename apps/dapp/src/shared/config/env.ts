@@ -31,6 +31,7 @@ const env = {
       // its server verifier for where a real IdP check would replace this.
       DEMO_AUTH_EMAIL: z.email(),
       DEMO_AUTH_PASSWORD: z.string().min(1),
+      DAPP_LOGIN_RATE_LIMIT_MODE: z.enum(['local', 'distributed']).optional(),
       CORS_ORIGINS: z.string().nullish(),
       CORS_RESOURCE: z.string().nullish(),
     },

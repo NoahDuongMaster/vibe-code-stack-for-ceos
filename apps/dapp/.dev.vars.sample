@@ -1,14 +1,20 @@
 # Sample secrets for the Cloudflare Workers runtime (`wrangler dev` / vinext's
 # Workers dev server). Copy to `.dev.vars` (git-ignored) and fill in real
 # values — `.dev.vars` is wrangler's local-secrets file, separate from the
-# `.env`/`.env.sample` pair used by the plain Next.js dev server.
+# `.env`/`.env.sample` pair used by config/build tooling. These defaults mirror
+# `.env.sample`, so copying either sample does not change the local topology.
 #
-# Mirrors the vars provisioned in CI at .github/workflows/playwright.yml.
+# Mirrors the vars provisioned by the e2e job in .github/workflows/ci.yml.
 
 NEXT_PUBLIC_PROJECT_NAME="vibe-code-stack-for-ceos"
-NEXT_PUBLIC_API_ENDPOINT=http://localhost:3000
-NEXT_PUBLIC_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_API_ENDPOINT=http://localhost:46003
+NEXT_PUBLIC_BASE_URL=http://localhost:46000
+NEXT_PUBLIC_CORS_COOKIE=localhost
+NEXT_PUBLIC_DEBUG=
+NEXT_PUBLIC_SENTRY_DSN=
 
 SESSION_SECRET=dev-session-secret-min-32-chars!!
 DEMO_AUTH_EMAIL=admin@example.com
 DEMO_AUTH_PASSWORD=change-me-please
+CORS_ORIGINS=*.localhost:46000,localhost:46000
+CORS_RESOURCE=

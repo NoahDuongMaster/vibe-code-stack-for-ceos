@@ -8,7 +8,13 @@ const ADMIN_MARKETS_URL =
   'http://gateway.test/admin.v1.AdminService/GetMarkets';
 const MARKETS_URL = 'http://gateway.test/trading.v1.TradingService/GetMarkets';
 const PROTECTED_URL = 'http://gateway.test/private.v1.PrivateService/Read';
-const JWT_SECRET = 'test-secret';
+const LOGIN_URL = 'http://gateway.test/auth.v1.AuthService/Login';
+const JWT_SECRET = 'test-secret-at-least-32-characters';
+const PRODUCTION_RUNTIME = {
+  ENVIRONMENT: 'production' as const,
+  CORS_ORIGINS: 'https://admin.example.com',
+  JWT_SECRET,
+};
 
 /** A Connect-style RPC POST (JSON) helper, optionally bearer-authenticated. */
 function rpcRequest(url: string, body: unknown, token?: string): Request {
@@ -39,6 +45,7 @@ const gatewayBindings = (
   overrides: Partial<TGatewayBindings> = {},
 ): TGatewayBindings => ({
   SERVICE_NAME: 'gateway-test',
+  ENVIRONMENT: 'development',
   TRADING_RPC: {
     fetch: vi.fn(async () => new Response('Not Found', { status: 404 })),
   } as unknown as Fetcher,
@@ -89,8 +96,8 @@ describe('gateway fetch handler', () => {
       { RATE_LIMITER: namespace },
     );
 
-    // One Durable Object instance per client key; 'unknown' when no CF IP.
-    expect(idFromName).toHaveBeenCalledWith('unknown');
+    // One Durable Object instance per scoped client key; unknown when no CF IP.
+    expect(idFromName).toHaveBeenCalledWith('global:unknown');
     expect(limit).toHaveBeenCalledWith({ limit: 300, periodMs: 60_000 });
     expect(res.status).toBe(429);
   });
@@ -109,6 +116,7 @@ describe('gateway fetch handler', () => {
         body: JSON.stringify({ coinIds: ['bitcoin'], vsCurrency: 'usd' }),
       }),
       {
+        ...PRODUCTION_RUNTIME,
         RATE_LIMITER: namespace,
         TRADING_RPC: {
           fetch: vi.fn(async () => new Response('ok')),
@@ -116,7 +124,7 @@ describe('gateway fetch handler', () => {
       },
     );
 
-    expect(idFromName).toHaveBeenCalledWith('203.0.113.7');
+    expect(idFromName).toHaveBeenCalledWith('global:203.0.113.7');
     expect(res.status).toBe(200);
   });
 
@@ -135,6 +143,7 @@ describe('gateway fetch handler', () => {
     const res = await fetchGateway(
       rpcRequest(MARKETS_URL, { coinIds: ['bitcoin'], vsCurrency: 'usd' }),
       {
+        ...PRODUCTION_RUNTIME,
         RATE_LIMITER: namespace,
         TRADING_RPC: {
           fetch: vi.fn(async () => new Response('ok')),
@@ -148,6 +157,40 @@ describe('gateway fetch handler', () => {
     );
     expect(warningSpy).toHaveBeenCalledWith(
       expect.stringContaining('"service":"gateway-test"'),
+    );
+  });
+
+  it('should use a strict scoped policy and fail closed for admin login', async () => {
+    const warningSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const limit = vi.fn(async () => {
+      throw new Error('rate limiter unavailable');
+    });
+    const idFromName = vi.fn((name: string) => name);
+    const namespace = {
+      idFromName,
+      get: vi.fn(() => ({ limit })),
+    } as unknown as DurableObjectNamespace<RateLimiterDO>;
+
+    const res = await fetchGateway(
+      rpcRequest(LOGIN_URL, {
+        email: 'admin@example.com',
+        password: 'a-valid-password',
+      }),
+      {
+        ...PRODUCTION_RUNTIME,
+        RATE_LIMITER: namespace,
+        TRADING_RPC: {
+          fetch: vi.fn(async () => new Response('ok')),
+        } as unknown as Fetcher,
+      },
+    );
+
+    expect(idFromName).toHaveBeenCalledWith('admin-login:unknown');
+    expect(res.status).toBe(429);
+    expect(warningSpy).toHaveBeenCalledWith(
+      expect.stringContaining('rate_limiter_unavailable'),
     );
   });
 
@@ -211,7 +254,10 @@ describe('gateway fetch handler', () => {
 
     const res = await createGatewayWorker().fetch(
       new Request('http://gateway.test/healthz'),
-      { SERVICE_NAME: 'gateway-test' } as TGatewayBindings,
+      {
+        SERVICE_NAME: 'gateway-test',
+        ENVIRONMENT: 'development',
+      } as TGatewayBindings,
     );
 
     expect(res.status).toBe(500);
@@ -473,7 +519,7 @@ describe('gateway fetch handler', () => {
 
   it('should emit structured access logs outside development', async () => {
     const res = await fetchGateway(new Request('http://gateway.test/healthz'), {
-      ENVIRONMENT: 'production',
+      ...PRODUCTION_RUNTIME,
     });
 
     expect(res.status).toBe(200);

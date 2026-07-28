@@ -4,8 +4,11 @@ const UNKNOWN_CLIENT = 'unknown';
 export class ClientIdentifier {
   private constructor(readonly value: string) {}
 
-  static fromTrustedHeader(value: string | undefined): ClientIdentifier {
+  static fromTrustedHeader(
+    value: string | undefined,
+    scope = 'global',
+  ): ClientIdentifier {
     const normalized = value?.trim();
-    return new ClientIdentifier(normalized || UNKNOWN_CLIENT);
+    return new ClientIdentifier(`${scope}:${normalized || UNKNOWN_CLIENT}`);
   }
 }

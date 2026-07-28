@@ -66,6 +66,30 @@ describe('[RouteRpcRequestUseCase]', () => {
     expect(tradingHandle).not.toHaveBeenCalled();
   });
 
+  it('should route AuthService calls to admin RPC', async () => {
+    const tradingHandle = vi.fn(async () => ({
+      handled: true,
+      response: 'trading',
+    }));
+    const adminHandle = vi.fn(async () => ({
+      handled: true,
+      response: 'auth',
+    }));
+    const useCase = new RouteRpcRequestUseCase(
+      { handle: vi.fn(async () => ({ handled: false, response: 'missing' })) },
+      { handle: tradingHandle },
+      { handle: adminHandle },
+    );
+    const authCommand = {
+      ...command,
+      rpcPath: '/auth.v1.AuthService/Login',
+    };
+
+    await expect(useCase.execute(authCommand)).resolves.toBe('auth');
+    expect(adminHandle).toHaveBeenCalledWith(authCommand);
+    expect(tradingHandle).not.toHaveBeenCalled();
+  });
+
   it('should fail safely when AdminService is called without an admin endpoint', async () => {
     const useCase = new RouteRpcRequestUseCase(
       { handle: vi.fn(async () => ({ handled: false, response: 'missing' })) },

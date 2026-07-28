@@ -8,34 +8,15 @@ import { z } from 'zod';
 const ZEnv = z.object({
   API_URL: z.string().url(),
   SENTRY_DSN: z.string().url().optional(),
-  // Fail-safe default: false. The proto (@packages/protocol) has no AuthService
-  // yet, so pages/login simulates login — but only when this is explicitly
-  // set to "true" (see pages/login/api/login.api.ts). Any deploy
-  // that doesn't set it refuses every login attempt instead of accepting any
-  // 6+ char password as valid. Hard-gated to dev builds below regardless of
-  // this value — a leaked PUBLIC_ENABLE_MOCK_AUTH=true in a prod env must not
-  // enable it.
-  ENABLE_MOCK_AUTH: z
-    .string()
-    .optional()
-    .transform((value) => value === 'true'),
 });
 
 export const env = ZEnv.parse({
   API_URL:
     import.meta.env.PUBLIC_API_URL ??
-    (import.meta.env.DEV ? 'http://localhost:8787' : undefined),
+    (import.meta.env.DEV ? 'http://localhost:46003' : undefined),
   // Treat an empty string as "not set" so `PUBLIC_SENTRY_DSN=` disables Sentry.
   SENTRY_DSN: import.meta.env.PUBLIC_SENTRY_DSN || undefined,
-  // import.meta.env.DEV is statically replaced at build time, so a production
-  // build can never enable mock auth no matter what env var reaches it.
-  ENABLE_MOCK_AUTH: import.meta.env.DEV
-    ? import.meta.env.PUBLIC_ENABLE_MOCK_AUTH
-    : undefined,
 });
 
 /** Public api-gateway URL used by every browser RPC client. */
 export const API_URL = env.API_URL;
-
-/** Whether the page-local mock login is allowed to authenticate anyone. */
-export const ENABLE_MOCK_AUTH = env.ENABLE_MOCK_AUTH;

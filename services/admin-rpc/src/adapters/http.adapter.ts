@@ -12,6 +12,12 @@ import {
 import { createRoutes, isOriginAllowed } from '@packages/api-core';
 import type { FastifyServerOptions } from 'fastify';
 import {
+  createAuthServiceRoutes,
+  LOGIN,
+  type Login,
+  type TAuthenticationModuleOptions,
+} from '@/features/authentication';
+import {
   createAdminServiceRoutes,
   GET_MARKETS,
   type GetMarkets,
@@ -27,6 +33,7 @@ import { AdminRpcModule } from '@/platform/nest/admin-rpc.module';
 export interface TServerOptions {
   serviceName: string;
   tradingMarketData: TradingMarketData;
+  authentication: TAuthenticationModuleOptions;
   corsOrigins?: string[];
   http2?: boolean;
   grpcUrl?: string;
@@ -59,6 +66,7 @@ export async function createServer(
     AdminRpcModule.register({
       serviceName: options.serviceName,
       tradingMarketData: options.tradingMarketData,
+      ...options.authentication,
     }),
     adapter,
     { logger: options.logger === false ? false : undefined },
@@ -79,11 +87,13 @@ export async function createServer(
   });
 
   const getMarkets = app.get<GetMarkets>(GET_MARKETS);
+  const login = app.get<Login>(LOGIN);
   await fastifyInstance.register(fastifyConnectPlugin, {
     routes: (router) => {
       createRoutes({ serviceName: options.serviceName, runtime: 'node' })(
         router,
       );
+      createAuthServiceRoutes(login)(router);
       createAdminServiceRoutes(getMarkets)(router);
     },
     readMaxBytes: maxBodyBytes,
@@ -95,8 +105,8 @@ export async function createServer(
       {
         transport: Transport.GRPC,
         options: {
-          url: options.grpcUrl ?? '0.0.0.0:50053',
-          package: ['health.v1', 'admin.v1'],
+          url: options.grpcUrl ?? '0.0.0.0:46007',
+          package: ['health.v1', 'auth.v1', 'admin.v1'],
           protoPath: resolveGrpcProtoPaths(),
           gracefulShutdown: true,
           loader: {

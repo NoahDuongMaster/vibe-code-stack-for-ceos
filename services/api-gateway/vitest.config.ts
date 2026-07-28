@@ -1,16 +1,20 @@
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'scripts/create-deploy-config.test.ts'],
   },
   resolve: {
     alias: [
       {
         find: '@',
         replacement: fileURLToPath(new URL('./src', import.meta.url)),
+      },
+      {
+        find: '@scripts',
+        replacement: fileURLToPath(new URL('./scripts', import.meta.url)),
       },
       // `cloudflare:workers` only exists in the workerd runtime. In Node tests
       // (which mock the DO binding and never instantiate it) alias it to a

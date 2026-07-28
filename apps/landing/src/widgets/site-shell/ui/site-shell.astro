@@ -19,7 +19,7 @@ const {
   image = SITE.ogImage,
 } = Astro.props;
 
-// Build absolute URLs from the configured `site` (astro.config.mjs).
+// Build absolute URLs from the configured `site` (astro.config.ts).
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageURL = new URL(image, Astro.site);
 

@@ -1,6 +1,7 @@
 import { connect, constants } from 'node:http2';
 import { createServer as createTcpServer } from 'node:net';
 import { Writable } from 'node:stream';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Code, createClient } from '@connectrpc/connect';
 import {
   createConnectTransport,
@@ -17,6 +18,9 @@ interface TLogEvent {
   [key: string]: unknown;
   msg?: string;
 }
+
+const createTestGrpcTransport = (baseUrl: string) =>
+  createGrpcTransport({ baseUrl, idleConnectionTimeoutMs: 1 });
 
 function captureJsonLogs(): {
   events: TLogEvent[];
@@ -131,10 +135,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
   }
 
   function grpcClient(rpcBaseUrl = baseUrl) {
-    return createClient(
-      HealthService,
-      createGrpcTransport({ baseUrl: rpcBaseUrl }),
-    );
+    return createClient(HealthService, createTestGrpcTransport(rpcBaseUrl));
   }
 
   function tradingClient() {
@@ -156,6 +157,10 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
   }
 
   afterEach(async () => {
+    // Connect's Node HTTP/2 transport pools sessions. Give the test transport's
+    // 1 ms idle timeout a chance to close them before Fastify begins graceful
+    // shutdown, otherwise a rejected RPC can keep app.close() waiting.
+    await delay(5);
     await app?.close();
     app = undefined;
     marketDataProvider.getMarkets.mockReset();
@@ -339,7 +344,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
     });
     const client = createClient(
       TradingService,
-      createGrpcTransport({ baseUrl: `http://127.0.0.1:${grpcPort}` }),
+      createTestGrpcTransport(`http://127.0.0.1:${grpcPort}`),
     );
 
     await expect(
@@ -358,7 +363,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
     });
     const client = createClient(
       TradingService,
-      createGrpcTransport({ baseUrl: `http://127.0.0.1:${grpcPort}` }),
+      createTestGrpcTransport(`http://127.0.0.1:${grpcPort}`),
     );
 
     await expect(
@@ -380,7 +385,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
     });
     const client = createClient(
       TradingService,
-      createGrpcTransport({ baseUrl: `http://127.0.0.1:${grpcPort}` }),
+      createTestGrpcTransport(`http://127.0.0.1:${grpcPort}`),
     );
 
     await expect(
@@ -422,7 +427,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
     await start({ maxBodyBytes: 32 });
     const client = createClient(
       TradingService,
-      createGrpcTransport({ baseUrl }),
+      createTestGrpcTransport(baseUrl),
     );
 
     await expect(
@@ -434,7 +439,7 @@ describe('createServer (Nest / Fastify / Connect / gRPC)', () => {
     await start({ rateLimit: 2, rateLimitWindowMs: 60_000 });
     const client = createClient(
       TradingService,
-      createGrpcTransport({ baseUrl }),
+      createTestGrpcTransport(baseUrl),
     );
     const request = { coinIds: ['bitcoin'], vsCurrency: 'usd' };
 

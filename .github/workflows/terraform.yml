@@ -1,0 +1,213 @@
+name: Terraform
+
+on:
+  pull_request:
+    paths:
+      - '.github/actions/setup-toolchain/action.yml'
+      - '.github/workflows/terraform.yml'
+      - 'infra/terraform/**'
+      - 'infra/docker/compose.ec2.yaml'
+      - 'mise.toml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to plan or apply
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      action:
+        description: Terraform action
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-${{ inputs.environment || 'validate' }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Validate every environment
+        run: mise run terraform:check
+
+  plan:
+    name: Plan (${{ inputs.environment }})
+    if: github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      TF_IN_AUTOMATION: 'true'
+      TF_INPUT: 'false'
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TF_VAR_github_repository: ${{ github.repository }}
+      TF_VAR_github_oidc_provider_arn: ${{ vars.AWS_GITHUB_OIDC_PROVIDER_ARN }}
+      TF_VAR_operations_alert_email: ${{ vars.OPERATIONS_ALERT_EMAIL }}
+      TF_VAR_terraform_state_bucket_name: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_terraform_state_kms_key_arn: ${{ vars.TF_STATE_KMS_KEY_ARN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Validate protected infrastructure settings
+        shell: bash
+        env:
+          AWS_TERRAFORM_ROLE_ARN: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          AWS_GITHUB_OIDC_PROVIDER_ARN: ${{ vars.AWS_GITHUB_OIDC_PROVIDER_ARN }}
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          TF_STATE_KMS_KEY_ARN: ${{ vars.TF_STATE_KMS_KEY_ARN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          OPERATIONS_ALERT_EMAIL: ${{ vars.OPERATIONS_ALERT_EMAIL }}
+        run: |
+          required=(AWS_REGION AWS_TERRAFORM_ROLE_ARN AWS_GITHUB_OIDC_PROVIDER_ARN TF_STATE_BUCKET TF_STATE_KMS_KEY_ARN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN OPERATIONS_ALERT_EMAIL)
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing required ${{ inputs.environment }} infrastructure value: ${name}"
+              exit 1
+            fi
+          done
+
+      - name: Enforce protected apply branches
+        if: inputs.action == 'apply'
+        shell: bash
+        run: |
+          if [[ "${{ inputs.environment }}" == production && "$GITHUB_REF" != refs/heads/main ]]; then
+            echo '::error::Production Terraform apply is allowed only from main.'
+            exit 1
+          fi
+          if [[ "${{ inputs.environment }}" == staging && "$GITHUB_REF" != refs/heads/develop ]]; then
+            echo '::error::Staging Terraform apply is allowed only from develop.'
+            exit 1
+          fi
+
+      - name: Authenticate to AWS with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: terraform-${{ inputs.environment }}
+
+      - name: Initialize remote state
+        working-directory: infra/terraform/environments/${{ inputs.environment }}
+        run: >-
+          terraform init -input=false -reconfigure
+          -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          -backend-config="key=rpc/${{ inputs.environment }}.tfstate"
+          -backend-config="region=${{ vars.AWS_REGION }}"
+          -backend-config="encrypt=true"
+          -backend-config="kms_key_id=${{ vars.TF_STATE_KMS_KEY_ARN }}"
+          -backend-config="use_lockfile=true"
+
+      - name: Create plan
+        working-directory: infra/terraform/environments/${{ inputs.environment }}
+        run: terraform plan -input=false -lock-timeout=5m -out=deployment.tfplan
+
+      - name: Render plan for review
+        working-directory: infra/terraform/environments/${{ inputs.environment }}
+        run: |
+          terraform show -no-color deployment.tfplan > deployment.txt
+          cat deployment.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload immutable plan
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: terraform-${{ inputs.environment }}-${{ github.sha }}
+          path: |
+            infra/terraform/environments/${{ inputs.environment }}/deployment.tfplan
+            infra/terraform/environments/${{ inputs.environment }}/deployment.txt
+          if-no-files-found: error
+          retention-days: 2
+
+  apply:
+    name: Apply reviewed plan (${{ inputs.environment }})
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # This second protected deployment is deliberately separate from `plan`.
+    # Reviewers can inspect the rendered plan artifact before approving apply.
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      TF_IN_AUTOMATION: 'true'
+      TF_INPUT: 'false'
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TF_VAR_github_repository: ${{ github.repository }}
+      TF_VAR_github_oidc_provider_arn: ${{ vars.AWS_GITHUB_OIDC_PROVIDER_ARN }}
+      TF_VAR_operations_alert_email: ${{ vars.OPERATIONS_ALERT_EMAIL }}
+      TF_VAR_terraform_state_bucket_name: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_terraform_state_kms_key_arn: ${{ vars.TF_STATE_KMS_KEY_ARN }}
+    steps:
+      - name: Checkout reviewed commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Authenticate to AWS with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: terraform-apply-${{ inputs.environment }}
+
+      - name: Initialize remote state
+        working-directory: infra/terraform/environments/${{ inputs.environment }}
+        run: >-
+          terraform init -input=false -reconfigure
+          -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          -backend-config="key=rpc/${{ inputs.environment }}.tfstate"
+          -backend-config="region=${{ vars.AWS_REGION }}"
+          -backend-config="encrypt=true"
+          -backend-config="kms_key_id=${{ vars.TF_STATE_KMS_KEY_ARN }}"
+          -backend-config="use_lockfile=true"
+
+      - name: Download reviewed plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: terraform-${{ inputs.environment }}-${{ github.sha }}
+          path: infra/terraform/environments/${{ inputs.environment }}
+
+      - name: Apply reviewed plan
+        working-directory: infra/terraform/environments/${{ inputs.environment }}
+        run: terraform apply -input=false -lock-timeout=5m -auto-approve deployment.tfplan
+
+      - name: Show non-secret integration outputs
+        working-directory: infra/terraform/environments/${{ inputs.environment }}
+        run: |
+          terraform output github_deploy_role_arn
+          terraform output trading_rpc_vpc_service_id
+          terraform output admin_rpc_vpc_service_id
+          terraform output operations_topic_arn

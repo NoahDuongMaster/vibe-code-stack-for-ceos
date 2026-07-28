@@ -1,0 +1,5 @@
+cloudflare_account_id       = "replace-with-cloudflare-account-id"
+github_repository           = "owner/vibe-code-stack-for-ceos"
+github_oidc_provider_arn    = "arn:aws:iam::111122223333:oidc-provider/token.actions.githubusercontent.com"
+terraform_state_bucket_name = "replace-with-terraform-state-bucket"
+terraform_state_kms_key_arn  = "arn:aws:kms:ap-southeast-1:111122223333:key/replace-me"

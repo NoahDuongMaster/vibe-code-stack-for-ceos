@@ -3,5 +3,5 @@
   "compilerOptions": {
     "lib": ["ES2022", "DOM"]
   },
-  "include": ["src"]
+  "include": ["src", "*.config.ts", "*.config.mts", "*.config.cts"]
 }

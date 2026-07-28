@@ -1,4 +1,4 @@
 #!/bin/sh
-pnpm exec lint-staged
+./node_modules/.bin/lint-staged --concurrent false --verbose
 
 # AI code review runs at PR level via GitHub Models (.github/workflows/pr-review.yml)

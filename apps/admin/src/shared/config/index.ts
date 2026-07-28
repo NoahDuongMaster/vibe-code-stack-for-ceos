@@ -1,1 +1,1 @@
-export { API_URL, ENABLE_MOCK_AUTH, env } from '@/shared/config/env';
+export { API_URL, env } from '@/shared/config/env';

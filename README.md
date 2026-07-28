@@ -159,27 +159,27 @@ This is what "your AI org follows the handbook" looks like in practice — the r
 ### 🏛️ Architecture agents can't break
 
 Frontend boundaries are executable, not just conventions. All three frontends
-use canonical Feature-Sliced Design v2.1, checked by Steiger plus ESLint. The
-dapp keeps Next's framework entrypoints thin and places application code under
-the FSD root:
+use an FSD-inspired layered architecture checked by Steiger plus ESLint. The
+dapp keeps Next's framework entrypoints thin and gives application code explicit
+layer names:
 
 ```
 apps/dapp/
   app/              Next pages/layout/Route Handlers — delegation only
   proxy.ts          Next proxy entrypoint
   src/
-    _app/           App routes, providers, metadata, errors, proxy, styles
-    _pages/         Complete screens (api/model/ui)
+    bootstrap/      App composition: routes, providers, metadata, errors, styles
+    screens/        Complete route screens (api/model/ui)
     features/       Reusable user interactions such as sign-in
     entities/       Session domain API and model
     shared/         API client, config, focused libraries, routes, UI kit
 ```
 
-- Imports point downward only: `_app → _pages → widgets → features → entities → shared`
+- Imports point downward only: `bootstrap → screens → widgets → features → entities → shared`
 - Same-layer slices are isolated; every slice/segment has a Public API
 - Segment names describe purpose (`api`, `model`, `ui`, `config`), not file type
 - Optional layers stay absent until they add value — dapp has no `widgets` yet
-- `_app`/`_pages` avoid collisions with Next's root App and legacy Pages routers
+- `bootstrap`/`screens` avoid overloading framework and FSD `app`/`pages` names
 - Components never call `fetch()`; same-slice API modules use the Shared client
 
 ### 🌍 A real company, not a toy app
@@ -189,7 +189,7 @@ apps/dapp/
 | 🛍️  | `apps/dapp`            | Next.js 16 App Router on vinext (Vite)                                          | Cloudflare Workers |
 | 🛠️  | `apps/admin`           | React 19 SPA — Rsbuild, route-split, code-split                                 | Cloudflare Pages   |
 | 🪧  | `apps/landing`         | Astro — ships **literally zero JS**                                             | Cloudflare Workers |
-| 🧭  | `services/admin-rpc`   | Admin RPC facade — Connect + gRPC client to trading-rpc                         | Docker             |
+| 🧭  | `services/admin-rpc`   | Admin auth + market facade — Connect, JWT, gRPC client to trading-rpc            | Docker             |
 | ⚙️  | `services/trading-rpc` | Nest/Fastify hybrid — Connect + gRPC, PostgreSQL 18, `/healthz`                  | Docker             |
 | 🌐  | `services/api-gateway` | Edge gateway Worker — CORS allowlist, upstream proxy                            | Cloudflare Workers |
 | 📜  | `packages/protocol`    | Protobuf schemas, buf lint + breaking-change gate in CI                         | —                  |
@@ -204,9 +204,9 @@ apps/dapp/
 - Static CSP via `_headers` for admin/landing; allowlist-driven CORS across the backend
 - Boot-time kill switch: production **refuses to start** with placeholder secrets
 
-### 🚦 The Five Gates, everywhere
+### 🚦 The Six Gates, everywhere
 
-Husky pre-commit → CI (`typecheck`, `check:ci`, `lint`, `test`, `build`) → CI-gated deploys (`develop` → staging, `main` → production behind manual approval) → release-please automates versioning per workspace. Nobody deploys from a laptop. Nothing skips the gates.
+Husky pre-commit → CI (`typecheck`, `check:ci`, `lint`, `test`, `test:coverage`, `build`) → CI-gated deploys (`develop` → staging, `main` → production behind manual approval) → release-please automates versioning per workspace. Nobody deploys from a laptop. Nothing skips the gates.
 
 <details>
 <summary><b>🤖 Pre-commit AI Code Review (Code Review Graph MCP)</b></summary>
@@ -244,7 +244,7 @@ This isn't linting — it's structural understanding of your codebase.
 <tr><td><b>Monorepo</b></td><td>Turborepo + pnpm workspaces (strict env allowlists, cached gates)</td></tr>
 <tr><td><b>Backend API</b></td><td>Connect RPC (Protobuf/buf) — one core, two runtimes (Workers + Node)</td></tr>
 <tr><td><b>Database</b></td><td>PostgreSQL 18 + Drizzle ORM/Kit over a bounded node-postgres pool</td></tr>
-<tr><td><b>CI/CD</b></td><td>GitHub Actions — Five Gates + CodeQL + Playwright + Dependabot + release-please + CI-gated deploys</td></tr>
+<tr><td><b>CI/CD</b></td><td>GitHub Actions — Five Gates + Playwright + Dependabot + release-please + CI-gated deploys</td></tr>
 <tr><td><b>Containers</b></td><td>Docker definitions centralized in <code>infra/docker</code> (multi-stage, non-root)</td></tr>
 </table>
 
@@ -256,6 +256,11 @@ Install and activate [mise](https://mise.jdx.dev/installing-mise.html) first.
 Mise is the repository's supported toolchain and command interface. pnpm stays
 under the hood for dependency resolution and workspace execution.
 
+For the complete per-environment onboarding, provisioning, deployment, and
+rollback runbook, see
+[`docs/setup-and-deployment.en.md`](./docs/setup-and-deployment.en.md)
+([Tiếng Việt](./docs/setup-and-deployment.md)).
+
 ```bash
 # Clone
 git clone https://github.com/NoahDuongMaster/vibe-code-stack-for-ceos.git
@@ -264,21 +269,33 @@ cd vibe-code-stack-for-ceos
 # Install the locked Node.js/pnpm toolchain and frozen dependencies
 mise run setup
 
-# Native admin-rpc validates its service identity and trading-rpc endpoint
+# Copy the complete local defaults once on a fresh clone.
+cp .env.sample .env
+cp apps/dapp/.env.sample apps/dapp/.env
+cp apps/dapp/.dev.vars.sample apps/dapp/.dev.vars
+cp apps/admin/.env.sample apps/admin/.env
+cp apps/landing/.env.sample apps/landing/.env
+cp services/trading-rpc/.env.sample services/trading-rpc/.env
 cp services/admin-rpc/.env.sample services/admin-rpc/.env
+cp services/api-gateway/.dev.vars.sample services/api-gateway/.dev.vars
 
 # Start native hot reload plus its Docker VPC infrastructure
 mise run dev
 
 # …or one department
-mise run dev:web        # Next.js app      → http://localhost:3000
-mise run dev:admin      # React admin SPA  → http://localhost:3002
-mise run dev:landing    # Astro landing    → http://localhost:4321
+mise run dev:web        # Next.js app      → http://localhost:46000
+mise run dev:admin      # React admin SPA  → http://localhost:46001
+mise run dev:landing    # Astro landing    → http://localhost:46002
 mise run dev:api        # Native Connect-RPC; starts PostgreSQL first
 mise run dev:admin-api  # Admin RPC facade → trading-rpc native gRPC
-mise run dev:gateway    # Gateway; starts the development VPC origin first
+mise run dev:gateway    # Gateway           → http://localhost:46003
 mise run dev:backend    # Gateway + native admin-rpc + native trading-rpc
 ```
+
+Local listeners use the repository-specific `46000–46010` range rather than
+common framework/database ports. Docker VPC origins use `46104–46107` so they
+can run beside both native RPC services. Override Docker host ports in the root
+`.env` if one of these ports is already occupied.
 
 `mise run dev` starts PostgreSQL, the VPC-visible trading-rpc origin, and
 cloudflared before Turbo starts the six native hot-reload processes. Ctrl-C
@@ -298,7 +315,7 @@ the Worker locally with its remote development binding:
 mise run dev:gateway
 
 # In a second terminal
-curl -sS -X POST http://127.0.0.1:8787/trading.v1.TradingService/GetMarkets \
+curl -sS -X POST http://127.0.0.1:46003/trading.v1.TradingService/GetMarkets \
   -H 'content-type: application/json' \
   -H 'connect-protocol-version: 1' \
   --data '{"coinIds":["bitcoin","ethereum"],"vsCurrency":"usd"}'
@@ -313,33 +330,39 @@ The development VPC Service targets the network-scoped Docker alias
 `TRADING_RPC_PRIVATE_HOSTNAME` when an environment needs a different internal
 DNS suffix.
 
-`trading-rpc` keeps Connect on HTTP/1.1 port `3001` inside its container. In the
-hybrid topology the container publishes gRPC on `50052`, leaving `50051` for
-the native Nest process. The regular full-Docker topology continues to publish
-container gRPC on `50051`. For a
+`trading-rpc` keeps Connect/gRPC on `3001`/`50051` inside its container. Host
+diagnostics use `46104`/`46105`, leaving native `46004`/`46005` free. For a
 reliable CoinGecko quota, add a free Demo key as `COINGECKO_API_KEY` in
 `services/trading-rpc/.env`: the Node service owns the `TradingService` use
 case and its CoinGecko adapter, while the gateway only proxies the Connect
 request. Staging and production require isolated `TRADING_RPC` VPC Service IDs
 before those environments can proxy this capability.
 
-`admin-rpc` exposes `admin.v1.AdminService/GetMarkets`. It validates the admin
-request, calls `trading.v1.TradingService/GetMarkets` over native gRPC,
-validates the downstream response, and returns the coin market fields without
-owning CoinGecko or database logic. Browser/admin traffic calls it through the
-gateway's separate `ADMIN_RPC` VPC Service binding:
+`admin-rpc` exposes `auth.v1.AuthService/Login` and
+`admin.v1.AdminService/GetMarkets`. Login credentials and JWT signing stay on
+the server; the browser receives a short-lived signed token, and the gateway
+protects non-public RPC routes with the matching secret. The market facade
+validates the admin request, calls `trading.v1.TradingService/GetMarkets` over
+native gRPC, validates the downstream response, and returns the coin market
+fields without owning CoinGecko or database logic. Browser/admin traffic calls
+both services through the gateway's separate `ADMIN_RPC` VPC Service binding:
 
 ```bash
-curl -sS -X POST http://127.0.0.1:8787/admin.v1.AdminService/GetMarkets \
+curl -sS -X POST http://127.0.0.1:46003/admin.v1.AdminService/GetMarkets \
   -H 'content-type: application/json' \
   -H 'connect-protocol-version: 1' \
   --data '{"coinIds":["bitcoin","ethereum"],"vsCurrency":"usd"}'
 ```
 
-Register `admin-rpc.internal:3001` as a VPC Service and add its real service ID
-as `ADMIN_RPC` in `services/api-gateway/wrangler.jsonc`. Until that external
-resource exists, AdminService requests fail closed with 502 and are never sent
-to trading-rpc by mistake.
+Terraform registers `admin-rpc.internal:3001` and
+`trading-rpc.internal:3001` as separate VPC Services. Deployment CI reads their
+IDs from encrypted remote state and generates the environment-specific Wrangler
+config; no fake or manually copied service ID is committed. The two RPC images
+and the PostgreSQL/pgBackRest image deploy to one private EC2 host per
+environment through immutable ECR tags and Systems Manager, without SSH or
+public RPC/database ports. See
+[`infra/terraform/README.md`](./infra/terraform/README.md) for the complete
+AWS/Cloudflare bootstrap, plan, apply, rollout, and rollback runbook.
 
 Then point your AI tool of choice at the repo. It reads [`AGENTS.md`](./AGENTS.md) and behaves. That's it — that's the onboarding.
 
@@ -348,9 +371,9 @@ Then point your AI tool of choice at the repo. It reads [`AGENTS.md`](./AGENTS.m
 
 `infra/docker` is the single source of truth for container builds. Development
 uses one shared non-root workspace image for the Cloudflare-native apps,
-dedicated `admin-rpc` and `trading-rpc` images, the official PostgreSQL 18
-image, and `cloudflare/cloudflared:latest`. Every build uses the repo root as
-its context.
+dedicated `admin-rpc` and `trading-rpc` images, a pgBackRest-enabled PostgreSQL
+18 image based on the official image, and `cloudflare/cloudflared:latest`.
+Every build uses the repo root as its context.
 
 ```bash
 # Development: six runtimes + PostgreSQL + cloudflared
@@ -368,19 +391,19 @@ mise run docker:start:trading-rpc
 make logs-development
 mise run docker:stop
 
-# Staging      → http://localhost:3002
+# Staging      → http://localhost:46200
 docker compose -f infra/docker/compose.yaml -f infra/docker/compose.staging.yaml up --build
 
 # Production   → http://localhost:80
 docker compose -f infra/docker/compose.yaml -f infra/docker/compose.prod.yaml up --build
 ```
 
-Development exposes dapp on `3000`, admin on `3002`, landing on `4321`, the
-gateway on `8787`, trading-rpc Connect/gRPC on `3003`/`50051`, and admin-rpc
-Connect/gRPC on `3004`/`50052` in the full Docker stack. Native admin-rpc uses
-gRPC port `50053` while the hybrid VPC origin occupies host port `50052`.
-PostgreSQL is available only on loopback port `5433` and persists through the
-named `postgres-data` volume.
+Development exposes dapp on `46000`, admin on `46001`, landing on `46002`, the
+gateway on `46003`, trading-rpc Connect/gRPC on `46104`/`46105`, and admin-rpc
+Connect/gRPC on `46106`/`46107` in the Docker stack. Native trading-rpc uses
+`46004`/`46005`, and native admin-rpc uses `46006`/`46007`; the separate
+VPC-origin ports allow both pairs to run together. PostgreSQL is available only
+on loopback port `46008` and persists through the named `postgres-data` volume.
 The trading-rpc capability owns its Drizzle schema and generated migration
 journal. Use `pnpm --filter @services/trading-rpc db:generate` after changing
 the schema and `pnpm --filter @services/trading-rpc db:migrate` to migrate a
@@ -398,7 +421,11 @@ It requires the rotated tunnel token at
 <details>
 <summary><b>🔑 Environment variables</b></summary>
 
-Declared in `apps/dapp/src/shared/config/env.ts` with Zod validation. Never use `process.env` directly. Copy `apps/dapp/.env.sample` to get started.
+Declared in `apps/dapp/src/shared/config/env.ts` with Zod validation. Application
+configuration never reads `process.env` outside validated config boundaries;
+framework-owned execution flags are the documented exception. Every committed
+sample contains runnable local values; copy the samples shown in Quick Start
+before starting the stack.
 
 | Variable                         | Required                  | Description                                                                                                                                   |
 | -------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -407,7 +434,7 @@ Declared in `apps/dapp/src/shared/config/env.ts` with Zod validation. Never use 
 | `SESSION_SECRET`                 | Yes                       | iron-session secret (32+ chars)                                                                                                               |
 | `DEMO_AUTH_EMAIL`                | Yes                       | Login email for the built-in demo auth flow (`src/features/sign-in/model/verify-credentials.server.ts`) — the server refuses to boot without it |
 | `DEMO_AUTH_PASSWORD`             | Yes                       | Login password for the built-in demo auth flow — refuses to boot without it, and refuses to boot in production if left as a known placeholder |
-| `NEXT_PUBLIC_API_ENDPOINT`       | Optional                  | Backend API base URL                                                                                                                          |
+| `NEXT_PUBLIC_API_ENDPOINT`       | Yes                       | API gateway base URL                                                                                                                          |
 | `NEXT_PUBLIC_CORS_COOKIE`        | Optional                  | Cookie domain for CORS                                                                                                                        |
 | `NEXT_PUBLIC_SENTRY_DSN`         | Optional                  | Sentry DSN (blank disables Sentry)                                                                                                            |
 | `CORS_ORIGINS` / `CORS_RESOURCE` | Optional                  | Server-only CORS allowlists                                                                                                                   |
@@ -432,7 +459,12 @@ Declared in `apps/dapp/src/shared/config/env.ts` with Zod validation. Never use 
 | `mise run lint`                                                                      | Run ESLint, Biome, buf, and architecture checks              |
 | `mise run check` / `check:ci` / `format`                                             | Apply Biome fixes / run the read-only gate / format files    |
 | `mise run test`                                                                      | Run toolchain and workspace unit tests                       |
+| `mise run test:coverage`                                                             | Enforce frontend feature/entity coverage thresholds          |
 | `mise run test:e2e`                                                                  | Run dapp Playwright tests                                    |
+| `mise run test:e2e:production`                                                       | Build and test the dapp production server                    |
+| `mise run test:docker`                                                               | Test release images and PostgreSQL backup/restore             |
+| `mise run test:protocol`                                                             | Check generated protobuf code and compatibility               |
+| `mise run security:audit`                                                            | Reject known high-severity dependency vulnerabilities         |
 | `mise run verify`                                                                    | Run every definition-of-done gate sequentially               |
 | `mise run docker:start` / `docker:stop` / `docker:check`                             | Operate or validate the complete Docker development stack    |
 | `mise run docker:start:dapp` / `docker:start:admin` / `docker:start:landing`         | Start one frontend container and its declared dependencies   |
@@ -448,8 +480,8 @@ Deployment remains GitHub Actions-only.
 ```
 .
 ├── apps/
-│   ├── dapp/                     Next.js 16 app (vinext) — canonical FSD v2.1
-│   ├── admin/                    React 19 admin SPA — canonical FSD v2.1
+│   ├── dapp/                     Next.js 16 app (vinext) — layered architecture
+│   ├── admin/                    React 19 admin SPA — layered architecture
 │   └── landing/                  Astro marketing site (zero JS)
 ├── packages/
 │   ├── protocol/                 Protobuf/Connect contracts (buf codegen → src/gen)

@@ -4,7 +4,7 @@ name: PR Review (GitHub Models)
 # No external API key, no paid service. (Replaces the OpenAI-based PR-Agent.)
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review, synchronize]
 
 permissions:
   contents: read
@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Collect PR diff (capped for context limits)
         id: diff
@@ -31,16 +31,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr diff "${{ github.event.pull_request.number }}" > full.diff || true
-          head -c 60000 full.diff > pr.txt
+          head -c 180000 full.diff > pr.txt
           echo "chars=$(wc -c < pr.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
 
       - name: AI review via GitHub Models
         id: ai
         if: ${{ steps.diff.outputs.chars != '0' }}
-        uses: actions/ai-inference@v2
+        uses: actions/ai-inference@a7805884c80886efc241e94a5351df715968a0ad # v2
         with:
           model: openai/gpt-4o-mini
-          max-completion-tokens: 1200
+          max-completion-tokens: 2400
           system-prompt: |
             You are a senior code reviewer for a pnpm + Turborepo monorepo
             (Next.js/vinext, React/Rsbuild, Astro, and Connect RPC services).
@@ -61,7 +61,7 @@ jobs:
         # createComment call would 403. continue-on-error keeps that from
         # showing a red X on every community contributor's PR.
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           REVIEW: ${{ steps.ai.outputs.response }}
         with:

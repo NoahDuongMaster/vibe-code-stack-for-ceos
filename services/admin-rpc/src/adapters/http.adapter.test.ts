@@ -4,7 +4,7 @@ import {
   createConnectTransport,
   createGrpcTransport,
 } from '@connectrpc/connect-node';
-import { AdminService, HealthService } from '@packages/protocol';
+import { AdminService, AuthService, HealthService } from '@packages/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createServer } from '@/adapters/http.adapter';
 
@@ -30,17 +30,35 @@ describe('createServer (admin-rpc)', () => {
       vsCurrency: 'usd',
     })),
   };
+  const identity = {
+    id: 'admin',
+    email: 'admin@example.com',
+    name: 'Administrator',
+  };
+  const authentication = {
+    credentialVerifier: {
+      verify: vi.fn(async (email: string, password: string) =>
+        email === identity.email && password === 'valid-password'
+          ? identity
+          : null,
+      ),
+    },
+    accessTokenIssuer: { issue: vi.fn(async () => 'signed-token') },
+  };
 
   afterEach(async () => {
     await app?.close();
     app = undefined;
     tradingMarketData.getMarkets.mockClear();
+    authentication.credentialVerifier.verify.mockClear();
+    authentication.accessTokenIssuer.issue.mockClear();
   });
 
   it('should expose AdminService over Connect and delegate to trading-rpc', async () => {
     app = await createServer({
       serviceName: 'admin-rpc-test',
       tradingMarketData,
+      authentication,
       http2: false,
       enableGrpc: false,
       enableShutdownHooks: false,
@@ -65,6 +83,20 @@ describe('createServer (admin-rpc)', () => {
       vsCurrency: 'usd',
     });
     expect(tradingMarketData.getMarkets).toHaveBeenCalledOnce();
+
+    const authClient = createClient(
+      AuthService,
+      createConnectTransport({
+        baseUrl: `http://127.0.0.1:${port}`,
+        httpVersion: '1.1',
+      }),
+    );
+    await expect(
+      authClient.login({
+        email: identity.email,
+        password: 'valid-password',
+      }),
+    ).resolves.toMatchObject({ token: 'signed-token', user: identity });
   });
 
   it('should expose the configured identity over native gRPC', async () => {
@@ -72,6 +104,7 @@ describe('createServer (admin-rpc)', () => {
     app = await createServer({
       serviceName: 'admin-rpc-test',
       tradingMarketData,
+      authentication,
       http2: false,
       grpcUrl: `127.0.0.1:${grpcPort}`,
       enableShutdownHooks: false,
@@ -100,5 +133,16 @@ describe('createServer (admin-rpc)', () => {
       markets: [{ id: 'bitcoin', name: 'Bitcoin' }],
       vsCurrency: 'usd',
     });
+
+    const authClient = createClient(
+      AuthService,
+      createGrpcTransport({ baseUrl: `http://127.0.0.1:${grpcPort}` }),
+    );
+    await expect(
+      authClient.login({
+        email: identity.email,
+        password: 'valid-password',
+      }),
+    ).resolves.toMatchObject({ token: 'signed-token', user: identity });
   });
 });

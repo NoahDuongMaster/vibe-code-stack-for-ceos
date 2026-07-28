@@ -30,4 +30,31 @@ describe('[parseGatewayRuntimeConfig]', () => {
       /SERVICE_NAME/,
     );
   });
+
+  it('should require explicit CORS and a strong JWT secret outside development', () => {
+    expect(() =>
+      parseGatewayRuntimeConfig({
+        SERVICE_NAME: 'api-gateway',
+        ENVIRONMENT: 'production',
+      }),
+    ).toThrow(/CORS_ORIGINS/);
+
+    expect(() =>
+      parseGatewayRuntimeConfig({
+        SERVICE_NAME: 'api-gateway',
+        ENVIRONMENT: 'staging',
+        CORS_ORIGINS: 'https://admin.example.com',
+        JWT_SECRET: 'too-short',
+      }),
+    ).toThrow(/JWT_SECRET/);
+
+    expect(
+      parseGatewayRuntimeConfig({
+        SERVICE_NAME: 'api-gateway',
+        ENVIRONMENT: 'production',
+        CORS_ORIGINS: 'https://admin.example.com',
+        JWT_SECRET: 'production-secret-at-least-32-characters',
+      }),
+    ).toMatchObject({ environment: 'production' });
+  });
 });

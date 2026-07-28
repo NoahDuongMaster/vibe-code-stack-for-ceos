@@ -2,10 +2,11 @@
 #   docker build -f infra/docker/trading-rpc.Dockerfile -t trading-rpc .
 FROM postgres:18.4-alpine3.24@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15 AS postgres-tools
 
-FROM node:22-slim AS base
+FROM node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS base
 ENV PNPM_HOME="/pnpm"
+ENV COREPACK_DEFAULT_TO_LATEST="0"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+RUN corepack enable && corepack install --global pnpm@11.2.2
 
 # 1. Install workspace deps for building (symlinked layout — fine for build-time,
 #    since @packages/api-core and @packages/protocol are bundled into dist/index.js below).
@@ -29,35 +30,19 @@ COPY packages/api-core ./packages/api-core
 COPY services/trading-rpc ./services/trading-rpc
 RUN pnpm --filter @services/trading-rpc build
 
-# 3. Production deps: everything importable is bundled into dist/index.js by
-#    tsup EXCEPT runtime-framework packages — Sentry, Nest, Fastify, grpc-js,
-#    proto-loader, Drizzle/pg, reflection, and RxJS. These rely on runtime metadata,
-#    dynamic loading, or native framework plugin semantics and are resolved
-#    from a real node_modules at runtime. Installed in an isolated, non-
-#    workspace directory so it doesn't need pnpm's monorepo/lockfile context.
+# 3. Production dependencies use the repository lockfile and override policy.
+#    A hoisted filtered install gives the bundled service a flat runtime
+#    node_modules without resolving fresh semver ranges during an image build.
 FROM base AS prod-deps
-WORKDIR /prod
-ARG INCLUDE_PRETTY_LOGGER=false
-COPY services/trading-rpc/package.json ./trading-rpc-package.json
-RUN INCLUDE_PRETTY_LOGGER="$INCLUDE_PRETTY_LOGGER" node -e "\
-  const pkg = JSON.parse(require('node:fs').readFileSync('./trading-rpc-package.json', 'utf8')); \
-  const externals = [ \
-    '@sentry/node', 'fastify', '@fastify/cors', '@fastify/rate-limit', \
-    '@nestjs/common', '@nestjs/core', '@nestjs/microservices', \
-    '@nestjs/platform-fastify', '@grpc/grpc-js', '@grpc/proto-loader', \
-    'drizzle-orm', 'pg', 'reflect-metadata', 'rxjs' \
-  ]; \
-  if (process.env.INCLUDE_PRETTY_LOGGER === 'true') externals.push('pino-pretty'); \
-  const dependencies = Object.fromEntries(externals.map((name) => [ \
-    name, pkg.dependencies[name] ?? pkg.devDependencies[name] \
-  ])); \
-  require('node:fs').writeFileSync('package.json', JSON.stringify({ \
-    name: 'trading-rpc-runtime', private: true, dependencies \
-  })); \
-  require('node:fs').writeFileSync('pnpm-workspace.yaml', \
-    'allowBuilds:\n  protobufjs: true\n'); \
-  " \
- && pnpm install --no-frozen-lockfile
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY packages/protocol/package.json ./packages/protocol/
+COPY packages/api-core/package.json ./packages/api-core/
+COPY services/trading-rpc/package.json ./services/trading-rpc/
+COPY .pnpmfile.mjs ./
+COPY scripts/check-install-context.ts ./scripts/
+RUN MISE_TASK_NAME=setup pnpm install --frozen-lockfile --prod --ignore-scripts \
+    --filter @services/trading-rpc... --config.node-linker=hoisted
 
 # 4. Runner — Nest/Fastify Connect endpoint plus native Nest gRPC endpoint.
 FROM base AS runner
@@ -67,7 +52,7 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 trading-rpc && \
     adduser --system --uid 1001 trading-rpc
 
-COPY --from=prod-deps --chown=trading-rpc:trading-rpc /prod/node_modules ./node_modules
+COPY --from=prod-deps --chown=trading-rpc:trading-rpc /app/node_modules ./node_modules
 COPY --from=builder --chown=trading-rpc:trading-rpc /app/services/trading-rpc/dist ./dist
 COPY --from=builder --chown=trading-rpc:trading-rpc /app/services/trading-rpc/package.json ./package.json
 COPY --from=postgres-tools /usr/local/bin/gosu /usr/local/bin/gosu

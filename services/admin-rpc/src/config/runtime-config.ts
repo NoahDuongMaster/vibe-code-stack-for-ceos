@@ -8,6 +8,10 @@ export interface TRuntimeConfig {
   grpcPort: number;
   tradingRpcGrpcUrl: string;
   tradingRpcTimeoutMs: number;
+  adminAuthEmail: string;
+  adminAuthPassword: string;
+  jwtSecret: string;
+  jwtTtlSeconds: number;
   rpcTransport: RpcTransport;
   corsOrigins: string[];
   sentryDsn?: string;
@@ -51,6 +55,10 @@ const ZRuntimeEnvironment = z.object({
   GRPC_PORT: ZOptionalPositiveInteger,
   TRADING_RPC_GRPC_URL: ZTradingRpcGrpcUrl,
   TRADING_RPC_TIMEOUT_MS: ZOptionalPositiveInteger,
+  ADMIN_AUTH_EMAIL: z.email(),
+  ADMIN_AUTH_PASSWORD: z.string().min(12),
+  JWT_SECRET: z.string().min(32),
+  JWT_TTL_SECONDS: ZOptionalPositiveInteger,
   RPC_TRANSPORT: z.preprocess(
     normalizeOptionalString,
     z.enum(['http1', 'http2']).optional(),
@@ -81,10 +89,14 @@ export const parseRuntimeConfig = (
   return {
     serviceName: parsed.data.SERVICE_NAME,
     nodeEnv: parsed.data.NODE_ENV ?? 'development',
-    port: parsed.data.PORT ?? 3004,
-    grpcPort: parsed.data.GRPC_PORT ?? 50053,
+    port: parsed.data.PORT ?? 46_006,
+    grpcPort: parsed.data.GRPC_PORT ?? 46_007,
     tradingRpcGrpcUrl: parsed.data.TRADING_RPC_GRPC_URL.replace(/\/+$/, ''),
     tradingRpcTimeoutMs: parsed.data.TRADING_RPC_TIMEOUT_MS ?? 5_000,
+    adminAuthEmail: parsed.data.ADMIN_AUTH_EMAIL,
+    adminAuthPassword: parsed.data.ADMIN_AUTH_PASSWORD,
+    jwtSecret: parsed.data.JWT_SECRET,
+    jwtTtlSeconds: parsed.data.JWT_TTL_SECONDS ?? 28_800,
     rpcTransport: resolveRpcTransport(parsed.data.RPC_TRANSPORT),
     corsOrigins: normalizeCorsOrigins(parsed.data.CORS_ORIGINS),
     sentryDsn: parsed.data.SENTRY_DSN,

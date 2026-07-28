@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# Terraform expands the single-quoted template placeholders before this script
+# reaches EC2; shell expansion here would be incorrect.
+# shellcheck disable=SC2016
+set -Eeuo pipefail
+exec > >(tee -a /var/log/vibe-rpc-bootstrap.log | logger -t vibe-rpc-bootstrap -s 2>/dev/console) 2>&1
+
+dnf install -y curl docker jq xfsprogs
+command -v aws >/dev/null
+systemctl enable --now docker
+systemctl enable --now amazon-ssm-agent
+
+install -d -o root -g root -m 0755 /usr/local/lib/docker/cli-plugins
+curl --fail --silent --show-error --location \
+  '${docker_compose_url}' \
+  --output /usr/local/lib/docker/cli-plugins/docker-compose
+printf '%s  %s\n' \
+  '${docker_compose_sha256}' \
+  /usr/local/lib/docker/cli-plugins/docker-compose | sha256sum --check
+chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose
+
+install -d -o root -g root -m 0755 /opt/vibe-rpc
+install -d -o root -g root -m 0700 /etc/vibe-rpc
+aws s3 cp \
+  's3://${bootstrap_assets_bucket}/${compose_key}' \
+  /opt/vibe-rpc/compose.yaml \
+  --region '${aws_region}' \
+  --only-show-errors
+aws s3 cp \
+  's3://${bootstrap_assets_bucket}/${deploy_script_key}' \
+  /usr/local/bin/vibe-rpc-deploy \
+  --region '${aws_region}' \
+  --only-show-errors
+aws s3 cp \
+  's3://${bootstrap_assets_bucket}/${monitor_script_key}' \
+  /usr/local/bin/vibe-rpc-monitor \
+  --region '${aws_region}' \
+  --only-show-errors
+printf '%s  %s\n' '${compose_sha256}' /opt/vibe-rpc/compose.yaml | sha256sum --check
+printf '%s  %s\n' '${deploy_script_sha256}' /usr/local/bin/vibe-rpc-deploy | sha256sum --check
+printf '%s  %s\n' '${monitor_script_sha256}' /usr/local/bin/vibe-rpc-monitor | sha256sum --check
+chmod 0644 /opt/vibe-rpc/compose.yaml
+chmod 0750 /usr/local/bin/vibe-rpc-deploy /usr/local/bin/vibe-rpc-monitor
+
+if ! swapon --show=NAME --noheadings | grep -Fxq /swapfile; then
+  if [ ! -f /swapfile ]; then
+    fallocate -l 2G /swapfile
+    chmod 0600 /swapfile
+    mkswap /swapfile
+  fi
+  grep -Fq '/swapfile none swap' /etc/fstab || \
+    printf '/swapfile none swap sw 0 0\n' >>/etc/fstab
+  swapon /swapfile
+fi
+
+mount_persistent_volume() {
+  local volume_id=$1
+  local mount_path=$2
+  local device="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_$${volume_id//-/}"
+
+  for _ in $(seq 1 120); do
+    [ -b "$device" ] && break
+    sleep 5
+  done
+  [ -b "$device" ] || {
+    printf 'Timed out waiting for EBS volume: %s\n' "$volume_id" >&2
+    exit 1
+  }
+
+  if ! blkid "$device" >/dev/null 2>&1; then
+    mkfs.xfs "$device"
+  fi
+  install -d -o root -g root -m 0755 "$mount_path"
+  local filesystem_uuid
+  filesystem_uuid=$(blkid -s UUID -o value "$device")
+  grep -Fq "UUID=$filesystem_uuid " /etc/fstab || \
+    printf 'UUID=%s %s xfs defaults,nofail 0 2\n' \
+      "$filesystem_uuid" "$mount_path" >>/etc/fstab
+  mountpoint -q "$mount_path" || mount "$mount_path"
+}
+
+mount_persistent_volume '${postgres_data_volume_id}' /srv/vibe-rpc/postgres
+mount_persistent_volume '${postgres_backup_stage_volume_id}' /srv/vibe-rpc/backup-stage
+mount_persistent_volume '${postgres_restore_stage_volume_id}' /srv/vibe-rpc/restore-stage
+
+cat >/etc/vibe-rpc/infra.env <<'EOF'
+AWS_REGION=${aws_region}
+DEPLOYMENT_ENVIRONMENT=${environment}
+RUNTIME_SECRET_ARN=${runtime_secret_arn}
+BACKUP_RECOVERY_SECRET_ARN=${backup_recovery_secret_arn}
+BACKUP_MANIFEST_KMS_KEY_ARN=${backup_manifest_kms_key_arn}
+TRADING_RPC_REPOSITORY_URL=${trading_rpc_repository_url}
+ADMIN_RPC_REPOSITORY_URL=${admin_rpc_repository_url}
+POSTGRES_REPOSITORY_URL=${postgres_repository_url}
+CLOUDFLARED_IMAGE=${cloudflared_image}
+TRADING_RPC_LOG_GROUP=${trading_rpc_log_group}
+ADMIN_RPC_LOG_GROUP=${admin_rpc_log_group}
+CLOUDFLARED_LOG_GROUP=${cloudflared_log_group}
+POSTGRES_LOG_GROUP=${postgres_log_group}
+POSTGRES_BACKUP_LOG_GROUP=${postgres_backup_log_group}
+DATABASE_POOL_MAX=${database_pool_max}
+EOF
+chmod 0600 /etc/vibe-rpc/infra.env
+
+cat >/usr/local/bin/vibe-rpc-start <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+desired_tag=$(aws ssm get-parameter \
+  --region '${aws_region}' \
+  --name '${desired_image_tag_parameter_name}' \
+  --query Parameter.Value \
+  --output text)
+if [ "$desired_tag" = bootstrap-pending ]; then
+  printf 'No successful RPC release has been recorded yet\n'
+  exit 0
+fi
+exec /usr/local/bin/vibe-rpc-deploy "$desired_tag"
+EOF
+chmod 0750 /usr/local/bin/vibe-rpc-start
+
+cat >/etc/systemd/system/vibe-rpc.service <<'EOF'
+[Unit]
+Description=Restore the last successful Vibe RPC and PostgreSQL release
+After=docker.service network-online.target local-fs.target
+Wants=network-online.target
+Requires=docker.service
+RequiresMountsFor=/srv/vibe-rpc/postgres /srv/vibe-rpc/backup-stage /srv/vibe-rpc/restore-stage
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/vibe-rpc-start
+RemainAfterExit=yes
+TimeoutStartSec=30min
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable --now vibe-rpc.service
+
+cat >/etc/systemd/system/vibe-rpc-monitor.service <<'EOF'
+[Unit]
+Description=Publish Vibe RPC container, backup, disk, inode, and memory health
+After=vibe-rpc.service
+Requires=vibe-rpc.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/vibe-rpc-monitor
+EOF
+
+cat >/etc/systemd/system/vibe-rpc-monitor.timer <<'EOF'
+[Unit]
+Description=Run the Vibe RPC health monitor every five minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+systemctl enable --now vibe-rpc-monitor.timer

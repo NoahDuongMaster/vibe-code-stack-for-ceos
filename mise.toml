@@ -1,8 +1,11 @@
 min_version = "2026.7.7"
 
 [tools]
-node = "22"
+actionlint = "1.7.12"
+node = "22.23.1"
 pnpm = "11.2.2"
+shellcheck = "0.11.0"
+terraform = "1.15.8"
 
 [settings]
 lockfile = true
@@ -46,7 +49,7 @@ depends = ["dev:database"]
 run = "pnpm internal:dev:api"
 
 [tasks."dev:admin-api"]
-description = "Start admin-rpc (requires trading-rpc native gRPC on port 50051)"
+description = "Start admin-rpc (requires trading-rpc native gRPC on port 46005)"
 run = "pnpm internal:dev:admin-api"
 
 [tasks."dev:gateway"]
@@ -83,9 +86,34 @@ run = "pnpm internal:lint"
 description = "Run repository unit tests"
 run = "pnpm internal:test"
 
+[tasks."test:coverage"]
+description = "Enforce frontend feature and entity coverage thresholds"
+run = "pnpm internal:test:coverage"
+
 [tasks."test:e2e"]
 description = "Run dapp Playwright tests"
 run = "pnpm internal:test:e2e"
+
+[tasks."test:e2e:production"]
+description = "Build and run dapp E2E tests against the production server"
+run = "pnpm internal:test:e2e:production"
+
+[tasks."test:docker"]
+description = "Run Docker validation, backup tests, integration restore, and release-image checks"
+run = [
+  "make check-docker",
+  "make test-postgres-backup-scripts",
+  "make test-postgres-backup-integration",
+  "make test-release-image-dependencies",
+]
+
+[tasks."test:protocol"]
+description = "Verify protobuf code generation and backward compatibility"
+run = "pnpm --filter @packages/protocol generate:check && pnpm --filter @packages/protocol breaking"
+
+[tasks."security:audit"]
+description = "Reject high-severity dependency vulnerabilities"
+run = "pnpm audit --audit-level=high"
 
 [tasks.build]
 description = "Run production builds"
@@ -102,7 +130,12 @@ run = [
   { task = "check:ci" },
   { task = "lint" },
   { task = "test" },
+  { task = "test:coverage" },
   { task = "build" },
+  { task = "test:e2e:production" },
+  { task = "test:protocol" },
+  { task = "security:audit" },
+  { task = "test:docker" },
 ]
 
 [tasks."docker:start"]
@@ -140,3 +173,14 @@ run = "make stop-development"
 [tasks."docker:check"]
 description = "Validate Docker definitions"
 run = "make check-docker"
+
+[tasks."terraform:check"]
+description = "Format-check and validate every Terraform environment"
+run = "infra/terraform/check.sh"
+
+[tasks."ops:check"]
+description = "Validate GitHub Actions and deployment shell scripts"
+run = [
+  "actionlint",
+  "shellcheck infra/terraform/check.sh infra/terraform/deploy-rpc.sh infra/terraform/modules/rpc-stack/files/deploy.sh infra/terraform/modules/rpc-stack/files/bootstrap.sh.tftpl",
+]

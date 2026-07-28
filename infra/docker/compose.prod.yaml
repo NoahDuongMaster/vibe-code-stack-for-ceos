@@ -6,9 +6,9 @@ services:
         # NEXT_PUBLIC_* values are inlined at build time. Override every
         # placeholder through the shell/environment used to build this image.
         NEXT_PUBLIC_PROJECT_NAME: ${NEXT_PUBLIC_PROJECT_NAME:-vibe-code-stack-for-ceos}
-        NEXT_PUBLIC_API_ENDPOINT: ${NEXT_PUBLIC_API_ENDPOINT:-https://api.example.com}
-        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-https://app.example.com}
-        NEXT_PUBLIC_CORS_COOKIE: ${NEXT_PUBLIC_CORS_COOKIE:-example.com}
+        NEXT_PUBLIC_API_ENDPOINT: ${NEXT_PUBLIC_API_ENDPOINT:?Set NEXT_PUBLIC_API_ENDPOINT}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:?Set NEXT_PUBLIC_BASE_URL}
+        NEXT_PUBLIC_CORS_COOKIE: ${NEXT_PUBLIC_CORS_COOKIE:?Set NEXT_PUBLIC_CORS_COOKIE}
     ports:
       - '80:3000'
     # Required runtime secrets live in this git-ignored file. Compose refuses

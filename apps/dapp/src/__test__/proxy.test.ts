@@ -1,7 +1,7 @@
 import { sealData } from 'iron-session';
 import { NextRequest } from 'next/server';
 import { describe, expect, it, vi } from 'vitest';
-import { handleProxy } from '@/_app/proxy';
+import { handleProxy } from '@/bootstrap/proxy';
 import { SESSION_COOKIE_NAME } from '@/entities/session';
 
 const SESSION_SECRET = 'test-session-secret-min-32-chars!!';
@@ -15,7 +15,7 @@ const sealSession = (data: unknown) =>
 
 describe('proxy middleware', () => {
   it('should allow unauthenticated requests to public routes', async () => {
-    const req = new NextRequest('http://localhost:3000/');
+    const req = new NextRequest('http://localhost:46000/');
 
     const res = await handleProxy(req);
 
@@ -23,7 +23,7 @@ describe('proxy middleware', () => {
   });
 
   it('should allow runtime style attributes without weakening inline style elements', async () => {
-    const req = new NextRequest('http://localhost:3000/');
+    const req = new NextRequest('http://localhost:46000/');
 
     const res = await handleProxy(req);
     const policy = res.headers.get('content-security-policy-report-only');
@@ -34,7 +34,7 @@ describe('proxy middleware', () => {
   });
 
   it('should redirect unauthenticated requests to /account to /sign-in with a callbackUrl', async () => {
-    const req = new NextRequest('http://localhost:3000/account');
+    const req = new NextRequest('http://localhost:46000/account');
 
     const res = await handleProxy(req);
 
@@ -45,7 +45,7 @@ describe('proxy middleware', () => {
   });
 
   it('should reject a request with a forged/garbage session cookie', async () => {
-    const req = new NextRequest('http://localhost:3000/account', {
+    const req = new NextRequest('http://localhost:46000/account', {
       headers: { cookie: `${SESSION_COOKIE_NAME}=not-a-real-sealed-value` },
     });
 
@@ -56,7 +56,7 @@ describe('proxy middleware', () => {
 
   it('should reject a validly sealed but logged-out session cookie', async () => {
     const sealed = await sealSession({ isLoggedIn: false });
-    const req = new NextRequest('http://localhost:3000/account', {
+    const req = new NextRequest('http://localhost:46000/account', {
       headers: { cookie: `${SESSION_COOKIE_NAME}=${sealed}` },
     });
 
@@ -70,7 +70,7 @@ describe('proxy middleware', () => {
       isLoggedIn: true,
       user: { id: '1', email: 'demo@example.com' },
     });
-    const req = new NextRequest('http://localhost:3000/account', {
+    const req = new NextRequest('http://localhost:46000/account', {
       headers: { cookie: `${SESSION_COOKIE_NAME}=${sealed}` },
     });
 

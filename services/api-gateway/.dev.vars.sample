@@ -1,4 +1,4 @@
-# Optional api-gateway Worker secrets for local development.
+# api-gateway Worker secrets for local development.
 # `pnpm dev` always selects env.development from wrangler.jsonc and requires its
 # remote `TRADING_RPC` VPC Service binding. There is no direct-URL fallback.
 #
@@ -7,9 +7,9 @@
 # `TRADING_RPC` is a binding, never a plaintext variable. Wrangler must be
 # authenticated because the development binding uses `remote: true`.
 #
-# JWT_SECRET turns on bearer-token auth at the gateway (opt-in): leave it unset
-# to keep auth disabled in local dev; set it to enforce JWT verification on
-# every non-public route. In production provision it with:
+# Use the same development signing secret as services/admin-rpc/.env.sample so
+# the full local login flow works. Outside development provision a unique secret
+# with:
 #   wrangler secret put JWT_SECRET --env production
-# JWT_SECRET=""
+JWT_SECRET=local-jwt-secret-at-least-32-characters
 #

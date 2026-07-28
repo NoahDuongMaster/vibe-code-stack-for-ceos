@@ -9,5 +9,4 @@ interface RsbuildTypeOptions {
 interface ImportMetaEnv {
   readonly PUBLIC_API_URL?: string;
   readonly PUBLIC_SENTRY_DSN?: string;
-  readonly PUBLIC_ENABLE_MOCK_AUTH?: string;
 }

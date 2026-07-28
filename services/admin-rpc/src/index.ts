@@ -1,6 +1,12 @@
+import { readFileSync } from 'node:fs';
 import * as Sentry from '@sentry/node';
 import { createServer } from '@/adapters/http.adapter';
 import { parseRuntimeConfig } from '@/config/runtime-config';
+import { resolveRuntimeEnvironment } from '@/config/runtime-environment';
+import {
+  createConfiguredCredentialVerifier,
+  createJwtAccessTokenIssuer,
+} from '@/features/authentication';
 import { createTradingRpcMarketData } from '@/features/coin-information';
 import { resolveFastifyLoggerOptions } from '@/platform/fastify/logger-options';
 
@@ -45,7 +51,11 @@ process.on('uncaughtException', (error) => {
 });
 
 async function main() {
-  const config = parseRuntimeConfig(process.env);
+  const config = parseRuntimeConfig(
+    resolveRuntimeEnvironment(process.env, (path) =>
+      readFileSync(path, 'utf8'),
+    ),
+  );
   if (config.sentryDsn) {
     Sentry.init({
       dsn: config.sentryDsn,
@@ -57,6 +67,21 @@ async function main() {
 
   server = await createServer({
     serviceName: config.serviceName,
+    authentication: {
+      credentialVerifier: createConfiguredCredentialVerifier({
+        email: config.adminAuthEmail,
+        password: config.adminAuthPassword,
+        identity: {
+          id: 'admin',
+          email: config.adminAuthEmail,
+          name: 'Administrator',
+        },
+      }),
+      accessTokenIssuer: createJwtAccessTokenIssuer({
+        secret: config.jwtSecret,
+        ttlSeconds: config.jwtTtlSeconds,
+      }),
+    },
     tradingMarketData: createTradingRpcMarketData({
       baseUrl: config.tradingRpcGrpcUrl,
       timeoutMs: config.tradingRpcTimeoutMs,

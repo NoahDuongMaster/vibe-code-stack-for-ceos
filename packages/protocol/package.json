@@ -8,7 +8,7 @@
   },
   "scripts": {
     "generate": "buf generate",
-    "generate:check": "buf generate && git diff --exit-code -- src/gen",
+    "generate:check": "node scripts/check-codegen.ts",
     "typecheck": "tsc --noEmit",
     "lint": "buf lint",
     "breaking": "buf breaking --against '../../.git#branch=main,subdir=packages/protocol'"

@@ -1,0 +1,6 @@
+bucket       = "replace-with-terraform-state-bucket"
+key          = "rpc/production.tfstate"
+region       = "ap-southeast-1"
+encrypt      = true
+use_lockfile = true
+kms_key_id   = "arn:aws:kms:ap-southeast-1:111122223333:key/replace-me"

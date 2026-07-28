@@ -1,7 +1,8 @@
 # AGENTS.md — Vibe Code Stack For CEOs
 
 AI-first Turborepo monorepo (pnpm 11, Node 22, TypeScript strict): 3 frontend
-apps + 3 backend services + 3 shared packages, deployed to Cloudflare/Docker.
+apps + 3 backend services + 3 shared packages, deployed to Cloudflare and
+private AWS EC2 infrastructure.
 
 - This file is the single source of truth for agent behavior. `CLAUDE.md` is a
   symlink to it — always edit `AGENTS.md`.
@@ -18,17 +19,18 @@ apps + 3 backend services + 3 shared packages, deployed to Cloudflare/Docker.
 | `apps/dapp` | `@apps/dapp` | Next.js 16 App Router (vinext/Vite) | Cloudflare Workers |
 | `apps/admin` | `@apps/admin` | React 19 SPA (Rsbuild + React Router, no RSC) | Cloudflare Pages |
 | `apps/landing` | `@apps/landing` | Astro static site (zero JS by default) | Cloudflare Workers |
-| `services/trading-rpc` | `@services/trading-rpc` | NestJS host on Fastify: Connect for edge + native Nest gRPC for Node services | Docker |
-| `services/admin-rpc` | `@services/admin-rpc` | Admin-facing NestJS RPC facade; calls trading-rpc over native gRPC for coin data | Docker |
+| `services/trading-rpc` | `@services/trading-rpc` | NestJS host on Fastify: Connect for edge + native Nest gRPC for Node services | AWS EC2 (Docker/ECR/SSM) |
+| `services/admin-rpc` | `@services/admin-rpc` | Admin-facing NestJS RPC facade; calls trading-rpc over native gRPC for coin data | AWS EC2 (Docker/ECR/SSM) |
 | `services/api-gateway` | `@services/api-gateway` | Edge gateway Worker (Hono: request-id, CORS, self-hosted Durable Object rate-limit, opt-in JWT auth, upstream proxy) | Cloudflare Workers |
 | `packages/protocol` | `@packages/protocol` | Protobuf schemas, buf codegen → `src/gen/` | — |
 | `packages/api-core` | `@packages/api-core` | Shared RPC impl + CORS-aware fetch handler | — |
 | `packages/api-client` | `@packages/api-client` | Typed Connect-RPC browser client | — |
 
-Rule scope: Server/Client Component rules apply to `apps/dapp` only. Canonical
-Feature-Sliced Design v2.1 applies to all three frontend apps, with
-framework-specific entrypoints documented below. The backend slice architecture
-applies to `packages/api-core` + `services/*` (see Architecture rules).
+Rule scope: Server/Client Component rules apply to `apps/dapp` only. All three
+frontend apps use an FSD-inspired layered architecture with explicit
+`bootstrap`/`screens` names and framework-specific entrypoints documented below.
+The backend slice architecture applies to `packages/api-core` + `services/*`
+(see Architecture rules).
 Everything else (naming, testing, git, security) applies repo-wide.
 
 ## Tech stack (mind the major versions — APIs differ across generations)
@@ -51,7 +53,7 @@ Everything else (naming, testing, git, security) applies repo-wide.
 | Admin | Rsbuild 2 (Rspack) · React Router **7** |
 | Landing | Astro 7 |
 | Testing | Vitest 4 + Testing Library + MSW 2 + Playwright |
-| Lint/format | Biome 2 + ESLint 9 (flat config) + buf |
+| Lint/format | Biome 2 + ESLint 10 (flat config) + buf |
 | Monorepo | Turborepo 2 + pnpm 11 workspaces |
 
 ## Commands
@@ -68,14 +70,19 @@ mise run typecheck            # tsc --noEmit, all 9 workspaces
 mise run check:ci             # Biome (read-only), whole repo
 mise run lint                 # ESLint / Biome / buf / architecture checks
 mise run test                 # toolchain tests + Vitest, all workspaces
+mise run test:coverage        # enforce dapp/admin logic coverage thresholds
 mise run build                # production builds
 mise run check                # Biome auto-fix + format
 mise run verify               # all definition-of-done gates, sequentially
+mise run test:docker          # Docker builds + PostgreSQL backup/restore integration
+mise run test:protocol        # codegen drift + protobuf breaking check
+mise run security:audit       # high-severity dependency audit
 
 mise run docker:start             # full Docker development stack
 mise run docker:start:dapp | docker:start:admin | docker:start:landing
 mise run docker:start:api-gateway | docker:start:admin-rpc | docker:start:trading-rpc
 mise run docker:stop | docker:check
+mise run terraform:check       # fmt + provider-backed validate; never apply
 
 # pnpm is internal; use it directly only for targeted commands without a mise task.
 pnpm --filter @apps/dapp test                                   # one workspace
@@ -91,17 +98,22 @@ Run these before declaring any task complete. CI runs exactly the same gates.
 - [ ] `mise run check:ci` — zero errors
 - [ ] `mise run lint` — zero errors
 - [ ] `mise run test` — all pass; new logic has tests
+- [ ] `mise run test:coverage` — frontend feature/entity logic meets thresholds
 - [ ] `mise run build` — if you touched build-relevant code or config
+- [ ] `mise run test:e2e:production` — production-server browser behavior
+- [ ] `mise run test:protocol` — generated contracts and compatibility
+- [ ] `mise run security:audit` — no known high-severity dependency issue
+- [ ] `mise run test:docker` — release images and PostgreSQL recovery path
 
 Deploys are CI-gated only (`.github/workflows/deploy.yml`; `develop` → staging,
 `main` → production). NEVER deploy from a local machine.
 
 ## Architecture rules
 
-### Dapp architecture — canonical Feature-Sliced Design v2.1
+### Dapp architecture — FSD-inspired layered frontend
 
 Next.js framework entrypoints stay outside the FSD root. They are thin adapters
-that delegate to the appropriate App or Page public API:
+that delegate to the appropriate Bootstrap segment or Screen public API:
 
 ```text
 apps/dapp/
@@ -109,10 +121,10 @@ apps/dapp/
   proxy.ts                     Next proxy entrypoint only
   instrumentation*.ts          Next instrumentation entrypoints only
   src/
-    _app/                      App-layer segments: routes, providers, metadata,
+    bootstrap/                 app composition: routes, providers, metadata,
                                errors, proxy, instrumentation, styles
-    _pages/{home,sign-in,account,not-found}/
-                               complete screens; api/model/ui + public API
+    screens/{home,sign-in,account,not-found}/
+                               complete route screens; api/model/ui + public API
     features/sign-in/          reusable sign-in interaction; api/model/ui
     entities/session/          session domain API/model + client/server APIs
     shared/                    api, config, focused lib/*, routes, ui
@@ -122,17 +134,17 @@ apps/dapp/
 Conceptual dependency direction is one-way:
 
 ```text
-Next framework entrypoints → _app → _pages → widgets → features → entities → shared
+Next framework entrypoints → bootstrap → screens → widgets → features → entities → shared
 ```
 
 Layers are optional. `widgets` is intentionally absent until a reusable,
-self-contained UI block exists. `_app` and `shared` contain segments rather than
-slices. The underscore prefixes prevent collisions with Next's root `app/` and
-legacy Pages Router while preserving the canonical layer roles.
+self-contained UI block exists. `bootstrap` and `shared` contain segments rather
+than slices. The explicit names keep framework-owned `app/` distinct from
+application composition and avoid the overloaded FSD `app`/`pages` terminology.
 
 1. Imports point downward only. Same-layer slices are isolated and MUST NOT
    import each other.
-2. Every slice and every `_app`/`shared` segment exposes a Public API. External
+2. Every slice and every `bootstrap`/`shared` segment exposes a Public API. External
    consumers never deep-import internals. All frontend-local module specifiers,
    including imports inside one slice, use absolute aliases (`@/` for `src/` and
    dapp-only `@root/` when a source module must reach the workspace root).
@@ -143,66 +155,68 @@ legacy Pages Router while preserving the canonical layer roles.
    Shared libraries live under `shared/lib/[purpose]/index.ts`.
 5. `app/`, root proxy, and root instrumentation files contain only framework
    contracts, static Next exports, and public-API delegation—zero business logic.
-6. Steiger enforces standard FSD layers/public APIs; ESLint covers the
-   underscored Next compatibility layers and framework entrypoints. Run
+6. Steiger enforces the standard lower FSD layers/public APIs; ESLint covers the
+   project-specific `bootstrap`/`screens` layers and framework entrypoints. Run
    `pnpm --filter @apps/dapp lint:architecture` after structural changes.
 7. `src/styled-system/**` is generated Panda code and the only top-level FSD
    exception. Never hand-edit it.
 8. Monorepo boundaries remain: `packages/` → `packages/` only; `services/` →
    `packages/` only; nothing imports from `apps/`.
 
-### Admin architecture — canonical Feature-Sliced Design v2.1
+### Admin architecture — FSD-inspired layered frontend
 
-`apps/admin` uses the standard FSD layers and purpose-named segments:
+`apps/admin` uses explicit application layers and purpose-named segments:
 
 ```text
 src/
-  app/                    entrypoint, providers, router, global styles
-  pages/[name]/           complete route screens; api/model/ui + index.ts
+  bootstrap/              entrypoint, providers, router, global styles
+  screens/[name]/         complete route screens; api/model/ui + index.ts
   widgets/app-shell/      reusable protected-route layout
   features/[action]/      reusable product interactions (currently absent)
   entities/{session,user}/ domain models, data access, queries + index.ts
   shared/                 api, config, focused lib/*, model, routes, ui
 ```
 
-Dependency direction is strictly downward: `app → pages → widgets → features →
-entities → shared`. Layers are optional: admin currently has no `features/`
+Dependency direction is strictly downward: `bootstrap → screens → widgets →
+features → entities → shared`. Layers are optional: admin currently has no `features/`
 because sign-in, create-user, and service-health are each used by only one page
-and therefore belong to those Page slices. Do not create a layer or slice merely
+and therefore belong to those Screen slices. Do not create a layer or slice merely
 to make the folder tree look complete.
 
 1. Slices on the same layer are isolated and MUST NOT import each other.
-2. Every slice and every `app`/`shared` segment exposes a Public API (`index.ts`);
+2. Every slice and every `bootstrap`/`shared` segment exposes a Public API (`index.ts`);
    external consumers never deep-import internals. Same-slice imports also use
    the absolute `@/` alias; relative frontend imports/exports are rejected.
 3. Segment names describe purpose (`ui`, `api`, `model`, `config`), never file
    essence (`components`, `hooks`, `types`, `services`, `utils`). Focused Shared
    libraries use `shared/lib/[purpose]/index.ts`.
-4. `app/router` only composes Page and Widget Public APIs. Route screens and
-   page-specific data/UI live in `pages/[name]`, not in `app`.
+4. `bootstrap/router` only composes Screen and Widget Public APIs. Route screens
+   and screen-specific data/UI live in `screens/[name]`, not in `bootstrap`.
 5. Add an Entity for a business noun reused by higher layers. Add a Feature only
    for a meaningful interaction reused across pages or independently consumed.
-6. Steiger is the source of truth for FSD direction, slice isolation, segment
-   names, and Public APIs. Run
+6. Steiger checks the standard lower FSD layers; ESLint checks direction,
+   isolation, and Public APIs for `bootstrap`/`screens`. Run
    `pnpm --filter @apps/admin lint:architecture` after structural changes.
 7. `src/styled-system/**` is generated Panda code and the only top-level FSD
    exception. Never hand-edit it.
 
-### Landing architecture — canonical Feature-Sliced Design v2.1
+### Landing architecture — FSD-inspired layered frontend
 
-`apps/landing` uses Astro route entrypoints in `astro/pages/` and canonical FSD
-application code in `src/`. Its current layers are `app → pages → widgets →
-shared`; `features` and `entities` are intentionally absent until the product
-has reusable user interactions or domain entities.
+`apps/landing` uses Astro route entrypoints in `astro/pages/` and layered
+application code in `src/`. Its current direction is `Astro entrypoints →
+screens → widgets → shared`; `features` and `entities` are intentionally absent
+until the product has reusable user interactions or domain entities. SEO and
+global styles are Shared segments because this static app needs no Bootstrap
+layer.
 
 1. Imports point downward only. Slices on the same layer never import each other.
-2. Every slice and every `app`/`shared` segment exposes an `index.ts` Public API;
+2. Every slice and every `shared` segment exposes an `index.ts` Public API;
    external consumers never deep-import internals. All local Astro/TypeScript
    module specifiers use the absolute `@/` alias, including same-slice imports.
 3. Segment names describe purpose (`ui`, `model`, `config`, `seo`, `styles`),
    never file essence (`components`, `hooks`, `types`, `data`).
-4. `astro/pages/` contains thin framework entrypoints only. Page composition
-   lives in `src/pages/[name]`; independent page blocks live in `src/widgets`.
+4. `astro/pages/` contains thin framework entrypoints only. Screen composition
+   lives in `src/screens/[name]`; independent page blocks live in `src/widgets`.
 5. A static section describing product features is a widget, not an FSD feature.
    Add an FSD feature only for a reusable user interaction that provides value.
 6. Run `pnpm --filter @apps/landing lint:architecture` after structural changes.
@@ -283,6 +297,13 @@ to Connect routes.
 src/
   index.ts                    composition root; the only env reader
   adapters/http.adapter.ts    Nest/Fastify host + Connect plugin + gRPC listener
+  features/authentication/
+    domain/                   credential-verifier and token-issuer ports
+    application/              Login use case
+    adapters/{connect,grpc}/  AuthService validation and safe error mapping
+    infra/{configured,jwt}/   constant-time credentials + signed JWT adapter
+    authentication.module.ts
+    index.ts                  PUBLIC feature API
   features/coin-information/
     domain/                   coin primitives, typed error, trading-rpc port
     application/              admin GetMarkets input port + orchestration
@@ -295,8 +316,11 @@ src/
   infra/                      transport selection + Protobuf asset resolution
 ```
 
-`admin-rpc` exposes `admin.v1.AdminService/GetMarkets` over Connect and native
-gRPC. Its application use case calls a transport-neutral driven port; the
+`admin-rpc` exposes `auth.v1.AuthService/Login` and
+`admin.v1.AdminService/GetMarkets` over Connect and native gRPC. Authentication
+validates server-side configured credentials and issues a short-lived HS256 JWT
+using the same environment secret enforced by api-gateway. The market-data
+application use case calls a transport-neutral driven port; the
 feature-local gRPC adapter calls `trading.v1.TradingService/GetMarkets` on
 `TRADING_RPC_GRPC_URL`. It validates the downstream response with Zod, applies
 `TRADING_RPC_TIMEOUT_MS`, and maps transport/response failures to a typed safe
@@ -336,7 +360,7 @@ src/
   config/                     validated bindings + operational options
 ```
 
-Hard rules (enforced by `scripts/check-backend-architecture.mjs` through each
+Hard rules (enforced by `scripts/check-backend-architecture.ts` through each
 workspace's `lint:architecture` command):
 
 1. Every feature exposes `features/[capability]/index.ts`; production consumers
@@ -430,7 +454,7 @@ export { verifyCredentials } from '@/features/sign-in/model/verify-credentials.s
 ```
 
 Import order: React/Next → external packages → `@/shared/*` → `@/entities/*` →
-`@/features/*` → `@/widgets/*` → `@/_pages/*` → `@/_app/*` → `@root/*` →
+`@/features/*` → `@/widgets/*` → `@/screens/*` → `@/bootstrap/*` → `@root/*` →
 styles. Frontend source, tests, and framework entrypoints never use relative
 module specifiers; framework-generated files are the only exception. `import type`
 last.
@@ -449,14 +473,16 @@ last.
 
 ## Security
 
-- NEVER read `process.env.X` / `import.meta.env.X` directly — use the validated
-  env module (`apps/dapp/src/shared/config/env.ts`,
-  `apps/admin/src/shared/config/env.ts`). Document new vars in the app's
-  `.env.sample`.
+- Application configuration MUST use the validated env module
+  (`apps/dapp/src/shared/config/env.ts`, `apps/admin/src/shared/config/env.ts`).
+  Direct reads are allowed only for framework/tool-owned execution flags such as
+  `NODE_ENV`, `CI`, `NEXT_RUNTIME`, and build-plugin switches inside framework
+  config, instrumentation, test-runner config, or validated config adapters.
+  Document every application variable in the workspace `.env.sample`.
 - Validate ALL external input with Zod at trust boundaries (server actions,
   route handlers, RPC handlers).
 - Server modules use `import 'server-only'`.
-- CSP: dapp builds a nonce-based CSP in `src/_app/proxy/proxy.ts`, delegated by
+- CSP: dapp builds a nonce-based CSP in `src/bootstrap/proxy/proxy.ts`, delegated by
   root `proxy.ts` — the nonce and CSP MUST be set on request headers (not only
   the response). Admin/landing ship static headers via `public/_headers`.
 - Backend CORS is allowlist-driven via `CORS_ORIGINS` (handled in
@@ -513,6 +539,9 @@ off-format commits/branches are rejected locally.
   Exempt: `main|develop|staging|release/*|hotfix/*|dependabot/*|renovate/*`.
 - PR: title follows the commit convention; body has Summary, Test plan,
   Breaking changes.
+- Keep PRs at or below 150 changed files and 20,000 changed lines. A deliberately
+  larger atomic migration requires explicit human scope review and the
+  `large-change-reviewed` label before CI may proceed.
 - Versioning/changelogs are automated (release-please manifest mode) — NEVER
   hand-edit `CHANGELOG.md` or `version` fields.
 
@@ -522,7 +551,7 @@ off-format commits/branches are rejected locally.
   configuration. Workspaces MUST NOT contain their own Dockerfiles. Keep one
   Dockerfile per deployable image and environment differences in Compose
   overlays; run `make check-docker` after changes.
-- All deploys are CI-driven via `.github/workflows/deploy.yml`, gated on a
+- All application deploys are CI-driven via `.github/workflows/deploy.yml`, gated on a
   green CI run: push to `develop` → staging; push to `main` → production
   (behind a required manual approval in the GitHub `production` Environment).
   NEVER run `wrangler deploy` / `pnpm deploy:*` from a local machine.
@@ -532,8 +561,16 @@ off-format commits/branches are rejected locally.
 - Rollback: `wrangler rollback --env production` (Workers keep prior versions).
 - `services/{admin-rpc,trading-rpc}` build Docker images from
   `infra/docker/{admin-rpc,trading-rpc}.Dockerfile` (multi-stage, non-root,
-  `/healthz` healthcheck) — hosting platform not chosen yet, so neither is
-  wired into `deploy.yml`.
+  `/healthz` healthcheck); `infra/docker/postgres.Dockerfile` supplies the
+  existing PostgreSQL 18 + pgBackRest/R2 recovery runtime. All three images
+  deploy to one private EC2 host per environment. Terraform under
+  `infra/terraform` owns VPC, fixed EC2, protected encrypted EBS, ECR, IAM,
+  Secrets Manager, KMS, observability, Cloudflare Tunnel, and Workers VPC Services. Infrastructure
+  plan/apply runs only through `.github/workflows/terraform.yml`; never apply
+  Terraform locally. Application CI uses GitHub OIDC, immutable ECR commit-SHA
+  tags, ECR vulnerability scanning, and SSM rollout—never SSH. AWS RDS is not
+  part of this topology; do not bypass the repository's Docker PostgreSQL
+  backup/PITR/restore design.
 - Secrets are provisioned per environment via GitHub Environment
   secrets/vars and `wrangler secret put` — never committed, never in
   `wrangler.jsonc` `vars`.
@@ -571,7 +608,7 @@ off-format commits/branches are rejected locally.
 | Relative frontend import/export | the configured `@/` or `@root/` alias |
 | Cross-slice imports on the same layer | compose above or extract downward |
 | `any` / `as any` | `unknown` + type guard |
-| `process.env.X` directly | validated env config module |
+| Application env read outside a config boundary | validated env config module |
 | Default export on non-page files | named exports |
 
 ## MCP tools (when available)

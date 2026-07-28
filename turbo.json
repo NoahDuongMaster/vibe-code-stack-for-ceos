@@ -20,6 +20,7 @@
         "SESSION_SECRET",
         "DEMO_AUTH_EMAIL",
         "DEMO_AUTH_PASSWORD",
+        "DAPP_LOGIN_RATE_LIMIT_MODE",
         "CORS_*",
         "SENTRY_*"
       ]

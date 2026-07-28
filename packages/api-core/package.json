@@ -9,14 +9,15 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "biome ci . && pnpm lint:architecture",
-    "lint:architecture": "node scripts/check-architecture.mjs",
+    "lint:architecture": "node scripts/check-architecture.ts",
     "test": "vitest run && pnpm test:architecture",
-    "test:architecture": "node --test scripts/check-architecture.test.mjs",
+    "test:architecture": "node --test scripts/check-architecture.test.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@connectrpc/connect": "^2.1.2",
-    "@packages/protocol": "workspace:*"
+    "@packages/protocol": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "typescript": "catalog:",

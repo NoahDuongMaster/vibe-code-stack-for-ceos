@@ -81,11 +81,26 @@ export const parseGatewayRuntimeConfig = (
 ): TGatewayRuntimeConfig => {
   const input = ZGatewayRuntimeBindings.parse(bindings);
   const environment = input.ENVIRONMENT ?? 'production';
+  const corsOrigins = normalizeCorsOrigins(input.CORS_ORIGINS);
+  const jwtSecret = input.JWT_SECRET || undefined;
+
+  if (environment !== 'development') {
+    if (corsOrigins.length === 0 || corsOrigins.includes('*')) {
+      throw new Error(
+        'CORS_ORIGINS must contain an explicit allow-list outside development',
+      );
+    }
+    if (!jwtSecret || jwtSecret.length < 32) {
+      throw new Error(
+        'JWT_SECRET must contain at least 32 characters outside development',
+      );
+    }
+  }
 
   return {
     serviceName: input.SERVICE_NAME,
     environment,
-    corsOrigins: normalizeCorsOrigins(input.CORS_ORIGINS),
-    jwtSecret: input.JWT_SECRET || undefined,
+    corsOrigins,
+    jwtSecret,
   };
 };

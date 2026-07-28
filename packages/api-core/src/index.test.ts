@@ -1,5 +1,5 @@
 import { createClient, createRouterTransport } from '@connectrpc/connect';
-import { HealthService } from '@packages/protocol';
+import { ApiService, HealthService } from '@packages/protocol';
 import { describe, expect, it } from 'vitest';
 import { createFetchHandler, createRoutes } from './index';
 
@@ -22,6 +22,32 @@ describe('createRoutes', () => {
       const res = await client.health({});
 
       expect(res).toMatchObject({
+        status: 'ok',
+        service: 'test-service',
+        runtime: 'test-runtime',
+      });
+    });
+  });
+
+  describe('deprecated ApiService compatibility', () => {
+    const legacyClient = createClient(
+      ApiService,
+      createRouterTransport(createRoutes(config)),
+    );
+
+    it('should preserve the legacy echo response', async () => {
+      await expect(
+        legacyClient.echo({ message: 'Hello' }),
+      ).resolves.toMatchObject({
+        message: 'Hello',
+        upper: 'HELLO',
+        length: 5,
+        runtime: 'test-runtime',
+      });
+    });
+
+    it('should preserve the legacy health response', async () => {
+      await expect(legacyClient.health({})).resolves.toMatchObject({
         status: 'ok',
         service: 'test-service',
         runtime: 'test-runtime',

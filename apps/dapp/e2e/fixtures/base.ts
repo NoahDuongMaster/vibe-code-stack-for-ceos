@@ -29,7 +29,7 @@ export const test = base.extend<Fixtures>({
       { password: SESSION_SECRET },
     );
 
-    const url = new URL(baseURL ?? 'http://localhost:3000');
+    const url = new URL(baseURL ?? 'http://localhost:46000');
     await page.context().addCookies([
       {
         name: SESSION_COOKIE_NAME,

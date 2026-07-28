@@ -1,3 +1,3 @@
-export { getHealth as GET } from '@/_app/routes/index.server';
+export { getHealth as GET } from '@/bootstrap/routes/index.server';
 
 export const runtime = 'edge';

@@ -1,1 +1,1 @@
-export { ErrorPage as default } from '@/_app/errors';
+export { ErrorPage as default } from '@/bootstrap/errors';

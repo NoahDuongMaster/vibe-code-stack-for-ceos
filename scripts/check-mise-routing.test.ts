@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +30,7 @@ const ROUTED_TASKS = [
   'typecheck',
   'lint',
   'test',
+  'test:coverage',
   'test:e2e',
   'build',
 ] as const;
@@ -42,7 +44,22 @@ const DOCKER_START_TASKS = {
   'docker:start:trading-rpc': 'make start-trading-rpc-development',
 } as const;
 
-const TYPESCRIPT_SCRIPT_MIGRATIONS = {
+const TYPESCRIPT_FILE_MIGRATIONS = {
+  '.husky/install.mjs': '.husky/install.ts',
+  '.lintstagedrc.mjs': '.lintstagedrc.ts',
+  'apps/admin/eslint.config.mjs': 'apps/admin/eslint.config.ts',
+  'apps/admin/postcss.config.cjs': 'apps/admin/postcss.config.ts',
+  'apps/dapp/eslint.config.mjs': 'apps/dapp/eslint.config.ts',
+  'apps/dapp/postcss.config.cjs': 'apps/dapp/postcss.config.ts',
+  'apps/landing/astro.config.mjs': 'apps/landing/astro.config.ts',
+  'apps/landing/eslint.config.mjs': 'apps/landing/eslint.config.ts',
+  'apps/landing/test/routes.test.mjs': 'apps/landing/test/routes.test.ts',
+  'packages/api-core/scripts/check-architecture.mjs':
+    'packages/api-core/scripts/check-architecture.ts',
+  'packages/api-core/scripts/check-architecture.test.mjs':
+    'packages/api-core/scripts/check-architecture.test.ts',
+  'scripts/check-backend-architecture.mjs':
+    'scripts/check-backend-architecture.ts',
   'scripts/check-toolchain.mjs': 'scripts/check-toolchain.ts',
   'scripts/check-toolchain.test.mjs': 'scripts/check-toolchain.test.ts',
   'scripts/check-install-context.mjs': 'scripts/check-install-context.ts',
@@ -64,7 +81,9 @@ const getTaskBlock = (taskName: string): string => {
   );
 
   assert.ok(match, `Missing mise task: ${taskName}`);
-  return match[1];
+  const block = match[1];
+  assert.ok(block, `Missing mise task body: ${taskName}`);
+  return block;
 };
 
 test('should route public root scripts through mise without recursion', () => {
@@ -93,10 +112,30 @@ test('should install frozen dependencies only through mise setup', () => {
   assert.doesNotMatch(miseConfig, /\[tasks\.install\]/);
 });
 
+test('should run staged checks from local binaries with readable failures', () => {
+  const preCommitHook = readFileSync(
+    resolve(ROOT_DIR, '.husky/pre-commit'),
+    'utf8',
+  );
+  const lintStagedConfig = readFileSync(
+    resolve(ROOT_DIR, '.lintstagedrc.ts'),
+    'utf8',
+  );
+
+  assert.match(
+    preCommitHook,
+    /\.\/node_modules\/\.bin\/lint-staged --concurrent false --verbose/,
+  );
+  assert.doesNotMatch(preCommitHook, /pnpm exec lint-staged/);
+  assert.match(lintStagedConfig, /\.\/node_modules\/\.bin\/\$\{executable\}/);
+  assert.match(lintStagedConfig, /--output-logs=full/);
+  assert.doesNotMatch(lintStagedConfig, /--output-logs=errors-only/);
+});
+
 test('should compose verification from sequential mise task references', () => {
   assert.match(
     getTaskBlock('verify'),
-    /task = "typecheck"[\s\S]*task = "check:ci"[\s\S]*task = "lint"[\s\S]*task = "test"[\s\S]*task = "build"/,
+    /task = "typecheck"[\s\S]*task = "check:ci"[\s\S]*task = "lint"[\s\S]*task = "test"[\s\S]*task = "test:coverage"[\s\S]*task = "build"/,
   );
 });
 
@@ -109,7 +148,7 @@ test('should expose one mise start task per Docker development service', () => {
   }
 });
 
-test('should execute mise-specific repository tooling from TypeScript', () => {
+test('should execute repository tooling and configuration from TypeScript', () => {
   assert.equal(
     packageJson.scripts['internal:test'],
     'node --test scripts/*.test.ts && turbo run test',
@@ -124,7 +163,7 @@ test('should execute mise-specific repository tooling from TypeScript', () => {
   );
 
   for (const [legacyPath, typescriptPath] of Object.entries(
-    TYPESCRIPT_SCRIPT_MIGRATIONS,
+    TYPESCRIPT_FILE_MIGRATIONS,
   )) {
     assert.equal(existsSync(resolve(ROOT_DIR, legacyPath)), false, legacyPath);
     assert.equal(
@@ -135,16 +174,29 @@ test('should execute mise-specific repository tooling from TypeScript', () => {
   }
 });
 
+test('should keep pnpmfile as the only repository-owned JavaScript file', () => {
+  const repositoryFiles = execFileSync(
+    'git',
+    ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
+    { cwd: ROOT_DIR, encoding: 'utf8' },
+  )
+    .split('\0')
+    .filter((path) => path && existsSync(resolve(ROOT_DIR, path)));
+  const javascriptFiles = repositoryFiles
+    .filter((path) => /\.(?:[cm]?js|jsx)$/.test(path))
+    .sort();
+
+  assert.deepEqual(javascriptFiles, ['.pnpmfile.mjs']);
+});
+
 test('should install dependencies once through the shared CI setup action', () => {
   const setupAction = readFileSync(
     resolve(ROOT_DIR, '.github/actions/setup-toolchain/action.yml'),
     'utf8',
   );
-  const workflowPaths = [
-    '.github/workflows/ci.yml',
-    '.github/workflows/deploy.yml',
-    '.github/workflows/playwright.yml',
-  ];
+  const workflowPaths = readdirSync(resolve(ROOT_DIR, '.github/workflows'))
+    .filter((path) => /\.ya?ml$/.test(path))
+    .map((path) => `.github/workflows/${path}`);
 
   assert.match(setupAction, /run: mise run setup/);
 

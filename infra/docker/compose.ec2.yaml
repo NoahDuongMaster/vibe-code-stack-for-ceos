@@ -1,0 +1,384 @@
+name: vibe-rpc-${DEPLOYMENT_ENVIRONMENT:?Set DEPLOYMENT_ENVIRONMENT}
+
+x-aws-logging: &aws-logging
+  driver: awslogs
+  options:
+    awslogs-region: ${AWS_REGION:?Set AWS_REGION}
+    awslogs-create-group: 'false'
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE}
+    pull_policy: always
+    restart: unless-stopped
+    cpus: 0.75
+    mem_limit: 640m
+    mem_reservation: 384m
+    pids_limit: 256
+    environment:
+      POSTGRES_DB: trading_rpc
+      POSTGRES_USER: trading_rpc
+      POSTGRES_BACKUP_MODE: enabled
+      POSTGRES_BACKUP_REPOSITORY_TYPE: r2
+      PGBACKREST_CONFIG: /run/postgres-backup/pgbackrest.conf
+      POSTGRES_INITDB_ARGS: --data-checksums
+      POSTGRES_PASSWORD_SOURCE_FILE: /run/secrets/postgres-password
+      POSTGRES_PASSWORD_FILE: /run/postgres-backup/secrets/postgres-password
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID}
+      R2_PITR_BUCKET: ${R2_PITR_BUCKET:?Set R2_PITR_BUCKET}
+      R2_PITR_ACCESS_KEY_ID_FILE: /run/secrets/r2-pitr-access-key-id
+      R2_PITR_SECRET_ACCESS_KEY_FILE: /run/secrets/r2-pitr-secret-access-key
+      PGBACKREST_CIPHER_PASSPHRASE_FILE: /run/secrets/pgbackrest-cipher-passphrase
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_timeout=240s
+      - -c
+      - archive_command=pgbackrest --config=/run/postgres-backup/pgbackrest.conf --stanza=trading-rpc archive-push %p
+    expose:
+      - '5432'
+    secrets:
+      - postgres-password
+      - r2-pitr-access-key-id
+      - r2-pitr-secret-access-key
+      - pgbackrest-cipher-passphrase
+    volumes:
+      - ${POSTGRES_DATA_DIR:?Set POSTGRES_DATA_DIR}:/var/lib/postgresql
+      - ${POSTGRES_SOCKET_DIR:?Set POSTGRES_SOCKET_DIR}:/var/run/postgresql
+      - ${PGBACKREST_SPOOL_DIR:?Set PGBACKREST_SPOOL_DIR}:/var/spool/pgbackrest
+    networks:
+      - trading-rpc-data
+      - postgres-backup-egress
+    tmpfs:
+      - /run/postgres-backup:mode=0700,uid=70,gid=70
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    shm_size: 128mb
+    logging:
+      <<: *aws-logging
+      options:
+        awslogs-region: ${AWS_REGION:?Set AWS_REGION}
+        awslogs-create-group: 'false'
+        awslogs-group: ${POSTGRES_LOG_GROUP:?Set POSTGRES_LOG_GROUP}
+        awslogs-stream: postgres
+    stop_grace_period: 60s
+
+  postgres-backup:
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE}
+    pull_policy: always
+    entrypoint:
+      - /usr/local/bin/postgres-backup/backup-root-entrypoint.sh
+    command:
+      - /usr/local/bin/postgres-backup/backup-entrypoint.sh
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 384m
+    mem_reservation: 128m
+    pids_limit: 128
+    environment:
+      AWS_REGION: ${AWS_REGION:?Set AWS_REGION}
+      POSTGRES_DB: trading_rpc
+      POSTGRES_USER: trading_rpc
+      POSTGRES_REPLICATION_ROLE: postgres_backup
+      POSTGRES_BACKUP_MODE: enabled
+      POSTGRES_BACKUP_REPOSITORY_TYPE: r2
+      POSTGRES_BACKUP_ENVIRONMENT: ${DEPLOYMENT_ENVIRONMENT:?Set DEPLOYMENT_ENVIRONMENT}
+      POSTGRES_BACKUP_SERVICE_NAME: trading-rpc
+      POSTGRES_BACKUP_RECOVERY_SECRET_ID: ${POSTGRES_BACKUP_RECOVERY_SECRET_ID:?Set POSTGRES_BACKUP_RECOVERY_SECRET_ID}
+      POSTGRES_BACKUP_KMS_KEY_ID: ${POSTGRES_BACKUP_KMS_KEY_ID:?Set POSTGRES_BACKUP_KMS_KEY_ID}
+      POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS: ${POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS:?Set POSTGRES_BACKUP_TRUSTED_KMS_KEY_IDS}
+      POSTGRES_ARCHIVE_AGE_RECIPIENT: ${POSTGRES_ARCHIVE_AGE_RECIPIENT:?Set POSTGRES_ARCHIVE_AGE_RECIPIENT}
+      POSTGRES_RESTORE_ROOT: /var/lib/postgres-backup/restores
+      POSTGRES_RESTORE_ORPHAN_MIN_AGE_SECONDS: '0'
+      POSTGRES_MONTHLY_MIN_FREE_BYTES: '10737418240'
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID}
+      R2_PITR_BUCKET: ${R2_PITR_BUCKET:?Set R2_PITR_BUCKET}
+      R2_ARCHIVE_BUCKET: ${R2_ARCHIVE_BUCKET:?Set R2_ARCHIVE_BUCKET}
+      R2_PITR_ACCESS_KEY_ID_SOURCE_FILE: /run/secrets/r2-pitr-access-key-id
+      R2_PITR_SECRET_ACCESS_KEY_SOURCE_FILE: /run/secrets/r2-pitr-secret-access-key
+      R2_ARCHIVE_ACCESS_KEY_ID_SOURCE_FILE: /run/secrets/r2-archive-access-key-id
+      R2_ARCHIVE_SECRET_ACCESS_KEY_SOURCE_FILE: /run/secrets/r2-archive-secret-access-key
+      PGBACKREST_CIPHER_PASSPHRASE_SOURCE_FILE: /run/secrets/pgbackrest-cipher-passphrase
+      POSTGRES_REPLICATION_PASSWORD_SOURCE_FILE: /run/secrets/postgres-replication-password
+    depends_on:
+      postgres:
+        condition: service_healthy
+    secrets:
+      - postgres-replication-password
+      - r2-pitr-access-key-id
+      - r2-pitr-secret-access-key
+      - r2-archive-access-key-id
+      - r2-archive-secret-access-key
+      - pgbackrest-cipher-passphrase
+    volumes:
+      - ${POSTGRES_DATA_DIR:?Set POSTGRES_DATA_DIR}:/var/lib/postgresql:ro
+      - ${POSTGRES_SOCKET_DIR:?Set POSTGRES_SOCKET_DIR}:/var/run/postgresql
+      - ${PGBACKREST_SPOOL_DIR:?Set PGBACKREST_SPOOL_DIR}:/var/spool/pgbackrest
+      - ${POSTGRES_BACKUP_STATE_DIR:?Set POSTGRES_BACKUP_STATE_DIR}:/var/lib/postgres-backup/state
+      - ${POSTGRES_BACKUP_STAGE_DIR:?Set POSTGRES_BACKUP_STAGE_DIR}:/var/lib/postgres-backup/stage
+      - ${POSTGRES_RESTORE_STAGE_DIR:?Set POSTGRES_RESTORE_STAGE_DIR}:/var/lib/postgres-backup/restores
+    networks:
+      - trading-rpc-data
+      - postgres-backup-egress
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /run/postgres-backup:mode=0700,uid=70,gid=70
+      - /run/postgres-backup-secrets:mode=0700
+      - /run/postgres-backup-cron:mode=0700
+    healthcheck:
+      test:
+        - CMD
+        - /usr/local/bin/gosu
+        - postgres
+        - /usr/local/bin/postgres-backup/backup-health.sh
+      interval: 60s
+      timeout: 15s
+      retries: 2
+      start_period: 10m
+    logging:
+      <<: *aws-logging
+      options:
+        awslogs-region: ${AWS_REGION:?Set AWS_REGION}
+        awslogs-create-group: 'false'
+        awslogs-group: ${POSTGRES_BACKUP_LOG_GROUP:?Set POSTGRES_BACKUP_LOG_GROUP}
+        awslogs-stream: backup
+
+  trading-rpc:
+    image: ${TRADING_RPC_IMAGE:?Set TRADING_RPC_IMAGE}
+    pull_policy: always
+    init: true
+    restart: unless-stopped
+    cpus: 0.75
+    mem_limit: 320m
+    mem_reservation: 160m
+    pids_limit: 256
+    read_only: true
+    environment:
+      SERVICE_NAME: trading-rpc
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=192
+      PORT: '3001'
+      GRPC_PORT: '50051'
+      RPC_TRANSPORT: http1
+      DATABASE_URL: ''
+      TRADING_RPC_DATABASE_URL_SOURCE_FILE: /run/secrets/trading-rpc-database-url
+      COINGECKO_API_KEY_FILE: /run/secrets/coingecko-api-key
+      SENTRY_DSN_FILE: /run/secrets/trading-sentry-dsn
+      CORS_ORIGINS: ''
+      DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-10}
+      DATABASE_CONNECTION_TIMEOUT_MS: '5000'
+      DATABASE_IDLE_TIMEOUT_MS: '30000'
+      MAX_BODY_BYTES: '5242880'
+      REQUEST_TIMEOUT_MS: '30000'
+      RATE_LIMIT: '300'
+      RATE_LIMIT_WINDOW_MS: '60000'
+    expose:
+      - '3001'
+      - '50051'
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /run/trading-rpc:mode=0700,uid=1001,gid=1001
+      - /tmp:mode=1777
+    secrets:
+      - trading-rpc-database-url
+      - coingecko-api-key
+      - trading-sentry-dsn
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      trading-rpc-egress:
+      trading-rpc-private:
+        aliases:
+          - trading-rpc.internal
+      admin-rpc-internal:
+      trading-rpc-data:
+    logging:
+      <<: *aws-logging
+      options:
+        awslogs-region: ${AWS_REGION:?Set AWS_REGION}
+        awslogs-create-group: 'false'
+        awslogs-group: ${TRADING_RPC_LOG_GROUP:?Set TRADING_RPC_LOG_GROUP}
+        awslogs-stream: rpc
+    stop_grace_period: 30s
+
+  admin-rpc:
+    image: ${ADMIN_RPC_IMAGE:?Set ADMIN_RPC_IMAGE}
+    pull_policy: always
+    init: true
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 256m
+    mem_reservation: 128m
+    pids_limit: 192
+    read_only: true
+    environment:
+      SERVICE_NAME: admin-rpc
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=160
+      PORT: '3001'
+      GRPC_PORT: '50051'
+      RPC_TRANSPORT: http1
+      TRADING_RPC_GRPC_URL: http://trading-rpc:50051
+      TRADING_RPC_TIMEOUT_MS: '5000'
+      ADMIN_AUTH_EMAIL_FILE: /run/secrets/admin-auth-email
+      ADMIN_AUTH_PASSWORD_FILE: /run/secrets/admin-auth-password
+      JWT_SECRET_FILE: /run/secrets/jwt-secret
+      SENTRY_DSN_FILE: /run/secrets/admin-sentry-dsn
+      CORS_ORIGINS: ''
+      JWT_TTL_SECONDS: '28800'
+      MAX_BODY_BYTES: '5242880'
+      REQUEST_TIMEOUT_MS: '30000'
+      RATE_LIMIT: '300'
+      RATE_LIMIT_WINDOW_MS: '60000'
+    expose:
+      - '3001'
+      - '50051'
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:mode=1777
+    secrets:
+      - admin-auth-email
+      - admin-auth-password
+      - jwt-secret
+      - admin-sentry-dsn
+    depends_on:
+      trading-rpc:
+        condition: service_healthy
+    networks:
+      admin-rpc-internal:
+      admin-rpc-private:
+        aliases:
+          - admin-rpc.internal
+    logging:
+      <<: *aws-logging
+      options:
+        awslogs-region: ${AWS_REGION:?Set AWS_REGION}
+        awslogs-create-group: 'false'
+        awslogs-group: ${ADMIN_RPC_LOG_GROUP:?Set ADMIN_RPC_LOG_GROUP}
+        awslogs-stream: rpc
+    stop_grace_period: 30s
+
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:?Set CLOUDFLARED_IMAGE}
+    pull_policy: always
+    command:
+      - tunnel
+      - --protocol
+      - quic
+      - --metrics
+      - 0.0.0.0:2000
+      - run
+      - --token-file
+      - /run/secrets/cloudflare-tunnel-token
+    init: true
+    restart: unless-stopped
+    cpus: 0.25
+    mem_limit: 128m
+    mem_reservation: 64m
+    pids_limit: 128
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    secrets:
+      - cloudflare-tunnel-token
+    depends_on:
+      admin-rpc:
+        condition: service_healthy
+      trading-rpc:
+        condition: service_healthy
+    networks:
+      cloudflare-egress:
+      trading-rpc-private:
+      admin-rpc-private:
+    healthcheck:
+      test:
+        - CMD
+        - cloudflared
+        - tunnel
+        - --metrics
+        - 127.0.0.1:2000
+        - ready
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      <<: *aws-logging
+      options:
+        awslogs-region: ${AWS_REGION:?Set AWS_REGION}
+        awslogs-create-group: 'false'
+        awslogs-group: ${CLOUDFLARED_LOG_GROUP:?Set CLOUDFLARED_LOG_GROUP}
+        awslogs-stream: tunnel
+
+networks:
+  cloudflare-egress:
+  trading-rpc-egress:
+  trading-rpc-private:
+    internal: true
+  admin-rpc-private:
+    internal: true
+  admin-rpc-internal:
+    internal: true
+  trading-rpc-data:
+    internal: true
+  postgres-backup-egress:
+
+secrets:
+  trading-rpc-database-url:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/trading-rpc-database-url
+  coingecko-api-key:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/coingecko-api-key
+  trading-sentry-dsn:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/trading-sentry-dsn
+  admin-auth-email:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/admin-auth-email
+  admin-auth-password:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/admin-auth-password
+  jwt-secret:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/jwt-secret
+  admin-sentry-dsn:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/admin-sentry-dsn
+  cloudflare-tunnel-token:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/cloudflare-tunnel-token
+  postgres-password:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/postgres-password
+  postgres-replication-password:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/postgres-replication-password
+  r2-pitr-access-key-id:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/r2-pitr-access-key-id
+  r2-pitr-secret-access-key:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/r2-pitr-secret-access-key
+  r2-archive-access-key-id:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/r2-archive-access-key-id
+  r2-archive-secret-access-key:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/r2-archive-secret-access-key
+  pgbackrest-cipher-passphrase:
+    file: ${RUNTIME_SECRET_DIR:?Set RUNTIME_SECRET_DIR}/pgbackrest-cipher-passphrase

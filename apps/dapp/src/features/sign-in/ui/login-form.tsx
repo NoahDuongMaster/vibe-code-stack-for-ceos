@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSyncExternalStore } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   type TLoginInput,
@@ -9,7 +10,7 @@ import {
 } from '@/features/sign-in/model/login.schema';
 import { useLogin } from '@/features/sign-in/model/use-login';
 import { isSafeRedirectPath } from '@/shared/lib/url';
-import { WEB_ROUTES } from '@/shared/routes';
+import { API_ROUTES, WEB_ROUTES } from '@/shared/routes';
 import { css } from '@/styled-system/css';
 import { flex } from '@/styled-system/patterns';
 
@@ -24,6 +25,9 @@ const inputStyle = css({
 
 const labelStyle = css({ fontSize: 'sm', fontWeight: 'medium' });
 const errorStyle = css({ fontSize: 'xs', color: 'destructive' });
+const subscribeToHydration = () => () => undefined;
+const getHydratedSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 /**
  * Reference login form for the sign-in slice: validates with the feature's
@@ -34,6 +38,11 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const login = useLogin();
+  const isHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerSnapshot,
+  );
   const {
     register,
     handleSubmit,
@@ -56,6 +65,8 @@ export function LoginForm() {
 
   return (
     <form
+      action={API_ROUTES.AUTH_LOGIN}
+      method="post"
       onSubmit={onSubmit}
       noValidate
       className={flex({ direction: 'column', gap: '4', w: 'full' })}
@@ -105,15 +116,13 @@ export function LoginForm() {
           role="alert"
           className={css({ fontSize: 'sm', color: 'destructive' })}
         >
-          {login.error instanceof Error
-            ? login.error.message
-            : 'Something went wrong. Please try again.'}
+          Sign in failed. Check your credentials and try again.
         </p>
       )}
 
       <button
         type="submit"
-        disabled={isSubmitting || login.isPending}
+        disabled={!isHydrated || isSubmitting || login.isPending}
         className={css({
           px: '5',
           py: '2',
@@ -128,7 +137,7 @@ export function LoginForm() {
           _disabled: { opacity: 0.6, cursor: 'not-allowed' },
         })}
       >
-        {login.isPending ? 'Signing in…' : 'Sign in'}
+        {isHydrated && login.isPending ? 'Signing in…' : 'Sign in'}
       </button>
     </form>
   );

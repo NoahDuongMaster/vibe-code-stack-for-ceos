@@ -1,9 +1,17 @@
-import react from '@vitejs/plugin-react-swc';
-import viteTsconfigPaths from 'vite-tsconfig-paths';
+import { fileURLToPath } from 'node:url';
+import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  plugins: [react(), viteTsconfigPaths()],
+  plugins: [react()],
+  resolve: {
+    alias: {
+      'cloudflare:workers': fileURLToPath(
+        new URL('./src/__test__/setup/cloudflare-workers.ts', import.meta.url),
+      ),
+    },
+    tsconfigPaths: true,
+  },
   test: {
     globals: true,
     environment: 'jsdom',
@@ -15,17 +23,14 @@ export default defineConfig({
     ],
     setupFiles: [
       './src/__test__/setup/matchMedia.ts',
+      './src/__test__/setup/react-three-console.ts',
       './src/__test__/setup/server.ts',
       './src/__test__/setup/server-only.ts',
     ],
     coverage: {
       provider: 'v8',
-      // Without this, v8's coverage report only includes files actually
-      // imported by a test run — an untested services/adapters file would
-      // simply never appear in the report (and never trip the threshold
-      // below) instead of failing at 0%. `all: true` reports every file
-      // matched by `include`/`exclude`, tested or not.
-      all: true,
+      // In Vitest 4, `include` also adds matching untested files to the report,
+      // so they remain visible at 0% and can fail the thresholds below.
       include: ['src/**/*.{ts,tsx}'],
       // Exclude generated code plus framework composition/UI boundaries. The
       // feature/entity thresholds below cover application logic explicitly.
@@ -33,24 +38,36 @@ export default defineConfig({
         'src/styled-system/**',
         'src/**/*.d.ts',
         'src/**/index.ts',
-        'src/_app/**/index*.ts',
-        'src/_app/errors/**',
-        'src/_app/metadata/**',
-        'src/_app/providers/**',
-        'src/_pages/**/ui/**',
+        'src/bootstrap/**/index*.ts',
+        'src/bootstrap/errors/**',
+        'src/bootstrap/metadata/**',
+        'src/bootstrap/providers/**',
+        'src/screens/**/ui/**',
         'src/shared/ui/**',
         'src/__test__/**',
         '**/*.config.*',
       ],
       // AGENTS.md's coverage mandate: >=80% for feature/entity logic.
       thresholds: {
-        'src/features/*/{api,model}/**': {
+        'src/features/*/api/**': {
           statements: 80,
           branches: 80,
           functions: 80,
           lines: 80,
         },
-        'src/entities/*/{api,model}/**': {
+        'src/features/*/model/**': {
+          statements: 80,
+          branches: 80,
+          functions: 80,
+          lines: 80,
+        },
+        'src/entities/*/api/**': {
+          statements: 80,
+          branches: 80,
+          functions: 80,
+          lines: 80,
+        },
+        'src/entities/*/model/**': {
           statements: 80,
           branches: 80,
           functions: 80,

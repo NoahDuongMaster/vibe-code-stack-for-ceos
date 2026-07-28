@@ -26,15 +26,15 @@
   // CORS_ORIGINS sends. Keep only this one in sync with real frontend origins.
   //
   // JWT_SECRET is a SECRET, not a var — do NOT add it below. Set it per
-  // environment with `wrangler secret put JWT_SECRET --env <env>`. When present,
-  // the gateway enforces bearer-JWT auth on every non-public route; when absent,
-  // auth is disabled. PUBLIC_PATHS (/healthz, Health) always bypass it (see
-  // config/gateway-options.ts).
+  // environment with `wrangler secret put JWT_SECRET --env <env>`. Staging and
+  // production reject requests when it is missing or shorter than 32 chars;
+  // development may omit it. Public paths still bypass authentication.
   //
   // TRADING_RPC and ADMIN_RPC are Workers VPC Service bindings, not Worker
-  // Service Bindings or public URLs. Development TRADING_RPC is configured in
-  // env.development below. Register admin-rpc.internal:3001 as its own VPC
-  // Service, then append its real ID to every applicable environment:
+  // Service Bindings or public URLs. Development bindings are committed below.
+  // Staging/production IDs and CORS origins are injected from protected GitHub
+  // Environment variables by scripts/create-deploy-config.ts; the deploy
+  // workflow refuses to continue when any value is missing or malformed.
   // "vpc_services": [{
   //   "binding": "TRADING_RPC",
   //   "service_id": "<VPC Service ID>",
@@ -60,7 +60,7 @@
       "vars": {
         "SERVICE_NAME": "api-gateway",
         "ENVIRONMENT": "development",
-        "CORS_ORIGINS": "http://localhost:3000,http://localhost:3002,http://localhost:4321"
+        "CORS_ORIGINS": "http://localhost:46000,http://localhost:46001,http://localhost:46002"
       },
       "durable_objects": {
         "bindings": [{ "name": "RATE_LIMITER", "class_name": "RateLimiterDO" }]
@@ -87,9 +87,7 @@
       "vars": {
         "SERVICE_NAME": "api-gateway",
         "ENVIRONMENT": "staging",
-        // TODO: set to the real staging admin/dapp origin(s) once the Pages
-        // project's staging branch URL is known, e.g.
-        // "https://staging.ai-first-admin.pages.dev,https://ai-first-dapp-staging.<subdomain>.workers.dev"
+        // Replaced in the CI-only generated deploy config.
         "CORS_ORIGINS": ""
       },
       // Rate limiter binding (repeated per env — bindings aren't inherited).
@@ -103,7 +101,7 @@
       "vars": {
         "SERVICE_NAME": "api-gateway",
         "ENVIRONMENT": "production",
-        // TODO: set to the real production admin/dapp origin(s).
+        // Replaced in the CI-only generated deploy config.
         "CORS_ORIGINS": ""
       },
       // Rate limiter binding (repeated per env — bindings aren't inherited).

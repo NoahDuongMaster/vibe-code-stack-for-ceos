@@ -114,6 +114,13 @@ pids/
 **/test-results/
 **/*.tsbuildinfo
 
+# Terraform local state and provider caches; dependency locks stay committed.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+*.tfplan
+
 # Generated audit/report artifacts — never committed
 *-report.html
 production-readiness-report.html

@@ -22,7 +22,7 @@ type SessionState = {
 // "you were signed in as X" reload experience. Any API call made without a
 // live token fails with 401, and `shared/api/api-client.ts`'s auth
 // interceptor signs the user out and redirects to /login (see
-// `shared/api/auth-events.ts` + the listener registered in the App layer)
+// `shared/api/auth-events.ts` + the listener registered in Bootstrap)
 // — a real backend would additionally validate the token server-side on
 // every protected call.
 export const useSessionStore = create<SessionState>()(

@@ -1,9 +1,10 @@
 # Monorepo-aware dapp image. Build context must be the repository root:
 #   docker build -f infra/docker/dapp.Dockerfile -t vibe-dapp .
-FROM node:22-slim AS base
+FROM node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS base
 ENV PNPM_HOME="/pnpm"
+ENV COREPACK_DEFAULT_TO_LATEST="0"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+RUN corepack enable && corepack install --global pnpm@11.2.2
 
 # 1. Install workspace dependencies for the build.
 FROM base AS deps
@@ -30,8 +31,8 @@ WORKDIR /app
 COPY --from=deps /app ./
 COPY . .
 ARG NEXT_PUBLIC_PROJECT_NAME=vibe-code-stack-for-ceos
-ARG NEXT_PUBLIC_API_ENDPOINT=http://localhost:3000
-ARG NEXT_PUBLIC_BASE_URL=http://localhost:3000
+ARG NEXT_PUBLIC_API_ENDPOINT=http://localhost:46003
+ARG NEXT_PUBLIC_BASE_URL=http://localhost:46000
 ARG NEXT_PUBLIC_CORS_COOKIE=localhost
 ENV NEXT_PUBLIC_PROJECT_NAME=$NEXT_PUBLIC_PROJECT_NAME \
     NEXT_PUBLIC_API_ENDPOINT=$NEXT_PUBLIC_API_ENDPOINT \

@@ -1,1 +1,1 @@
-export { postLogin as POST } from '@/_app/routes/index.server';
+export { postLogin as POST } from '@/bootstrap/routes/index.server';

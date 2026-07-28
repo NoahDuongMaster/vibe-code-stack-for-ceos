@@ -33,7 +33,7 @@ export interface TServerOptions {
   corsOrigins?: string[];
   /** Enables HTTP/2 on the Connect listener. Defaults to true. */
   http2?: boolean;
-  /** Native Nest gRPC bind address. Defaults to 0.0.0.0:50051. */
+  /** Native Nest gRPC bind address. Defaults to 0.0.0.0:46005. */
   grpcUrl?: string;
   /** Disable only for focused tests that do not exercise native gRPC. */
   enableGrpc?: boolean;
@@ -114,7 +114,7 @@ export async function createServer(
       {
         transport: Transport.GRPC,
         options: {
-          url: options.grpcUrl ?? '0.0.0.0:50051',
+          url: options.grpcUrl ?? '0.0.0.0:46005',
           package: ['health.v1', 'trading.v1'],
           protoPath: resolveGrpcProtoPaths(),
           gracefulShutdown: true,

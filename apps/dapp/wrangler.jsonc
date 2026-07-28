@@ -3,14 +3,11 @@
   "name": "ai-first-dapp",
   "compatibility_date": "2026-06-21",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "./worker/index.ts",
+  "main": "vinext/server/app-router-entry",
   "assets": {
     "directory": "dist/client",
     "not_found_handling": "none",
     "binding": "ASSETS"
-  },
-  "images": {
-    "binding": "IMAGES"
   },
   "observability": {
     "enabled": true
@@ -22,11 +19,35 @@
   "env": {
     "staging": {
       "name": "ai-first-dapp-staging",
-      "vars": { "ENVIRONMENT": "staging" }
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "DAPP_LOGIN_RATE_LIMIT_MODE": "distributed"
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "LOGIN_RATE_LIMITER",
+            "class_name": "RateLimiterDO",
+            "script_name": "ai-gateway-staging"
+          }
+        ]
+      }
     },
     "production": {
       "name": "ai-first-dapp",
-      "vars": { "ENVIRONMENT": "production" }
+      "vars": {
+        "ENVIRONMENT": "production",
+        "DAPP_LOGIN_RATE_LIMIT_MODE": "distributed"
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "LOGIN_RATE_LIMITER",
+            "class_name": "RateLimiterDO",
+            "script_name": "api-gateway-production"
+          }
+        ]
+      }
     }
   }
 }

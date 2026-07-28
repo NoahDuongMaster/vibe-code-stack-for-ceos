@@ -1,1 +1,1 @@
-export { createSitemap as default } from '@/_app/metadata';
+export { createSitemap as default } from '@/bootstrap/metadata';

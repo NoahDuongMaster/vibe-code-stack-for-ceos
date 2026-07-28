@@ -60,12 +60,29 @@ updates:
       github-actions:
         patterns: ["*"]
 
+  # ── Terraform providers ──
+  - package-ecosystem: "terraform"
+    directories:
+      - "/infra/terraform/environments/*"
+      - "/infra/terraform/modules/*"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "Etc/UTC"
+    labels:
+      - "dependencies"
+      - "terraform"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      terraform-providers:
+        patterns: ["*"]
+
   # ── Docker base images ──
   - package-ecosystem: "docker"
-    directories:
-      - "/docker/production"
-      - "/docker/staging"
-      - "/docker/development"
+    directory: "/infra/docker"
     schedule:
       interval: "weekly"
       day: "monday"

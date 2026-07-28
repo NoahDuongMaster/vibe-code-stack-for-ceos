@@ -1,1 +1,1 @@
-export { createManifest as default } from '@/_app/metadata';
+export { createManifest as default } from '@/bootstrap/metadata';

@@ -5,14 +5,19 @@ packages:
 
 # Shared dev-tooling versions, declared once here — every workspace package
 # references `"typescript": "catalog:"` etc. instead of its own range, so
-# they can never drift apart again (found already drifted: vitest ^4.1.9 in
-# apps/dapp + packages/api-core vs ^4.1.10 everywhere else; eslint exact-
-# pinned 9.39.4 in apps/dapp vs ^9.39.4 elsewhere). Exact-pinned per .npmrc's
-# `save-exact = true` policy — bump here, once, for the whole workspace.
+# they cannot drift across workspaces. Exact-pinned per `.npmrc`'s
+# `save-exact = true` policy — bump here once for the whole workspace.
 catalog:
   typescript: 6.0.3
   vitest: 4.1.10
-  eslint: 9.39.4
+  eslint: 10.8.0
+
+# tsconfck 3.1.6 is used only by Steiger to read tsconfig files. Its declared
+# TypeScript peer range has not caught up with TypeScript 6, but the parser is
+# compatible; keep this exception narrow to that package/peer edge.
+peerDependencyRules:
+  allowedVersions:
+    'tsconfck>typescript': '6'
 
 # `overrides` can only live at the workspace root (package.json's "pnpm"
 # field is no longer read by pnpm 11 — see `pnpm why <pkg>` warnings).
@@ -24,8 +29,15 @@ catalog:
 #   (10.59.0 / 10.63.0 / 10.64.0) shipped by @sentry/nextjs, @sentry/react,
 #   @sentry/astro, and @sentry/node declaring different ranges.
 overrides:
-  postcss: '>=8.5.10'
+  postcss: '8.5.23'
   esbuild: '>=0.28.1'
+  find-my-way: '9.7.0'
+  fast-uri: '3.1.4'
+  sharp: '0.35.3'
+  svgo: '4.0.2'
+  '@hono/node-server': '2.0.12'
+  'brace-expansion@<1.1.16': '1.1.16'
+  'brace-expansion@>=5.0.0 <5.0.8': '5.0.8'
   '@sentry/*': '10.64.0'
   # The `@sentry/*` glob above doesn't reliably catch a package that a
   # workspace project depends on *directly* (apps/dapp -> @sentry/nextjs,

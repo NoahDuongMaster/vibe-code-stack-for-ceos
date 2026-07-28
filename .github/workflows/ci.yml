@@ -15,19 +15,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  change-scope:
+    name: Pull Request Scope
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce reviewable change size
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'large-change-reviewed') }}
+        run: >-
+          node scripts/check-pr-size.ts
+          "${{ github.event.pull_request.base.sha }}"
+          "${{ github.event.pull_request.head.sha }}"
+        env:
+          MAX_PR_CHANGED_FILES: 150
+          MAX_PR_CHANGED_LINES: 20000
+
+      - name: Record approved large-change exception
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'large-change-reviewed') }}
+        run: echo 'Large-change scope was explicitly approved with the large-change-reviewed label.' >> "$GITHUB_STEP_SUMMARY"
+
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup toolchain
         uses: ./.github/actions/setup-toolchain
 
       - name: Cache turbo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .turbo
           key: ${{ runner.os }}-turbo-typecheck-${{ github.sha }}
@@ -43,13 +68,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup toolchain
         uses: ./.github/actions/setup-toolchain
 
       - name: Cache turbo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .turbo
           key: ${{ runner.os }}-turbo-lint-${{ github.sha }}
@@ -68,13 +93,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup toolchain
         uses: ./.github/actions/setup-toolchain
 
       - name: Cache turbo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .turbo
           key: ${{ runner.os }}-turbo-test-${{ github.sha }}
@@ -84,13 +109,83 @@ jobs:
       - name: Run tests
         run: mise run test
 
+      - name: Enforce coverage thresholds
+        run: mise run test:coverage
+
+  e2e:
+    name: Dapp E2E Tests
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint, test]
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_PROJECT_NAME: e2e-build
+      NEXT_PUBLIC_API_ENDPOINT: https://placeholder.example.com
+      NEXT_PUBLIC_BASE_URL: http://localhost:46000
+      SESSION_SECRET: ci-placeholder-secret-32-chars!!
+      DEMO_AUTH_EMAIL: e2e@example.com
+      DEMO_AUTH_PASSWORD: ci-placeholder-password
+      DAPP_LOGIN_RATE_LIMIT_MODE: local
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: |
+          echo "version=$(pnpm --filter @apps/dapp exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Chromium
+        run: pnpm --filter @apps/dapp exec playwright install chromium --with-deps
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Install Chromium OS dependencies
+        run: pnpm --filter @apps/dapp exec playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      - name: Create runtime environment
+        run: |
+          cat <<EOF > apps/dapp/.dev.vars
+          NEXT_PUBLIC_PROJECT_NAME=${{ env.NEXT_PUBLIC_PROJECT_NAME }}
+          NEXT_PUBLIC_API_ENDPOINT=${{ env.NEXT_PUBLIC_API_ENDPOINT }}
+          NEXT_PUBLIC_BASE_URL=${{ env.NEXT_PUBLIC_BASE_URL }}
+          SESSION_SECRET=${{ env.SESSION_SECRET }}
+          DEMO_AUTH_EMAIL=${{ env.DEMO_AUTH_EMAIL }}
+          DEMO_AUTH_PASSWORD=${{ env.DEMO_AUTH_PASSWORD }}
+          EOF
+
+      - name: Build
+        run: pnpm --filter @apps/dapp build
+
+      - name: Run Playwright tests
+        run: pnpm --filter @apps/dapp test:e2e
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            apps/dapp/playwright-report/
+            apps/dapp/e2e-results/
+          retention-days: 7
+
   security:
     name: Security Audit
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup toolchain
         uses: ./.github/actions/setup-toolchain
@@ -98,13 +193,28 @@ jobs:
       - name: Audit dependencies
         run: pnpm audit --audit-level=high
 
+  docker:
+    name: Docker Images & PostgreSQL Recovery
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint, test]
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Validate and test release containers
+        run: mise run test:docker
+
   protocol:
     name: Protobuf Lint, Codegen Drift & Breaking-Change Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # `buf breaking` diffs against main, so it needs real history —
           # the default shallow (depth-1) checkout only has this one commit.
@@ -123,13 +233,9 @@ jobs:
       - name: buf generate (codegen drift check)
         run: pnpm --filter @packages/protocol generate:check
 
-      # Advisory for now (continue-on-error): main doesn't have
-      # packages/protocol yet as of this PR, so the very first run has
-      # nothing to diff against and would always fail. Once this lands on
-      # main, drop continue-on-error to make it a hard gate against
-      # accidental breaking changes to the RPC schema.
+      # Hard gate: published protobuf contracts stay backward compatible with
+      # main. Intentional breaking changes require an explicit versioned API.
       - name: buf breaking (against main)
-        continue-on-error: true
         run: pnpm --filter @packages/protocol breaking
 
   build:
@@ -139,13 +245,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup toolchain
         uses: ./.github/actions/setup-toolchain
 
       - name: Cache turbo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .turbo
           key: ${{ runner.os }}-turbo-build-${{ github.sha }}

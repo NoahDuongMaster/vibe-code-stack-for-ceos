@@ -2,14 +2,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createAdminClient,
   createApiClient,
+  createAuthClient,
   createTradingClient,
 } from './index';
 
-const HEALTH_URL = 'http://localhost:3001/health.v1.HealthService/Health';
+const HEALTH_URL = 'http://localhost:46004/health.v1.HealthService/Health';
 const MARKETS_URL =
-  'http://localhost:8787/trading.v1.TradingService/GetMarkets';
+  'http://localhost:46003/trading.v1.TradingService/GetMarkets';
 const ADMIN_MARKETS_URL =
-  'http://localhost:8787/admin.v1.AdminService/GetMarkets';
+  'http://localhost:46003/admin.v1.AdminService/GetMarkets';
+const LOGIN_URL = 'http://localhost:46003/auth.v1.AuthService/Login';
 
 describe('createApiClient', () => {
   afterEach(() => {
@@ -17,22 +19,50 @@ describe('createApiClient', () => {
   });
 
   it('should build a client exposing the HealthService method', () => {
-    const client = createApiClient('http://localhost:3001');
+    const client = createApiClient('http://localhost:46004');
 
     expect(client).not.toHaveProperty('echo');
     expect(client.health).toBeTypeOf('function');
   });
 
   it('should build a client exposing TradingService methods independently', () => {
-    const client = createTradingClient('http://localhost:8787');
+    const client = createTradingClient('http://localhost:46003');
 
     expect(client.getMarkets).toBeTypeOf('function');
   });
 
   it('should build a client exposing the admin market facade', () => {
-    const client = createAdminClient('http://localhost:8787');
+    const client = createAdminClient('http://localhost:46003');
 
     expect(client.getMarkets).toBeTypeOf('function');
+  });
+
+  it('should authenticate through the gateway and return a typed session', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      expect(input.toString()).toBe(LOGIN_URL);
+      return new Response(
+        JSON.stringify({
+          token: 'signed-jwt',
+          user: {
+            id: 'admin:admin@example.com',
+            email: 'admin@example.com',
+            name: 'Administrator',
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await createAuthClient('http://localhost:46003').login({
+      email: 'admin@example.com',
+      password: 'local-admin-password',
+    });
+
+    expect(response).toMatchObject({
+      token: 'signed-jwt',
+      user: { email: 'admin@example.com' },
+    });
   });
 
   it('should POST admin market requests to the gateway', async () => {
@@ -48,7 +78,7 @@ describe('createApiClient', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const res = await createAdminClient('http://localhost:8787').getMarkets({
+    const res = await createAdminClient('http://localhost:46003').getMarkets({
       coinIds: ['bitcoin'],
       vsCurrency: 'usd',
     });
@@ -79,7 +109,7 @@ describe('createApiClient', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const res = await createTradingClient('http://localhost:8787').getMarkets({
+    const res = await createTradingClient('http://localhost:46003').getMarkets({
       coinIds: ['bitcoin'],
       vsCurrency: 'usd',
     });
@@ -104,7 +134,7 @@ describe('createApiClient', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const client = createApiClient('http://localhost:3001');
+    const client = createApiClient('http://localhost:46004');
     const res = await client.health({});
 
     expect(res).toMatchObject({
@@ -124,7 +154,7 @@ describe('createApiClient', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    const client = createApiClient('http://localhost:3001');
+    const client = createApiClient('http://localhost:46004');
 
     await expect(client.health({})).rejects.toThrow();
   });
@@ -146,7 +176,7 @@ describe('createApiClient', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    const client = createApiClient('http://localhost:3001', {
+    const client = createApiClient('http://localhost:46004', {
       interceptors: [
         (next) => (req) => {
           req.header.set('x-custom', 'yes');

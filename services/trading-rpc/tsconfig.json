@@ -6,11 +6,11 @@
     "paths": {
       "@/*": ["./src/*"],
       "@repo/architecture-checker": [
-        "../../scripts/check-backend-architecture.mjs"
+        "../../scripts/check-backend-architecture.ts"
       ],
       "@scripts/*": ["./scripts/*"]
     },
     "types": ["node"]
   },
-  "include": ["src", "scripts", "drizzle.config.ts"]
+  "include": ["src", "scripts", "*.config.ts", "*.config.mts", "*.config.cts"]
 }

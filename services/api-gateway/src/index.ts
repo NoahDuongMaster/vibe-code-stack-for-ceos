@@ -3,6 +3,7 @@ import { createGatewayApp } from '@/adapters/http/gateway-app';
 import type { GatewayRequestScopeFactory } from '@/adapters/http/gateway-request-scope.factory';
 import {
   ADMIN_RPC_ORIGIN,
+  AUTH_LOGIN_RATE_LIMIT_POLICY,
   AUTH_PUBLIC_PATHS,
   RATE_LIMIT_EXEMPT_PATHS,
   RATE_LIMIT_POLICY,
@@ -32,6 +33,9 @@ export { RateLimiterDO } from '@/features/rate-limiting';
 const authAccessPolicy = new GatewayAccessPolicy(AUTH_PUBLIC_PATHS);
 const rateLimitAccessPolicy = new GatewayAccessPolicy(RATE_LIMIT_EXEMPT_PATHS);
 const rateLimitPolicy = RateLimitPolicy.create(RATE_LIMIT_POLICY);
+const authLoginRateLimitPolicy = RateLimitPolicy.create(
+  AUTH_LOGIN_RATE_LIMIT_POLICY,
+);
 
 const requireTradingRpcBinding = (bindings: TGatewayBindings): Fetcher => {
   if (!bindings.TRADING_RPC) {
@@ -60,6 +64,14 @@ const createRequestScope: GatewayRequestScopeFactory = (bindings, config) => {
       createDurableObjectRateLimiterAdapter(bindings.RATE_LIMITER),
       rateLimitPolicy,
       logger,
+      [
+        {
+          failClosed: true,
+          identifierScope: 'admin-login',
+          pathname: '/auth.v1.AuthService/Login',
+          policy: authLoginRateLimitPolicy,
+        },
+      ],
     ),
     routeRpcRequest: new RouteRpcRequestUseCase(
       createLocalApiCoreAdapter(config.serviceName),

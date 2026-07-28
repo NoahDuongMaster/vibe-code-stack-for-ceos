@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:46000';
+const useProductionServer =
+  !!process.env.CI || process.env.PLAYWRIGHT_PRODUCTION === '1';
 
 export default defineConfig({
   testDir: './e2e',
@@ -24,11 +26,11 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        // CI's playwright.yml already runs `pnpm build` as a separate step
-        // before this — start the production build we just made, not a fresh
-        // dev server, so the tests exercise what would actually ship.
-        command: process.env.CI ? 'pnpm start' : 'pnpm dev',
-        url: 'http://localhost:3000',
+        // CI's e2e job already runs `pnpm build` as a separate step before
+        // this—start the production build we just made, so the tests exercise
+        // what would actually ship.
+        command: useProductionServer ? 'pnpm start' : 'pnpm dev',
+        url: 'http://localhost:46000',
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
       },

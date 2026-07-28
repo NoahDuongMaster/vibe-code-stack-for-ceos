@@ -7,7 +7,8 @@ export const ZAuthUser = z.object({
 });
 export type TAuthUser = z.infer<typeof ZAuthUser>;
 
-export type TAuthSession = {
-  token: string;
-  user: TAuthUser;
-};
+export const ZAuthSession = z.object({
+  token: z.string().min(1),
+  user: ZAuthUser,
+});
+export type TAuthSession = z.infer<typeof ZAuthSession>;

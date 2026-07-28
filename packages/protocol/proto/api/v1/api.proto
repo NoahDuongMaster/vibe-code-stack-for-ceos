@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package api.v1;
+
+// Deprecated compatibility contract. New consumers should use
+// health.v1.HealthService and the capability-specific service contracts.
+
+message EchoRequest {
+  string message = 1;
+}
+
+message EchoResponse {
+  string message = 1;
+  string upper = 2;
+  int32 length = 3;
+  string runtime = 4;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+  string service = 2;
+  string runtime = 3;
+}
+
+service ApiService {
+  option deprecated = true;
+
+  rpc Echo(EchoRequest) returns (EchoResponse) {
+    option deprecated = true;
+  }
+  rpc Health(HealthRequest) returns (HealthResponse) {
+    option deprecated = true;
+  }
+}

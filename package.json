@@ -7,7 +7,7 @@
   "type": "module",
   "packageManager": "pnpm@11.2.2",
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=22.22.0",
     "pnpm": ">=11"
   },
   "keywords": [
@@ -52,14 +52,16 @@
     "internal:build": "turbo run build",
     "build:web": "turbo run build --filter=@apps/dapp",
     "typecheck": "mise run typecheck",
-    "internal:typecheck": "turbo run typecheck",
+    "internal:typecheck": "tsc --project tsconfig.json && turbo run typecheck",
     "lint": "mise run lint",
-    "internal:lint": "turbo run lint",
+    "internal:lint": "infra/terraform/check.sh && actionlint && shellcheck infra/terraform/check.sh infra/terraform/deploy-rpc.sh infra/terraform/rollback-rpc.sh infra/terraform/modules/rpc-stack/files/deploy.sh infra/terraform/modules/rpc-stack/files/monitor.sh infra/terraform/modules/rpc-stack/files/bootstrap.sh.tftpl && turbo run lint",
     "test": "mise run test",
     "internal:test": "node --test scripts/*.test.ts && turbo run test",
-    "test:coverage": "turbo run test:coverage --filter=@apps/dapp",
+    "test:coverage": "mise run test:coverage",
+    "internal:test:coverage": "turbo run test:coverage --filter=@apps/dapp --filter=@apps/admin",
     "test:e2e": "mise run test:e2e",
     "internal:test:e2e": "pnpm --filter @apps/dapp test:e2e",
+    "internal:test:e2e:production": "CI=1 PLAYWRIGHT_PRODUCTION=1 DAPP_LOGIN_RATE_LIMIT_MODE=local NEXT_PUBLIC_PROJECT_NAME=e2e-build NEXT_PUBLIC_API_ENDPOINT=https://placeholder.example.com NEXT_PUBLIC_BASE_URL=http://localhost:46000 SESSION_SECRET=local-e2e-session-secret-not-placeholder DEMO_AUTH_EMAIL=e2e@example.com DEMO_AUTH_PASSWORD=local-e2e-password pnpm --filter @apps/dapp build && CI=1 PLAYWRIGHT_PRODUCTION=1 DAPP_LOGIN_RATE_LIMIT_MODE=local NEXT_PUBLIC_PROJECT_NAME=e2e-build NEXT_PUBLIC_API_ENDPOINT=https://placeholder.example.com NEXT_PUBLIC_BASE_URL=http://localhost:46000 SESSION_SECRET=local-e2e-session-secret-not-placeholder DEMO_AUTH_EMAIL=e2e@example.com DEMO_AUTH_PASSWORD=local-e2e-password pnpm --filter @apps/dapp test:e2e",
     "deploy:web": "turbo run deploy --filter=@apps/dapp",
     "deploy:admin": "turbo run deploy --filter=@apps/admin",
     "deploy:landing": "turbo run deploy --filter=@apps/landing",
@@ -70,12 +72,13 @@
     "internal:check": "biome check --write .",
     "check:ci": "mise run check:ci",
     "internal:check:ci": "biome ci .",
-    "postinstall": "node .husky/install.mjs || true",
+    "postinstall": "node .husky/install.ts || true",
     "lint-staged": "lint-staged",
     "validate_branch": "sh .husky/validate-branch.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
+    "@types/node": "^26.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.8",
     "turbo": "^2.3.3",

@@ -1,1 +1,1 @@
-export { createRobots as default } from '@/_app/metadata';
+export { createRobots as default } from '@/bootstrap/metadata';

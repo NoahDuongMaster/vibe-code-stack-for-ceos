@@ -8,6 +8,11 @@ export { createRoutes } from './adapters/connect/routes';
 // Feature domain surfaces — for services/tests that need a service or schema.
 export type { THealthResult } from './features/health';
 export { healthService } from './features/health';
+export type {
+  TLegacyEchoInput,
+  TLegacyEchoResult,
+} from './features/legacy-echo';
+export { legacyEchoService, ZLegacyEchoInput } from './features/legacy-echo';
 // Shared cross-cutting utilities, reused by the service runtimes.
 export type { ApiConfig } from './shared/config';
 export {

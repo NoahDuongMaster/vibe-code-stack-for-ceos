@@ -4,7 +4,7 @@
 # keep their framework dev servers (vinext, Rsbuild, Astro, and workerd through
 # the Cloudflare Vite plugin) instead of pretending their production target is
 # a generic Node container.
-FROM node:22-slim
+FROM node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3
 
 ENV PNPM_HOME="/pnpm"
 ENV COREPACK_HOME="/opt/corepack"
