@@ -1,6 +1,6 @@
 {
   ".": "1.0.0",
-  "apps/dapp": "1.0.0",
+  "apps/dapp": "1.1.0",
   "apps/admin": "0.0.0",
   "apps/landing": "0.0.0",
   "services/trading-rpc": "0.0.0",
