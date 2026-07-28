@@ -191,6 +191,14 @@ case "$*" in
 esac
 EOF
 
+cat >"$tmp/bin/date-monthly" <<'EOF'
+#!/usr/bin/env sh
+case "$*" in
+  '-u +%Y%m%dT%H%M%SZ') printf '20260728T120000Z\n' ;;
+  *) exec /bin/date "$@" ;;
+esac
+EOF
+
 cat >"$tmp/bin/tar-identity-check" <<'EOF'
 #!/usr/bin/env sh
 if find "$POSTGRES_BACKUP_RUNTIME_DIR" -maxdepth 1 -type f \
@@ -499,6 +507,7 @@ monthly_target="$tmp/restores/monthly-safe"
 : >"$tmp/external-calls"
 monthly_env=(
   "${common_env[@]}"
+  BACKUP_DATE_BIN="$tmp/bin/date-monthly"
   FAKE_REMOTE_ROOT="$tmp/remote" \
   POSTGRES_BACKUP_RUNTIME_DIR="$tmp/run" \
   R2_ACCOUNT_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \

@@ -22,6 +22,7 @@ if ! command -v flock >/dev/null 2>&1; then
   fi
   exec docker run --rm \
     --entrypoint /bin/bash \
+    --user 70:70 \
     --env POSTGRES_MONTHLY_TEST_CONTAINER=1 \
     --mount "type=bind,source=$ROOT,target=/workspace,readonly" \
     --workdir /workspace \
@@ -36,7 +37,7 @@ make_fakes() {
   local bin_dir="$case_dir/bin"
 
   mkdir -p "$bin_dir" "$case_dir/remote" "$case_dir/stage" \
-    "$case_dir/state" "$case_dir/run"
+    "$case_dir/state" "$case_dir/run" "$case_dir/restores"
 
   cat >"$bin_dir/date" <<'EOF'
 #!/usr/bin/env sh
@@ -266,6 +267,7 @@ run_monthly() {
     POSTGRES_BACKUP_STAGE_DIR="$case_dir/stage" \
     POSTGRES_BACKUP_STATE_DIR="$case_dir/state" \
     POSTGRES_BACKUP_RUNTIME_DIR="$case_dir/run" \
+    POSTGRES_RESTORE_ROOT="$case_dir/restores" \
     POSTGRES_BACKUP_SERVICE_NAME=trading-rpc-example \
     POSTGRES_BACKUP_ENVIRONMENT=production \
     POSTGRES_MONTHLY_MIN_FREE_BYTES=1024 \
@@ -295,6 +297,7 @@ run_scheduled_monthly() {
     POSTGRES_BACKUP_STAGE_DIR="$case_dir/stage" \
     POSTGRES_BACKUP_STATE_DIR="$case_dir/state" \
     POSTGRES_BACKUP_RUNTIME_DIR="$case_dir/run" \
+    POSTGRES_RESTORE_ROOT="$case_dir/restores" \
     POSTGRES_BACKUP_SERVICE_NAME=trading-rpc-example \
     POSTGRES_BACKUP_ENVIRONMENT=production \
     POSTGRES_MONTHLY_MIN_FREE_BYTES=1024 \
@@ -319,8 +322,10 @@ make_fakes "$failure_case"
 if run_monthly "$failure_case" RCLONE_CHECK_MODE=always; then
   fail 'remote checksum failure must fail the monthly backup'
 fi
-[ ! -f "$failure_case/remote/monthly/2026/07/"*/_SUCCESS.json ] || \
+if find "$failure_case/remote/monthly/2026/07" -type f -name '_SUCCESS.json' \
+  -print -quit 2>/dev/null | grep -q .; then
   fail 'failed verification published a success marker'
+fi
 [ ! -f "$failure_case/remote/monthly/2026/07/_LATEST.json" ] || \
   fail 'failed verification published a latest pointer'
 if grep -Fq 'write _SUCCESS.json' "$failure_case/operations.log"; then
@@ -503,6 +508,7 @@ printf 'preserve\n' >"$crash_case/run/not-a-restore-secret"
 POSTGRES_BACKUP_STAGE_DIR="$crash_case/stage" \
 POSTGRES_BACKUP_STATE_DIR="$crash_case/state" \
 POSTGRES_BACKUP_RUNTIME_DIR="$crash_case/run" \
+POSTGRES_RESTORE_ROOT="$crash_case/restores" \
   "$cleanup_script" >/dev/null
 [ ! -e "$crash_backup_dir/plain" ] || \
   fail 'startup cleanup retained plaintext from a hard-crashed monthly backup'
@@ -628,6 +634,8 @@ while [ ! -e "$lock_ready" ]; do /bin/sleep 0.02; done
 set +e
 POSTGRES_BACKUP_STAGE_DIR="$crash_case/stage" \
 POSTGRES_BACKUP_STATE_DIR="$crash_case/state" \
+POSTGRES_BACKUP_RUNTIME_DIR="$crash_case/run" \
+POSTGRES_RESTORE_ROOT="$crash_case/restores" \
   "$cleanup_script" >/dev/null 2>&1
 locked_cleanup_status=$?
 set -e
@@ -642,6 +650,8 @@ set +e
   exec 9>"$crash_case/state/not-the-backup-job.lock"
   POSTGRES_BACKUP_STAGE_DIR="$crash_case/stage" \
   POSTGRES_BACKUP_STATE_DIR="$crash_case/state" \
+  POSTGRES_BACKUP_RUNTIME_DIR="$crash_case/run" \
+  POSTGRES_RESTORE_ROOT="$crash_case/restores" \
     "$cleanup_script" --lock-held-fd 9 >/dev/null 2>&1
 )
 wrong_lock_status=$?
