@@ -43,16 +43,31 @@ assert_file_mode "$tmp/runtime/postgres-replication-password" 600
 assert_file_contains "$tmp/gosu-environment" \
   "POSTGRES_REPLICATION_PASSWORD_FILE=$tmp/runtime/postgres-replication-password"
 
+# Create root-owned source secrets in-container. Linux bind mounts preserve the
+# host runner UID, which is intentionally unreadable after dropping DAC_OVERRIDE.
+cat >"$tmp/container-bootstrap.sh" <<'EOF'
+#!/bin/sh
+set -eu
+install -d -o 0 -g 0 -m 0700 /run/secrets
+for secret in replication pitr-key pitr-secret archive-key archive-secret cipher; do
+  printf '%s-value\n' "$secret" >"/run/secrets/$secret"
+  chmod 0600 "/run/secrets/$secret"
+done
+exec /test-entrypoint.sh "$@"
+EOF
+chmod 0755 "$tmp/container-bootstrap.sh"
+
 docker run --rm \
-  --entrypoint /test-entrypoint.sh \
+  --entrypoint /test-container-bootstrap.sh \
   --cap-drop ALL \
   --cap-add CHOWN \
   --cap-add SETGID \
   --cap-add SETUID \
   --security-opt no-new-privileges:true \
   --tmpfs /run/postgres-backup-secrets:rw,noexec,nosuid,nodev,mode=0700 \
+  --tmpfs /run/secrets:rw,noexec,nosuid,nodev,mode=0700 \
+  --mount "type=bind,source=$tmp/container-bootstrap.sh,target=/test-container-bootstrap.sh,readonly" \
   --mount "type=bind,source=$ROOT/infra/docker/postgres/scripts/backup-root-entrypoint.sh,target=/test-entrypoint.sh,readonly" \
-  --mount "type=bind,source=$tmp/source,target=/run/secrets,readonly" \
   --env POSTGRES_BACKUP_MODE=enabled \
   --env POSTGRES_RUNTIME_USER=70:70 \
   --env POSTGRES_RUNTIME_UID=70 \
