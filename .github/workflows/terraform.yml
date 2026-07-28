@@ -87,12 +87,17 @@ jobs:
           OPERATIONS_ALERT_EMAIL: ${{ vars.OPERATIONS_ALERT_EMAIL }}
         run: |
           required=(AWS_REGION AWS_TERRAFORM_ROLE_ARN AWS_GITHUB_OIDC_PROVIDER_ARN TF_STATE_BUCKET TF_STATE_KMS_KEY_ARN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN OPERATIONS_ALERT_EMAIL)
+          missing=false
           for name in "${required[@]}"; do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::Missing required ${{ inputs.environment }} infrastructure value: ${name}"
-              exit 1
+              missing=true
             fi
           done
+          if [[ "$missing" == true ]]; then
+            echo "Configure the ${{ inputs.environment }} GitHub Environment values documented in infra/terraform/README.md."
+            exit 1
+          fi
 
       - name: Enforce protected apply branches
         if: inputs.action == 'apply'

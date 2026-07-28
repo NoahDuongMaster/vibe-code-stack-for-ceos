@@ -24,8 +24,13 @@ Nguồn cấu hình chính:
 | --- | --- | --- | --- |
 | Local native | `mise run dev` | 3 frontend, 3 backend, PostgreSQL và VPC origin | Hot reload; gateway cần Cloudflare login và Tunnel token |
 | Local Docker | `mise run docker:start` | Full development stack trong container | Dùng cùng topology VPC development |
-| Staging | Push/merge vào `develop` | 4 Cloudflare targets + RPC/PostgreSQL trên EC2 | Chỉ chạy sau CI xanh |
-| Production | Push/merge vào `main` | 4 Cloudflare targets + RPC/PostgreSQL trên EC2 | Cần GitHub Environment approval |
+| Staging | Push/merge vào `develop` | Landing Worker | Chỉ chạy sau CI xanh |
+| Production | Push/merge vào `main` | Landing Worker | Cần GitHub Environment approval |
+
+> Chế độ deploy hiện tại là **landing-only**. Các step AWS/RPC, gateway, dapp
+> và admin vẫn được giữ trong workflow nhưng bị khóa bằng
+> `FULL_STACK_DEPLOY_ENABLED: 'false'`. Các phần full-stack bên dưới là runbook
+> chuẩn bị cho lúc bật lại, không phải prerequisite để deploy landing.
 
 Hai service RPC cùng PostgreSQL 18/pgBackRest chạy bằng Docker trên một private
 EC2 cố định cho mỗi môi trường. Terraform provision ECR, encrypted EBS,
@@ -204,10 +209,11 @@ mise run docker:stop
 Chỉ khi chắc chắn muốn xóa toàn bộ database local mới xóa volume
 `postgres-data`; không dùng thao tác này như một bước setup thông thường.
 
-## 4. Provision chung cho staging và production
+## 4. Provision full-stack cho staging và production
 
-Đây là bước one-time của người có quyền quản trị. Mỗi môi trường phải dùng
-resource, URL, secret và VPC Service ID riêng.
+Phần này chưa cần cho chế độ landing-only. Đây là bước one-time của người có
+quyền quản trị trước khi bật lại full-stack; mỗi môi trường phải dùng resource,
+URL, secret và VPC Service ID riêng.
 
 ### Bước 1: Bootstrap và apply Terraform
 
@@ -337,11 +343,8 @@ provisioning; vẫn không chạy `wrangler deploy` từ local.
 
 ### Preflight bắt buộc
 
-- Backend staging và Tunnel đang healthy.
-- Terraform staging đã apply và `AWS_RPC_DEPLOY_ROLE_ARN` đã cấu hình.
-- `env.staging.vars.CORS_ORIGINS` có dapp/admin staging origins thật.
-- GitHub Environment `staging` có đủ secrets và variables.
-- Dapp runtime secrets đã được provision.
+- GitHub Environment `staging` có secrets `CLOUDFLARE_API_TOKEN`,
+  `CLOUDFLARE_ACCOUNT_ID` và variable `PUBLIC_SITE_URL` đúng domain staging.
 - `mise run verify` pass trên branch chuẩn bị merge.
 
 ### Các bước deploy
@@ -354,46 +357,28 @@ provisioning; vẫn không chạy `wrangler deploy` từ local.
    **Deploy (staging)**.
 6. Không deploy thủ công nếu job lỗi; sửa nguyên nhân và chạy lại qua commit/CI.
 
-Workflow staging build và rollout theo thứ tự an toàn:
-
-1. Hai RPC + PostgreSQL/pgBackRest → ECR scan → private EC2 qua SSM.
-2. Gateway config nhận VPC Service IDs từ Terraform state và đồng bộ JWT.
-3. gateway → Worker `ai-gateway-staging` để binding Durable Object sẵn sàng.
-4. dapp → Worker `ai-first-dapp-staging`.
-5. landing → Worker `ai-first-landing-staging`.
-6. admin → Pages project `ai-first-admin-staging`, branch `main`.
-7. Workflow tự smoke-test frontend, dapp session, gateway, TradingService,
-   AdminService và coin image URL. Step lỗi kích hoạt rollback tự động.
+Workflow chỉ build landing, deploy Worker `ai-first-landing-staging`, gọi
+`PUBLIC_SITE_URL` để smoke test và tự rollback landing nếu smoke test lỗi.
 
 ### Verify staging
 
 Thay URL placeholder bằng URL thật đã cấu hình:
 
 ```bash
-curl --fail https://<staging-gateway>/healthz
-curl --fail -X POST \
-  https://<staging-gateway>/trading.v1.TradingService/GetMarkets \
-  -H 'content-type: application/json' \
-  -H 'connect-protocol-version: 1' \
-  --data '{"coinIds":["bitcoin","ethereum"],"vsCurrency":"usd"}'
+curl --fail https://<staging-landing>/
+curl --fail https://<staging-landing>/robots.txt
 ```
 
-Sau đó kiểm tra dapp, admin, landing, login, live market data, CORS và log/trace
-Cloudflare. AdminService phải được smoke test riêng qua gateway.
+Sau đó kiểm tra canonical metadata, sitemap và Cloudflare Worker logs của
+landing.
 
 ## 6. Deploy production
 
 ### Preflight bắt buộc
 
 - Commit đã được xác nhận ở staging.
-- Production EC2, Docker PostgreSQL, Tunnel và cả hai VPC Services healthy.
-- pgBackRest WAL/PITR, monthly archive, Bucket Lock và restore drill đã được
-  kiểm chứng.
-- Terraform production apply không còn pending change ngoài release.
-- Production `CORS_ORIGINS` chỉ chứa origin thật.
-- GitHub Environment `production` có secrets/variables production, không tái
-  sử dụng staging values.
-- Dapp production runtime secrets đã được provision.
+- GitHub Environment `production` có secrets `CLOUDFLARE_API_TOKEN`,
+  `CLOUDFLARE_ACCOUNT_ID` và variable `PUBLIC_SITE_URL` đúng domain production.
 - Required reviewers đã bật và có người trực rollback.
 
 ### Các bước deploy
@@ -405,28 +390,21 @@ Cloudflare. AdminService phải được smoke test riêng qua gateway.
 5. Workflow **Deploy** tạo job **Deploy (production)**.
 6. Required reviewer kiểm tra commit SHA, staging evidence và approve GitHub
    Environment.
-7. Theo dõi RPC rollout, bốn Cloudflare deployment và automated smoke test tới
-   khi hoàn tất.
+7. Theo dõi landing Worker deployment và automated smoke test tới khi hoàn tất.
 
 Không chạy deploy từ laptop để “bù” một step lỗi. Workflow checkout chính xác
 `head_sha` đã pass CI, vì vậy mọi sửa đổi phải quay lại Git và CI.
 
 ### Verify production
 
-1. Kiểm tra `/healthz` của gateway.
-2. Smoke test TradingService và AdminService qua gateway.
-3. Kiểm tra dapp login/session, admin route, live asset logo/data và landing
-   canonical metadata.
-4. Kiểm tra CORS từ đúng dapp/admin origin và xác nhận origin lạ bị từ chối.
-5. Kiểm tra Cloudflare logs, CloudWatch Logs/alarms, Sentry và rate limiter.
-6. Kiểm tra `postgres-backup` health, WAL archive, R2 backup và restore-drill
-   evidence sau deploy.
+1. Kiểm tra `PUBLIC_SITE_URL` và `/robots.txt` trả HTTP thành công.
+2. Kiểm tra canonical metadata và sitemap dùng đúng production origin.
+3. Kiểm tra Cloudflare Worker logs và Sentry nếu landing đã bật DSN.
 
 ## 7. Rollback
 
-Deploy workflow tự rollback các target đã đổi khi rollout/smoke test lỗi: host
-RPC quay về image tag cũ, Workers dùng version trước và Pages gọi rollback API.
-Sau recovery tức thời, ưu tiên rollback source bằng Git để mọi target hội tụ:
+Ở chế độ hiện tại, deploy workflow tự rollback landing Worker khi smoke test
+lỗi. Sau recovery tức thời, ưu tiên rollback source bằng Git:
 
 1. `git revert` commit gây lỗi trên branch tương ứng.
 2. Push/merge revert vào `develop` hoặc `main`.
@@ -437,15 +415,11 @@ Khi production incident cần rollback Worker ngay lập tức, operator đượ
 quyền có thể dùng lịch sử version của Cloudflare:
 
 ```bash
-pnpm --filter @apps/dapp exec wrangler rollback --env production
 pnpm --filter @apps/landing exec wrangler rollback --env production
-pnpm --filter @services/api-gateway exec wrangler rollback --env production
 ```
 
-Admin Pages rollback từ deployment history của project `ai-first-admin`, sau đó
-vẫn phải tạo Git revert để source và deployed state hội tụ lại. RPC rollback
-bằng Git revert hoặc re-run một Deploy workflow thành công trước đó; immutable
-commit SHA được rollout lại qua SSM.
+Các lệnh rollback dapp, gateway, admin và RPC chỉ áp dụng sau khi bật lại
+full-stack. Luôn tạo Git revert để source và deployed state hội tụ lại.
 
 ## 8. Definition of done
 
@@ -462,9 +436,8 @@ Trước khi coi setup/deploy hoàn tất:
 - [ ] `mise run test:docker` pass.
 - [ ] `mise run test:protocol` và `mise run security:audit` pass.
 - [ ] `mise run terraform:check` pass nếu thay đổi AWS/Cloudflare IaC.
-- [ ] Gateway health, TradingService và AdminService smoke tests pass.
-- [ ] Frontend origins khớp gateway `CORS_ORIGINS`.
-- [ ] Production có rollback owner và backup health evidence.
+- [ ] Landing URL, canonical metadata, sitemap và rollback evidence đã kiểm tra.
+- [ ] Khi bật full-stack: gateway/RPC smoke tests, CORS và backup health pass.
 
 ## 9. Các giới hạn hiện tại cần giải quyết
 

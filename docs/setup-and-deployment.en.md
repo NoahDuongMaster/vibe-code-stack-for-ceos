@@ -25,8 +25,13 @@ Configuration sources of truth:
 | --- | --- | --- | --- |
 | Local native | `mise run dev` | 3 frontends, 3 backends, PostgreSQL, and VPC origins | Hot reload; the gateway requires Cloudflare login and a Tunnel token |
 | Local Docker | `mise run docker:start` | Full development stack in containers | Uses the development VPC topology |
-| Staging | Push/merge to `develop` | 4 Cloudflare targets + RPC/PostgreSQL on EC2 | Runs only after CI succeeds |
-| Production | Push/merge to `main` | 4 Cloudflare targets + RPC/PostgreSQL on EC2 | Requires GitHub Environment approval |
+| Staging | Push/merge to `develop` | Landing Worker | Runs only after CI succeeds |
+| Production | Push/merge to `main` | Landing Worker | Requires GitHub Environment approval |
+
+> The current deployment mode is **landing-only**. The AWS/RPC, gateway, dapp,
+> and admin steps remain in the workflow but are gated by
+> `FULL_STACK_DEPLOY_ENABLED: 'false'`. The full-stack sections below are the
+> runbook for re-enabling those targets, not prerequisites for landing deploys.
 
 Both RPC services and PostgreSQL 18/pgBackRest run as Docker containers on one
 fixed private EC2 instance per environment. Terraform provisions ECR,
@@ -213,10 +218,11 @@ mise run docker:stop
 Delete the `postgres-data` volume only when you explicitly intend to erase the
 entire local database. Volume deletion is not a normal setup step.
 
-## 4. Provision shared staging and production infrastructure
+## 4. Provision shared staging and production full-stack infrastructure
 
-These are one-time administrator tasks. Every environment must use separate
-resources, URLs, secrets, and VPC Service IDs.
+This section is not required in landing-only mode. These are the one-time
+administrator tasks required before full-stack deployment is re-enabled. Every
+environment must use separate resources, URLs, secrets, and VPC Service IDs.
 
 ### Step 1: Bootstrap and apply Terraform
 
@@ -346,11 +352,8 @@ admin-rpc and to the gateway Wrangler secret.
 
 ### Required preflight
 
-- The staging backend and Tunnel are healthy.
-- Staging Terraform has been applied and `AWS_RPC_DEPLOY_ROLE_ARN` is configured.
-- `env.staging.vars.CORS_ORIGINS` contains the real staging dapp/admin origins.
-- The `staging` GitHub Environment contains every required secret and variable.
-- Dapp runtime secrets have been provisioned.
+- The `staging` GitHub Environment contains the `CLOUDFLARE_API_TOKEN` and
+  `CLOUDFLARE_ACCOUNT_ID` secrets plus `PUBLIC_SITE_URL` for staging.
 - `mise run verify` passes on the branch being merged.
 
 ### Deployment steps
@@ -364,49 +367,28 @@ admin-rpc and to the gateway Wrangler secret.
 6. If a job fails, fix the cause and send it through Git and CI again. Do not
    deploy manually.
 
-The staging workflow builds and deploys in this order:
-
-1. Both RPC images plus PostgreSQL/pgBackRest → ECR scan → private EC2 through SSM.
-2. Gateway config receives VPC Service IDs from Terraform state and syncs JWT.
-3. gateway → Worker `ai-gateway-staging`, so the shared Durable Object is
-   available before dapp traffic moves.
-4. dapp → Worker `ai-first-dapp-staging`.
-5. landing → Worker `ai-first-landing-staging`.
-6. admin → the separate Pages project `ai-first-admin-staging`, branch `main`.
-7. The workflow smoke-tests the frontends, dapp session, gateway,
-   TradingService, AdminService, and the first coin image URL. A failed rollout
-   or smoke test triggers automatic rollback.
+The workflow only builds landing, deploys `ai-first-landing-staging`, requests
+`PUBLIC_SITE_URL` as a smoke test, and rolls landing back if that check fails.
 
 ### Verify staging
 
 Replace placeholders with the configured staging URLs:
 
 ```bash
-curl --fail https://<staging-gateway>/healthz
-curl --fail -X POST \
-  https://<staging-gateway>/trading.v1.TradingService/GetMarkets \
-  -H 'content-type: application/json' \
-  -H 'connect-protocol-version: 1' \
-  --data '{"coinIds":["bitcoin","ethereum"],"vsCurrency":"usd"}'
+curl --fail https://<staging-landing>/
+curl --fail https://<staging-landing>/robots.txt
 ```
 
-Then verify dapp, admin, landing, login, live market data, CORS, and Cloudflare
-logs/traces. The workflow already exercises AdminService through the gateway;
-repeat it manually only when investigating a release.
+Then verify landing canonical metadata, the sitemap, and Cloudflare Worker
+logs.
 
 ## 6. Deploy production
 
 ### Required preflight
 
 - The commit has been verified in staging.
-- Production EC2, Docker PostgreSQL, Tunnel, and both VPC Services are healthy.
-- pgBackRest WAL/PITR, monthly archives, Bucket Lock, and restore drills have
-  been verified.
-- Production Terraform has no pending infrastructure change outside the release.
-- Production `CORS_ORIGINS` contains only real origins.
-- The `production` GitHub Environment contains production secrets and
-  variables, with no staging values reused.
-- Dapp production runtime secrets have been provisioned.
+- The `production` GitHub Environment contains the `CLOUDFLARE_API_TOKEN` and
+  `CLOUDFLARE_ACCOUNT_ID` secrets plus the production `PUBLIC_SITE_URL`.
 - Required reviewers are enabled and an operator is available for rollback.
 
 ### Deployment steps
@@ -418,8 +400,8 @@ repeat it manually only when investigating a release.
 5. The **Deploy** workflow creates the **Deploy (production)** job.
 6. A required reviewer checks the commit SHA and staging evidence, then
    approves the GitHub Environment.
-7. Monitor the RPC rollout, all four Cloudflare deployments, and the automated
-   end-to-end smoke test until completion.
+7. Monitor the landing Worker deployment and automated smoke test until
+   completion.
 
 Never deploy from a laptop to compensate for a failed step. The workflow checks
 out the exact `head_sha` that passed CI, so every fix must return through Git and
@@ -427,23 +409,15 @@ CI.
 
 ### Verify production
 
-1. Check the gateway `/healthz` endpoint.
-2. Smoke-test TradingService and AdminService through the gateway.
-3. Verify dapp login/session behavior, admin routes, live asset logos/data, and
-   landing canonical metadata.
-4. Verify CORS from the real dapp/admin origins and confirm unknown origins are
-   rejected.
-5. Inspect Cloudflare logs, CloudWatch Logs/alarms, Sentry, and the Durable
-   Object rate limiter.
-6. Check `postgres-backup` health, WAL archival, R2 backup, and restore-drill
-   evidence after deployment.
+1. Confirm `PUBLIC_SITE_URL` and `/robots.txt` return successfully.
+2. Verify canonical metadata and the sitemap use the production origin.
+3. Check Cloudflare Worker logs and Sentry if a landing DSN is enabled.
 
 ## 7. Rollback
 
-The Deploy workflow automatically restores changed targets after a rollout or
-smoke-test failure: RPC uses the previous image tag, Workers use their previous
-version, and Pages uses its rollback API. After immediate recovery, prefer a
-Git rollback so source and deployed state converge:
+In the current mode, the workflow automatically rolls back the landing Worker
+after a failed smoke test. After immediate recovery, prefer a Git rollback so
+source and deployed state converge:
 
 1. Run `git revert` for the faulty commit on the appropriate branch.
 2. Push or merge the revert into `develop` or `main`.
@@ -454,14 +428,12 @@ For a production incident that requires an immediate Worker rollback, an
 authorized operator may use Cloudflare version history:
 
 ```bash
-pnpm --filter @apps/dapp exec wrangler rollback --env production
 pnpm --filter @apps/landing exec wrangler rollback --env production
-pnpm --filter @services/api-gateway exec wrangler rollback --env production
 ```
 
-Roll back admin through the environment's Pages deployment history, then still
-create a Git revert so source and deployed state converge. RPC rollback reuses
-the previous immutable ECR tag through SSM.
+Dapp, gateway, admin, and RPC rollback procedures apply only after full-stack
+deployment is re-enabled. Always create a Git revert so source and deployed
+state converge.
 
 ## 8. Definition of done
 
@@ -479,9 +451,9 @@ Before declaring setup or deployment complete:
 - [ ] `mise run test:docker` passes.
 - [ ] `mise run test:protocol` and `mise run security:audit` pass.
 - [ ] `mise run terraform:check` passes when AWS/Cloudflare IaC changed.
-- [ ] Gateway health, TradingService, and AdminService smoke tests pass.
-- [ ] Frontend origins match gateway `CORS_ORIGINS`.
-- [ ] Production has a rollback owner and backup-health evidence.
+- [ ] Landing URL, canonical metadata, sitemap, and rollback evidence are verified.
+- [ ] When full-stack is enabled: gateway/RPC smoke tests, CORS, and backup
+  health pass.
 
 ## 9. Current limitations to resolve
 
