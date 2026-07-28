@@ -4,7 +4,7 @@
   "apps/admin": "0.0.0",
   "apps/landing": "1.0.0",
   "services/trading-rpc": "1.0.0",
-  "services/api-gateway": "0.0.0",
+  "services/api-gateway": "1.0.0",
   "packages/protocol": "1.0.0",
   "packages/api-core": "0.0.0",
   "packages/api-client": "1.0.0"
