@@ -6,9 +6,11 @@ OVERLAY="$ROOT/infra/docker/compose.backup-test.yaml"
 BASE_COMPOSE="$ROOT/infra/docker/compose.yaml"
 project="vibebackupit$$_${RANDOM:-0}"
 runtime_dir=$(mktemp -d)
+secret_volume="${project}_source-secrets"
 chmod 0755 "$runtime_dir"
 export POSTGRES_BACKUP_TEST_RUNTIME_DIR="$runtime_dir"
 export POSTGRES_BACKUP_TEST_AGE_RECIPIENT=
+export POSTGRES_BACKUP_TEST_SECRET_VOLUME="$secret_volume"
 
 compose=(
   docker compose
@@ -30,6 +32,7 @@ cleanup() {
   fi
   "${compose[@]}" down --volumes --remove-orphans --timeout 5 \
     >/dev/null 2>&1 || true
+  docker volume rm --force "$secret_volume" >/dev/null 2>&1 || true
   rm -rf -- "$runtime_dir"
   exit "$status"
 }
@@ -173,6 +176,20 @@ chmod 0755 "$runtime_dir/bin/rclone-local" "$runtime_dir/bin/aws-local"
 
 "${compose[@]}" config --no-env-resolution --quiet
 "${compose[@]}" build postgres trading-rpc
+
+# A Linux bind mount preserves the host runner's UID. The backup container
+# intentionally lacks DAC_OVERRIDE, so a root bootstrap cannot read a host-owned
+# 0600 fixture. Stream the fixtures into a Docker volume to reproduce the
+# root-owned, 0600 source-secret contract used on the EC2 hosts.
+docker volume create "$secret_volume" >/dev/null
+tar -C "$runtime_dir/secrets" -cf - . | docker run --rm --interactive \
+  --volume "$secret_volume:/source-secrets" \
+  --entrypoint /bin/sh \
+  vibe-postgres:backup-test -Eeuc '
+    tar -xf - -C /source-secrets
+    chown 0:0 /source-secrets/*
+    chmod 0600 /source-secrets/*
+  '
 
 docker run --rm \
   --volume "$runtime_dir:/test-runtime" \

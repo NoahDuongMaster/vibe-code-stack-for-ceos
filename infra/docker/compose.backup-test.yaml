@@ -51,12 +51,12 @@ services:
       RCLONE_BIN: /test-runtime/bin/rclone-local
       AWS_BIN: /test-runtime/bin/aws-local
       BACKUP_JITTER_MAX_SECONDS: '0'
-      POSTGRES_REPLICATION_PASSWORD_SOURCE_FILE: /test-runtime/secrets/postgres-replication-password
-      R2_PITR_ACCESS_KEY_ID_SOURCE_FILE: /test-runtime/secrets/r2-pitr-access-key-id
-      R2_PITR_SECRET_ACCESS_KEY_SOURCE_FILE: /test-runtime/secrets/r2-pitr-secret-access-key
-      R2_ARCHIVE_ACCESS_KEY_ID_SOURCE_FILE: /test-runtime/secrets/r2-archive-access-key-id
-      R2_ARCHIVE_SECRET_ACCESS_KEY_SOURCE_FILE: /test-runtime/secrets/r2-archive-secret-access-key
-      PGBACKREST_CIPHER_PASSPHRASE_SOURCE_FILE: /test-runtime/secrets/pgbackrest-cipher-passphrase
+      POSTGRES_REPLICATION_PASSWORD_SOURCE_FILE: /run/postgres-backup-source-secrets/postgres-replication-password
+      R2_PITR_ACCESS_KEY_ID_SOURCE_FILE: /run/postgres-backup-source-secrets/r2-pitr-access-key-id
+      R2_PITR_SECRET_ACCESS_KEY_SOURCE_FILE: /run/postgres-backup-source-secrets/r2-pitr-secret-access-key
+      R2_ARCHIVE_ACCESS_KEY_ID_SOURCE_FILE: /run/postgres-backup-source-secrets/r2-archive-access-key-id
+      R2_ARCHIVE_SECRET_ACCESS_KEY_SOURCE_FILE: /run/postgres-backup-source-secrets/r2-archive-secret-access-key
+      PGBACKREST_CIPHER_PASSPHRASE_SOURCE_FILE: /run/postgres-backup-source-secrets/pgbackrest-cipher-passphrase
     ports: !reset []
     volumes: !override
       - postgres-backup-test-data:/var/lib/postgresql/18/docker:ro
@@ -66,6 +66,7 @@ services:
       - postgres-backup-test-state:/var/lib/postgres-backup/state
       - postgres-backup-test-stage:/var/lib/postgres-backup/stage
       - postgres-backup-test-archive:/var/lib/postgres-backup-test-archive
+      - postgres-backup-test-source-secrets:/run/postgres-backup-source-secrets:ro
       - ${POSTGRES_BACKUP_TEST_RUNTIME_DIR:?Set POSTGRES_BACKUP_TEST_RUNTIME_DIR}:/test-runtime:ro
     networks:
       - postgres-backup-test-data
@@ -100,4 +101,7 @@ volumes:
   postgres-backup-test-state:
   postgres-backup-test-stage:
   postgres-backup-test-archive:
+  postgres-backup-test-source-secrets:
+    name: ${POSTGRES_BACKUP_TEST_SECRET_VOLUME:?Set POSTGRES_BACKUP_TEST_SECRET_VOLUME}
+    external: true
   pgbackrest-test-repo:
