@@ -26,6 +26,7 @@ if ! command -v flock >/dev/null 2>&1; then
   fi
   exec docker run --rm \
     --entrypoint /bin/bash \
+    --user 70:70 \
     --env POSTGRES_BACKUP_LOCK_TEST_CONTAINER=1 \
     --mount "type=bind,source=$ROOT,target=/workspace,readonly" \
     --workdir /workspace \
@@ -44,7 +45,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$tmp/bin" "$tmp/state" "$tmp/wal" "$tmp/data" "$tmp/spool" "$tmp/stage"
+mkdir -p \
+  "$tmp/bin" \
+  "$tmp/state" \
+  "$tmp/wal" \
+  "$tmp/data" \
+  "$tmp/spool" \
+  "$tmp/stage" \
+  "$tmp/runtime" \
+  "$tmp/restores"
 
 cat >"$tmp/bin/wait-command" <<'EOF'
 #!/usr/bin/env bash
@@ -188,6 +197,9 @@ EOF
 chmod +x "$tmp/bin/"*
 export PATH="$tmp/bin:$PATH"
 export POSTGRES_BACKUP_STATE_DIR="$tmp/state"
+export POSTGRES_BACKUP_STAGE_DIR="$tmp/stage"
+export POSTGRES_BACKUP_RUNTIME_DIR="$tmp/runtime"
+export POSTGRES_RESTORE_ROOT="$tmp/restores"
 export BACKUP_JITTER_MAX_SECONDS=0
 export BACKUP_PRIORITY_LOCK_WAIT_SECONDS=3
 
@@ -443,7 +455,6 @@ write_fresh_health_state() {
 export POSTGRES_WAL_ARCHIVE_STATUS_DIR="$tmp/wal"
 export POSTGRES_DATA_DIR="$tmp/data"
 export POSTGRES_BACKUP_SPOOL_DIR="$tmp/spool"
-export POSTGRES_BACKUP_STAGE_DIR="$tmp/stage"
 export BACKUP_PSQL_BIN="$tmp/bin/psql"
 export BACKUP_DF_BIN="$tmp/bin/df"
 export FAKE_ARCHIVER_FAILED_COUNT=0
