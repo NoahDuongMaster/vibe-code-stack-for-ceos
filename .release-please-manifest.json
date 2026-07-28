@@ -5,7 +5,7 @@
   "apps/landing": "0.0.0",
   "services/trading-rpc": "0.0.0",
   "services/api-gateway": "0.0.0",
-  "packages/protocol": "0.0.0",
+  "packages/protocol": "1.0.0",
   "packages/api-core": "0.0.0",
   "packages/api-client": "0.0.0"
 }
