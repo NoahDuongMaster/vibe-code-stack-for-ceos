@@ -205,3 +205,20 @@ test('should install dependencies once through the shared CI setup action', () =
     assert.doesNotMatch(workflow, /pnpm install --frozen-lockfile/);
   }
 });
+
+test('should keep CI tool invocations compatible with the install guard', () => {
+  const ciWorkflow = readFileSync(
+    resolve(ROOT_DIR, '.github/workflows/ci.yml'),
+    'utf8',
+  );
+
+  assert.match(
+    ciWorkflow,
+    /apps\/dapp\/node_modules\/\.bin\/playwright install chromium --with-deps/,
+  );
+  assert.doesNotMatch(ciWorkflow, /pnpm .*exec playwright install/u);
+  assert.match(
+    ciWorkflow,
+    /git fetch --no-tags origin main[\s\S]*git update-ref refs\/heads\/main FETCH_HEAD/u,
+  );
+});

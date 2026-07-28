@@ -135,7 +135,7 @@ jobs:
       - name: Get installed Playwright version
         id: playwright-version
         run: |
-          echo "version=$(pnpm --filter @apps/dapp exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+          echo "version=$(apps/dapp/node_modules/.bin/playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -145,11 +145,11 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
 
       - name: Install Chromium
-        run: pnpm --filter @apps/dapp exec playwright install chromium --with-deps
+        run: apps/dapp/node_modules/.bin/playwright install chromium --with-deps
         if: steps.playwright-cache.outputs.cache-hit != 'true'
 
       - name: Install Chromium OS dependencies
-        run: pnpm --filter @apps/dapp exec playwright install-deps chromium
+        run: apps/dapp/node_modules/.bin/playwright install-deps chromium
         if: steps.playwright-cache.outputs.cache-hit == 'true'
 
       - name: Create runtime environment
@@ -232,6 +232,14 @@ jobs:
       # @packages/protocol generate`) before the PR merges.
       - name: buf generate (codegen drift check)
         run: pnpm --filter @packages/protocol generate:check
+
+      # Pull-request checkouts are detached and expose origin/main without a
+      # local main ref. Buf clones the local repository declared by the package
+      # script, so materialize that baseline explicitly before the comparison.
+      - name: Prepare main protobuf baseline
+        run: |
+          git fetch --no-tags origin main
+          git update-ref refs/heads/main FETCH_HEAD
 
       # Hard gate: published protobuf contracts stay backward compatible with
       # main. Intentional breaking changes require an explicit versioned API.

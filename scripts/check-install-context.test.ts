@@ -69,6 +69,34 @@ test('should enforce the guard from the pnpm install hook', async () => {
     process.env.MISE_TASK_NAME = 'setup';
     const config = {};
     assert.equal(hooks.updateConfig(config), config);
+
+    delete process.env.MISE_TASK_NAME;
+    process.argv = [
+      process.execPath,
+      'pnpm',
+      '--filter',
+      '@apps/dapp',
+      'exec',
+      'playwright',
+      'install',
+      'chromium',
+    ];
+    assert.equal(
+      hooks.updateConfig(config),
+      config,
+      'tool subcommands named install must not be mistaken for pnpm install',
+    );
+
+    process.argv = [
+      process.execPath,
+      'pnpm',
+      '--filter',
+      '@apps/dapp',
+      'install',
+    ];
+    assert.throws(() => hooks.updateConfig(config), {
+      message: REPLACEMENT_MESSAGE,
+    });
   } finally {
     process.argv = originalArgv;
     if (originalTaskName === undefined) delete process.env.MISE_TASK_NAME;

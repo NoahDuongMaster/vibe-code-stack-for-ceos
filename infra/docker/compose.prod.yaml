@@ -14,12 +14,12 @@ services:
     # Required runtime secrets live in this git-ignored file. Compose refuses
     # to start if it is missing.
     env_file:
-      - ../../apps/dapp/.env.production.local
+      - ${PRODUCTION_DAPP_ENV_FILE:-../../apps/dapp/.env.production.local}
 
   trading-rpc:
     image: vibe-trading-rpc:production
     env_file:
-      - ../../services/trading-rpc/.env.production.local
+      - ${PRODUCTION_TRADING_RPC_ENV_FILE:-../../services/trading-rpc/.env.production.local}
     environment:
       DATABASE_URL: ''
       DATABASE_URL_FILE: /run/trading-rpc/secrets/database-url
@@ -35,7 +35,7 @@ services:
   admin-rpc:
     image: vibe-admin-rpc:production
     env_file:
-      - ../../services/admin-rpc/.env.production.local
+      - ${PRODUCTION_ADMIN_RPC_ENV_FILE:-../../services/admin-rpc/.env.production.local}
     environment:
       TRADING_RPC_GRPC_URL: http://trading-rpc:50051
 

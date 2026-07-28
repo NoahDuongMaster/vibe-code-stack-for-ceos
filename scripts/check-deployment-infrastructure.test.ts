@@ -198,3 +198,27 @@ test('should build every Node image from immutable inputs and the workspace lock
     assert.match(dockerfile, /--config\.node-linker=hoisted/u);
   }
 });
+
+test('should validate release Compose files without local secret env files', () => {
+  const makefile = readRootFile('Makefile');
+  const stagingCompose = readRootFile('infra/docker/compose.staging.yaml');
+  const productionCompose = readRootFile('infra/docker/compose.prod.yaml');
+
+  for (const variable of [
+    'STAGING_DAPP_ENV_FILE',
+    'STAGING_TRADING_RPC_ENV_FILE',
+    'STAGING_ADMIN_RPC_ENV_FILE',
+  ]) {
+    assert.match(stagingCompose, new RegExp(`\\$\\{${variable}:-`, 'u'));
+    assert.match(makefile, new RegExp(`${variable}=.+\\.env\\.sample`, 'u'));
+  }
+
+  for (const variable of [
+    'PRODUCTION_DAPP_ENV_FILE',
+    'PRODUCTION_TRADING_RPC_ENV_FILE',
+    'PRODUCTION_ADMIN_RPC_ENV_FILE',
+  ]) {
+    assert.match(productionCompose, new RegExp(`\\$\\{${variable}:-`, 'u'));
+    assert.match(makefile, new RegExp(`${variable}=.+\\.env\\.sample`, 'u'));
+  }
+});

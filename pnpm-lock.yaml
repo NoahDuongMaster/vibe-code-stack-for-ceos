@@ -30,7 +30,7 @@ overrides:
   '@sentry/nextjs': 10.64.0
   '@sentry/react': 10.64.0
 
-pnpmfileChecksum: sha256-KyWQOPYBvL/JQyBphRKtSu5+jgI8QAbfW6xRDKDCmXo=
+pnpmfileChecksum: sha256-Xz9blW+AeG8EvZharKCpG/2ybcUNln+QJS9LJURqoz4=
 
 importers:
 
