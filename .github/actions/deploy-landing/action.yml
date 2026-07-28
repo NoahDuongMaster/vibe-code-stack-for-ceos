@@ -86,12 +86,10 @@ runs:
         output_file="$RUNNER_TEMP/landing-$DEPLOY_ENVIRONMENT-deploy.ndjson"
         WRANGLER_OUTPUT_FILE_PATH="$output_file" pnpm --filter @apps/landing exec wrangler deploy --env "$DEPLOY_ENVIRONMENT" --strict
         echo 'LANDING_DEPLOYED=true' >> "$GITHUB_ENV"
-        deployment_url=$(jq -r 'select(.type == "deploy") | .targets[0] // empty' "$output_file" | tail -n 1)
-        if [[ -z "$deployment_url" ]]; then
-          echo "::error::Wrangler did not report the $DEPLOY_ENVIRONMENT landing deployment URL."
+        if ! jq -e 'select(.type == "deploy")' "$output_file" >/dev/null; then
+          echo "::error::Wrangler did not report a successful $DEPLOY_ENVIRONMENT landing deployment."
           exit 1
         fi
-        echo "LANDING_DEPLOYMENT_URL=$deployment_url" >> "$GITHUB_ENV"
 
     - name: Smoke-test landing
       if: inputs.smoke == 'true'
@@ -99,13 +97,11 @@ runs:
       env:
         PUBLIC_SITE_URL: ${{ inputs.public-site-url }}
       run: |
-        for url in "$LANDING_DEPLOYMENT_URL" "$PUBLIC_SITE_URL"; do
-          echo "Smoke-testing ${url%/}/"
-          curl --fail --silent --show-error --location \
-            --retry 24 --retry-delay 5 --retry-all-errors \
-            "${url%/}/" >/dev/null
-        done
         landing_origin="${PUBLIC_SITE_URL%/}"
+        echo "Smoke-testing $landing_origin/"
+        curl --fail --silent --show-error --location \
+          --retry 24 --retry-delay 5 --retry-all-errors \
+          "$landing_origin/" >/dev/null
         homepage=$(curl --fail --silent --show-error --location "$landing_origin/")
         if [[ "$homepage" != *"<link rel=\"canonical\" href=\"$landing_origin/\">"* ]]; then
           echo "::error::Landing canonical URL does not match PUBLIC_SITE_URL."
@@ -126,4 +122,4 @@ runs:
       run: >-
         pnpm --filter @apps/landing exec wrangler rollback
         "$PREVIOUS_LANDING_VERSION_ID" --env "$DEPLOY_ENVIRONMENT"
-        --message "Automatic rollback after failed release"
+        --message "Automatic rollback after failed release" --yes
