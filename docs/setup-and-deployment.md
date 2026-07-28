@@ -27,10 +27,12 @@ Nguồn cấu hình chính:
 | Staging | Push/merge vào `develop` | Landing Worker | Chỉ chạy sau CI xanh |
 | Production | Push/merge vào `main` | Landing Worker | Cần GitHub Environment approval |
 
-> Chế độ deploy hiện tại là **landing-only**. Các step AWS/RPC, gateway, dapp
-> và admin vẫn được giữ trong workflow nhưng bị khóa bằng
-> `FULL_STACK_DEPLOY_ENABLED: 'false'`. Các phần full-stack bên dưới là runbook
-> chuẩn bị cho lúc bật lại, không phải prerequisite để deploy landing.
+> Chế độ deploy hiện tại là **landing-only**. Orchestration AWS/RPC, gateway,
+> dapp và admin được tách trong
+> [composite action full-stack](../.github/actions/deploy-full-stack/action.yml),
+> nhưng bị workflow khóa bằng `FULL_STACK_DEPLOY_ENABLED: 'false'`. Các phần
+> full-stack bên dưới là runbook chuẩn bị cho lúc bật lại, không phải
+> prerequisite để deploy landing.
 
 Hai service RPC cùng PostgreSQL 18/pgBackRest chạy bằng Docker trên một private
 EC2 cố định cho mỗi môi trường. Terraform provision ECR, encrypted EBS,
@@ -299,7 +301,7 @@ Thêm variables sau cho từng environment:
 | `NEXT_PUBLIC_BASE_URL` | `https://<staging-dapp>` | Public dapp origin |
 | `ADMIN_PUBLIC_URL` | `https://<staging-admin>` | Public admin origin dùng cho smoke test |
 | `PUBLIC_API_URL` | `https://<staging-gateway>` | Gateway URL được build vào admin |
-| `PUBLIC_SITE_URL` | `https://<staging-landing>` | Canonical landing origin |
+| `PUBLIC_SITE_URL` | `https://ai-first-landing-staging.hibra.workers.dev` | Canonical landing origin; phải là HTTPS origin public, không có path |
 | `NEXT_PUBLIC_SENTRY_DSN` | để trống hoặc DSN | Runtime monitoring cho dapp |
 | `PUBLIC_SENTRY_DSN` | để trống hoặc DSN | Workflow dùng chung cho admin và landing |
 | `GATEWAY_CORS_ORIGINS` | `https://<admin>,https://<dapp>` | Allow-list thật; không chấp nhận `*` |
@@ -379,6 +381,10 @@ landing.
 - Commit đã được xác nhận ở staging.
 - GitHub Environment `production` có secrets `CLOUDFLARE_API_TOKEN`,
   `CLOUDFLARE_ACCOUNT_ID` và variable `PUBLIC_SITE_URL` đúng domain production.
+- `PUBLIC_SITE_URL` production là
+  `https://vibe-code-stack-for-ceos.duongnamtruong.com`.
+- Wrangler quản lý Custom Domain này như source of truth; `workers.dev` và
+  Preview URLs của production đều bị tắt.
 - Required reviewers đã bật và có người trực rollback.
 
 ### Các bước deploy

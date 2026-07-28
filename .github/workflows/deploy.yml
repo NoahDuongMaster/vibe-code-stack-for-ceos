@@ -1,8 +1,7 @@
 name: Deploy
 
-# Gated on CI: this only runs after the "CI" workflow finishes successfully
-# for a push to develop (-> staging) or main (-> production). A deploy can
-# never ship a commit that failed typecheck/lint/test/build.
+# A single environment-aware job prevents staging/production drift. Deploys
+# remain gated on the exact commit that passed the CI workflow.
 on:
   workflow_run:
     workflows: ["CI"]
@@ -11,35 +10,34 @@ on:
 
 permissions:
   contents: read
-  # id-token: write # Re-enable with the AWS/RPC full-stack deployment steps.
+  # id-token: write # Re-enable together with FULL_STACK_DEPLOY_ENABLED.
 
 concurrency:
-  # One deploy in flight per branch; never cancel a production deploy that's
-  # already running.
   group: deploy-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: ${{ github.event.workflow_run.head_branch != 'main' }}
 
 jobs:
-  deploy-staging:
-    name: Deploy (staging)
+  deploy:
+    name: Deploy (${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }})
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
-      github.event.workflow_run.head_branch == 'develop'
+      (github.event.workflow_run.head_branch == 'main' ||
+      github.event.workflow_run.head_branch == 'develop')
     runs-on: ubuntu-latest
-    # Landing-only mode needs only the two Cloudflare credentials and
-    # PUBLIC_SITE_URL. The full-stack steps remain below behind this explicit
-    # switch so they can be reviewed and re-enabled later without code loss.
-    environment: staging
+    environment:
+      name: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
     timeout-minutes: 60
     env:
+      # Landing is the only active deployment. Full-stack orchestration remains
+      # available as a guarded composite action for later re-enablement.
       FULL_STACK_DEPLOY_ENABLED: 'false'
-      ADMIN_PAGES_PROJECT: ai-first-admin-staging
+      DEPLOY_ENVIRONMENT: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - name: Checkout (deployed commit)
+      - name: Checkout deployed commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
@@ -47,47 +45,30 @@ jobs:
       - name: Setup toolchain
         uses: ./.github/actions/setup-toolchain
 
-      - name: Validate landing deployment values
-        shell: bash
-        run: |
-          required=(CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID PUBLIC_SITE_URL)
-          missing=false
-          for name in "${required[@]}"; do
-            if [[ -z "${!name:-}" ]]; then
-              echo "::error::Missing required staging value: ${name}"
-              missing=true
-            fi
-          done
-          if [[ "$missing" == true ]]; then
-            echo "Configure the staging GitHub Environment values documented in docs/setup-and-deployment.md."
-            exit 1
-          fi
-        env:
-          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+      - name: Deploy landing only
+        if: env.FULL_STACK_DEPLOY_ENABLED != 'true'
+        uses: ./.github/actions/deploy-landing
+        with:
+          environment: ${{ env.DEPLOY_ENVIRONMENT }}
+          public-site-url: ${{ vars.PUBLIC_SITE_URL }}
+          public-sentry-dsn: ${{ vars.PUBLIC_SENTRY_DSN }}
 
-      - name: Validate full-stack deployment values
+      - name: Deploy full stack
         if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        shell: bash
-        run: |
-          required=(AWS_REGION AWS_RPC_DEPLOY_ROLE_ARN TF_STATE_BUCKET TF_STATE_KMS_KEY_ARN NEXT_PUBLIC_PROJECT_NAME NEXT_PUBLIC_API_ENDPOINT NEXT_PUBLIC_BASE_URL ADMIN_PUBLIC_URL PUBLIC_API_URL SESSION_SECRET DEMO_AUTH_EMAIL DEMO_AUTH_PASSWORD GATEWAY_CORS_ORIGINS ADMIN_AUTH_EMAIL ADMIN_AUTH_PASSWORD JWT_SECRET COINGECKO_API_KEY POSTGRES_PASSWORD POSTGRES_REPLICATION_PASSWORD R2_PITR_BUCKET R2_PITR_ACCESS_KEY_ID R2_PITR_SECRET_ACCESS_KEY R2_ARCHIVE_BUCKET R2_ARCHIVE_ACCESS_KEY_ID R2_ARCHIVE_SECRET_ACCESS_KEY PGBACKREST_CIPHER_PASSPHRASE POSTGRES_ARCHIVE_AGE_RECIPIENT POSTGRES_BACKUP_AGE_IDENTITY)
-          missing=false
-          for name in "${required[@]}"; do
-            if [[ -z "${!name:-}" ]]; then
-              echo "::error::Missing required staging full-stack value: ${name}"
-              missing=true
-            fi
-          done
-          if [[ "$missing" == true ]]; then
-            echo "Configure the staging full-stack values documented in docs/setup-and-deployment.md."
-            exit 1
-          fi
+        uses: ./.github/actions/deploy-full-stack
+        with:
+          environment: ${{ env.DEPLOY_ENVIRONMENT }}
+          commit-sha: ${{ github.event.workflow_run.head_sha }}
+          admin-pages-project: ${{ github.event.workflow_run.head_branch == 'main' && 'ai-first-admin' || 'ai-first-admin-staging' }}
+          public-site-url: ${{ vars.PUBLIC_SITE_URL }}
+          public-sentry-dsn: ${{ vars.PUBLIC_SENTRY_DSN }}
         env:
           NEXT_PUBLIC_PROJECT_NAME: ${{ vars.NEXT_PUBLIC_PROJECT_NAME }}
           NEXT_PUBLIC_API_ENDPOINT: ${{ vars.NEXT_PUBLIC_API_ENDPOINT }}
           NEXT_PUBLIC_BASE_URL: ${{ vars.NEXT_PUBLIC_BASE_URL }}
           ADMIN_PUBLIC_URL: ${{ vars.ADMIN_PUBLIC_URL }}
-          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
           PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           DEMO_AUTH_EMAIL: ${{ secrets.DEMO_AUTH_EMAIL }}
           DEMO_AUTH_PASSWORD: ${{ secrets.DEMO_AUTH_PASSWORD }}
@@ -96,39 +77,6 @@ jobs:
           AWS_RPC_DEPLOY_ROLE_ARN: ${{ vars.AWS_RPC_DEPLOY_ROLE_ARN }}
           TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
           TF_STATE_KMS_KEY_ARN: ${{ vars.TF_STATE_KMS_KEY_ARN }}
-          ADMIN_AUTH_EMAIL: ${{ secrets.ADMIN_AUTH_EMAIL }}
-          ADMIN_AUTH_PASSWORD: ${{ secrets.ADMIN_AUTH_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_REPLICATION_PASSWORD: ${{ secrets.POSTGRES_REPLICATION_PASSWORD }}
-          R2_PITR_BUCKET: ${{ vars.R2_PITR_BUCKET }}
-          R2_PITR_ACCESS_KEY_ID: ${{ secrets.R2_PITR_ACCESS_KEY_ID }}
-          R2_PITR_SECRET_ACCESS_KEY: ${{ secrets.R2_PITR_SECRET_ACCESS_KEY }}
-          R2_ARCHIVE_BUCKET: ${{ vars.R2_ARCHIVE_BUCKET }}
-          R2_ARCHIVE_ACCESS_KEY_ID: ${{ secrets.R2_ARCHIVE_ACCESS_KEY_ID }}
-          R2_ARCHIVE_SECRET_ACCESS_KEY: ${{ secrets.R2_ARCHIVE_SECRET_ACCESS_KEY }}
-          PGBACKREST_CIPHER_PASSPHRASE: ${{ secrets.PGBACKREST_CIPHER_PASSPHRASE }}
-          POSTGRES_ARCHIVE_AGE_RECIPIENT: ${{ vars.POSTGRES_ARCHIVE_AGE_RECIPIENT }}
-          POSTGRES_BACKUP_AGE_IDENTITY: ${{ secrets.POSTGRES_BACKUP_AGE_IDENTITY }}
-
-      - name: Authenticate to AWS with GitHub OIDC
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
-        with:
-          role-to-assume: ${{ vars.AWS_RPC_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-          role-session-name: deploy-rpc-staging
-
-      - name: Build, scan, and deploy RPC services to EC2
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: infra/terraform/deploy-rpc.sh staging "${{ github.event.workflow_run.head_sha }}"
-        env:
-          AWS_REGION: ${{ vars.AWS_REGION }}
-          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
-          TF_STATE_KMS_KEY_ARN: ${{ vars.TF_STATE_KMS_KEY_ARN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           ADMIN_AUTH_EMAIL: ${{ secrets.ADMIN_AUTH_EMAIL }}
           ADMIN_AUTH_PASSWORD: ${{ secrets.ADMIN_AUTH_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -146,421 +94,7 @@ jobs:
           PGBACKREST_CIPHER_PASSPHRASE: ${{ secrets.PGBACKREST_CIPHER_PASSPHRASE }}
           POSTGRES_ARCHIVE_AGE_RECIPIENT: ${{ vars.POSTGRES_ARCHIVE_AGE_RECIPIENT }}
           POSTGRES_BACKUP_AGE_IDENTITY: ${{ secrets.POSTGRES_BACKUP_AGE_IDENTITY }}
-
-      - name: Prepare and validate gateway deployment config
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: pnpm --filter @services/api-gateway exec tsx scripts/create-deploy-config.ts staging
-        env:
-          GATEWAY_CORS_ORIGINS: ${{ vars.GATEWAY_CORS_ORIGINS }}
-
-      - name: Provision matching gateway JWT secret
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        env:
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: >-
-          printf '%s' "$JWT_SECRET" |
-          pnpm --filter @services/api-gateway exec wrangler secret put JWT_SECRET
-          --config .wrangler/deploy-staging.json --env staging
-
-      - name: Confirm gateway JWT secret is provisioned
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: >-
-          pnpm --filter @services/api-gateway exec wrangler secret list
-          --config .wrangler/deploy-staging.json --env staging --format json
-          | jq -e 'any(.[]; .name == "JWT_SECRET")'
-
-      - name: Build dapp
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: pnpm --filter @apps/dapp build
-        env:
-          NODE_ENV: production
-          NEXT_PUBLIC_PROJECT_NAME: ${{ vars.NEXT_PUBLIC_PROJECT_NAME }}
-          NEXT_PUBLIC_API_ENDPOINT: ${{ vars.NEXT_PUBLIC_API_ENDPOINT }}
-          NEXT_PUBLIC_BASE_URL: ${{ vars.NEXT_PUBLIC_BASE_URL }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
-          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-          DEMO_AUTH_EMAIL: ${{ secrets.DEMO_AUTH_EMAIL }}
-          DEMO_AUTH_PASSWORD: ${{ secrets.DEMO_AUTH_PASSWORD }}
-          # Presence of SENTRY_ORG + SENTRY_PROJECT switches on the Sentry
-          # webpack plugin in next.config.ts, which needs SENTRY_AUTH_TOKEN to
-          # actually authenticate the source-map upload — without it, this is
-          # the one real deploy path and source maps were never uploaded.
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      - name: Build admin
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: pnpm --filter @apps/admin build
-        env:
-          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
-          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
-      - name: Build landing
-        run: pnpm --filter @apps/landing build
-        env:
-          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
-          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
-      - name: Deploy gateway
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: |
-          pnpm --filter @services/api-gateway exec wrangler deploy --strict \
-            --config .wrangler/deploy-staging.json --env staging
-          echo 'GATEWAY_DEPLOYED=true' >> "$GITHUB_ENV"
-
-      - name: Deploy dapp
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: |
-          pnpm --filter @apps/dapp exec wrangler deploy --env staging --strict
-          echo 'DAPP_DEPLOYED=true' >> "$GITHUB_ENV"
-
-      - name: Deploy landing
-        run: |
-          pnpm --filter @apps/landing exec wrangler deploy --env staging --strict
-          echo 'LANDING_DEPLOYED=true' >> "$GITHUB_ENV"
-
-      - name: Capture current admin Pages deployment
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        shell: bash
-        run: |
-          response=$(curl --fail --silent --show-error \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$ADMIN_PAGES_PROJECT/deployments" \
-            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
-          previous=$(jq -r '.result | map(select(.environment == "production")) | first | .id // empty' <<<"$response")
-          if [[ -n "$previous" ]]; then
-            echo "PREVIOUS_ADMIN_DEPLOYMENT_ID=$previous" >> "$GITHUB_ENV"
-          fi
-
-      - name: Deploy admin (Pages)
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: |
-          pnpm --filter @apps/admin exec wrangler pages deploy dist \
-            --project-name "$ADMIN_PAGES_PROJECT" --branch main
-          echo 'ADMIN_DEPLOYED=true' >> "$GITHUB_ENV"
-
-      - name: Smoke-test the complete staging release
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: node scripts/smoke-deployment.ts
-        env:
-          SMOKE_ADMIN_EMAIL: ${{ secrets.ADMIN_AUTH_EMAIL }}
-          SMOKE_ADMIN_PASSWORD: ${{ secrets.ADMIN_AUTH_PASSWORD }}
-          SMOKE_ADMIN_URL: ${{ vars.ADMIN_PUBLIC_URL }}
-          SMOKE_DAPP_EMAIL: ${{ secrets.DEMO_AUTH_EMAIL }}
-          SMOKE_DAPP_PASSWORD: ${{ secrets.DEMO_AUTH_PASSWORD }}
-          SMOKE_DAPP_URL: ${{ vars.NEXT_PUBLIC_BASE_URL }}
-          SMOKE_GATEWAY_URL: ${{ vars.NEXT_PUBLIC_API_ENDPOINT }}
-          SMOKE_LANDING_URL: ${{ vars.PUBLIC_SITE_URL }}
-
-      - name: Smoke-test landing
-        if: env.FULL_STACK_DEPLOY_ENABLED != 'true'
-        env:
-          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
-        run: >-
-          curl --fail --silent --show-error --location
-          --retry 5 --retry-delay 3 --retry-all-errors
-          "$PUBLIC_SITE_URL/" >/dev/null
-
-      - name: Roll back admin Pages after a failed release
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true' && failure() && env.ADMIN_DEPLOYED == 'true' && env.PREVIOUS_ADMIN_DEPLOYMENT_ID != ''
-        continue-on-error: true
-        run: >-
-          curl --fail --silent --show-error --request POST
-          "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$ADMIN_PAGES_PROJECT/deployments/$PREVIOUS_ADMIN_DEPLOYMENT_ID/rollback"
-          --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN"
-
-      - name: Roll back landing after a failed release
-        if: failure() && env.LANDING_DEPLOYED == 'true'
-        continue-on-error: true
-        run: pnpm --filter @apps/landing exec wrangler rollback --env staging --message "Automatic rollback after failed release"
-
-      - name: Roll back dapp after a failed release
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true' && failure() && env.DAPP_DEPLOYED == 'true'
-        continue-on-error: true
-        run: pnpm --filter @apps/dapp exec wrangler rollback --env staging --message "Automatic rollback after failed release"
-
-      - name: Roll back gateway after a failed release
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true' && failure() && env.GATEWAY_DEPLOYED == 'true'
-        continue-on-error: true
-        run: >-
-          pnpm --filter @services/api-gateway exec wrangler rollback
-          --config .wrangler/deploy-staging.json --env staging
-          --message "Automatic rollback after failed release"
-
-      - name: Roll back RPC services after a failed release
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true' && failure() && env.PREVIOUS_RPC_IMAGE_TAG != ''
-        continue-on-error: true
-        run: infra/terraform/rollback-rpc.sh staging "$PREVIOUS_RPC_IMAGE_TAG"
-        env:
-          AWS_REGION: ${{ vars.AWS_REGION }}
-          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
-          TF_STATE_KMS_KEY_ARN: ${{ vars.TF_STATE_KMS_KEY_ARN }}
-
-  deploy-production:
-    name: Deploy (production)
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_repository.full_name == github.repository &&
-      github.event.workflow_run.head_branch == 'main'
-    runs-on: ubuntu-latest
-    # Landing-only mode needs only the two Cloudflare credentials and
-    # PUBLIC_SITE_URL. Keep Required reviewers enabled for production.
-    # Full-stack steps remain gated below for later re-enablement.
-    environment: production
-    timeout-minutes: 60
-    env:
-      FULL_STACK_DEPLOY_ENABLED: 'false'
-      ADMIN_PAGES_PROJECT: ai-first-admin
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    steps:
-      - name: Checkout (deployed commit)
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Setup toolchain
-        uses: ./.github/actions/setup-toolchain
-
-      - name: Validate landing deployment values
-        shell: bash
-        run: |
-          required=(CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID PUBLIC_SITE_URL)
-          missing=false
-          for name in "${required[@]}"; do
-            if [[ -z "${!name:-}" ]]; then
-              echo "::error::Missing required production value: ${name}"
-              missing=true
-            fi
-          done
-          if [[ "$missing" == true ]]; then
-            echo "Configure the production GitHub Environment values documented in docs/setup-and-deployment.md."
-            exit 1
-          fi
-        env:
-          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
-
-      - name: Validate full-stack deployment values
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        shell: bash
-        run: |
-          required=(AWS_REGION AWS_RPC_DEPLOY_ROLE_ARN TF_STATE_BUCKET TF_STATE_KMS_KEY_ARN NEXT_PUBLIC_PROJECT_NAME NEXT_PUBLIC_API_ENDPOINT NEXT_PUBLIC_BASE_URL ADMIN_PUBLIC_URL PUBLIC_API_URL SESSION_SECRET DEMO_AUTH_EMAIL DEMO_AUTH_PASSWORD GATEWAY_CORS_ORIGINS ADMIN_AUTH_EMAIL ADMIN_AUTH_PASSWORD JWT_SECRET COINGECKO_API_KEY POSTGRES_PASSWORD POSTGRES_REPLICATION_PASSWORD R2_PITR_BUCKET R2_PITR_ACCESS_KEY_ID R2_PITR_SECRET_ACCESS_KEY R2_ARCHIVE_BUCKET R2_ARCHIVE_ACCESS_KEY_ID R2_ARCHIVE_SECRET_ACCESS_KEY PGBACKREST_CIPHER_PASSPHRASE POSTGRES_ARCHIVE_AGE_RECIPIENT POSTGRES_BACKUP_AGE_IDENTITY)
-          missing=false
-          for name in "${required[@]}"; do
-            if [[ -z "${!name:-}" ]]; then
-              echo "::error::Missing required production full-stack value: ${name}"
-              missing=true
-            fi
-          done
-          if [[ "$missing" == true ]]; then
-            echo "Configure the production full-stack values documented in docs/setup-and-deployment.md."
-            exit 1
-          fi
-        env:
-          NEXT_PUBLIC_PROJECT_NAME: ${{ vars.NEXT_PUBLIC_PROJECT_NAME }}
-          NEXT_PUBLIC_API_ENDPOINT: ${{ vars.NEXT_PUBLIC_API_ENDPOINT }}
-          NEXT_PUBLIC_BASE_URL: ${{ vars.NEXT_PUBLIC_BASE_URL }}
-          ADMIN_PUBLIC_URL: ${{ vars.ADMIN_PUBLIC_URL }}
-          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
-          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-          DEMO_AUTH_EMAIL: ${{ secrets.DEMO_AUTH_EMAIL }}
-          DEMO_AUTH_PASSWORD: ${{ secrets.DEMO_AUTH_PASSWORD }}
-          GATEWAY_CORS_ORIGINS: ${{ vars.GATEWAY_CORS_ORIGINS }}
-          AWS_REGION: ${{ vars.AWS_REGION }}
-          AWS_RPC_DEPLOY_ROLE_ARN: ${{ vars.AWS_RPC_DEPLOY_ROLE_ARN }}
-          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
-          TF_STATE_KMS_KEY_ARN: ${{ vars.TF_STATE_KMS_KEY_ARN }}
-          ADMIN_AUTH_EMAIL: ${{ secrets.ADMIN_AUTH_EMAIL }}
-          ADMIN_AUTH_PASSWORD: ${{ secrets.ADMIN_AUTH_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_REPLICATION_PASSWORD: ${{ secrets.POSTGRES_REPLICATION_PASSWORD }}
-          R2_PITR_BUCKET: ${{ vars.R2_PITR_BUCKET }}
-          R2_PITR_ACCESS_KEY_ID: ${{ secrets.R2_PITR_ACCESS_KEY_ID }}
-          R2_PITR_SECRET_ACCESS_KEY: ${{ secrets.R2_PITR_SECRET_ACCESS_KEY }}
-          R2_ARCHIVE_BUCKET: ${{ vars.R2_ARCHIVE_BUCKET }}
-          R2_ARCHIVE_ACCESS_KEY_ID: ${{ secrets.R2_ARCHIVE_ACCESS_KEY_ID }}
-          R2_ARCHIVE_SECRET_ACCESS_KEY: ${{ secrets.R2_ARCHIVE_SECRET_ACCESS_KEY }}
-          PGBACKREST_CIPHER_PASSPHRASE: ${{ secrets.PGBACKREST_CIPHER_PASSPHRASE }}
-          POSTGRES_ARCHIVE_AGE_RECIPIENT: ${{ vars.POSTGRES_ARCHIVE_AGE_RECIPIENT }}
-          POSTGRES_BACKUP_AGE_IDENTITY: ${{ secrets.POSTGRES_BACKUP_AGE_IDENTITY }}
-
-      - name: Authenticate to AWS with GitHub OIDC
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
-        with:
-          role-to-assume: ${{ vars.AWS_RPC_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-          role-session-name: deploy-rpc-production
-
-      - name: Build, scan, and deploy RPC services to EC2
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: infra/terraform/deploy-rpc.sh production "${{ github.event.workflow_run.head_sha }}"
-        env:
-          AWS_REGION: ${{ vars.AWS_REGION }}
-          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
-          TF_STATE_KMS_KEY_ARN: ${{ vars.TF_STATE_KMS_KEY_ARN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          ADMIN_AUTH_EMAIL: ${{ secrets.ADMIN_AUTH_EMAIL }}
-          ADMIN_AUTH_PASSWORD: ${{ secrets.ADMIN_AUTH_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
-          ADMIN_RPC_SENTRY_DSN: ${{ secrets.ADMIN_RPC_SENTRY_DSN }}
-          TRADING_RPC_SENTRY_DSN: ${{ secrets.TRADING_RPC_SENTRY_DSN }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_REPLICATION_PASSWORD: ${{ secrets.POSTGRES_REPLICATION_PASSWORD }}
-          R2_PITR_BUCKET: ${{ vars.R2_PITR_BUCKET }}
-          R2_PITR_ACCESS_KEY_ID: ${{ secrets.R2_PITR_ACCESS_KEY_ID }}
-          R2_PITR_SECRET_ACCESS_KEY: ${{ secrets.R2_PITR_SECRET_ACCESS_KEY }}
-          R2_ARCHIVE_BUCKET: ${{ vars.R2_ARCHIVE_BUCKET }}
-          R2_ARCHIVE_ACCESS_KEY_ID: ${{ secrets.R2_ARCHIVE_ACCESS_KEY_ID }}
-          R2_ARCHIVE_SECRET_ACCESS_KEY: ${{ secrets.R2_ARCHIVE_SECRET_ACCESS_KEY }}
-          PGBACKREST_CIPHER_PASSPHRASE: ${{ secrets.PGBACKREST_CIPHER_PASSPHRASE }}
-          POSTGRES_ARCHIVE_AGE_RECIPIENT: ${{ vars.POSTGRES_ARCHIVE_AGE_RECIPIENT }}
-          POSTGRES_BACKUP_AGE_IDENTITY: ${{ secrets.POSTGRES_BACKUP_AGE_IDENTITY }}
-
-      - name: Prepare and validate gateway deployment config
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: pnpm --filter @services/api-gateway exec tsx scripts/create-deploy-config.ts production
-        env:
-          GATEWAY_CORS_ORIGINS: ${{ vars.GATEWAY_CORS_ORIGINS }}
-
-      - name: Provision matching gateway JWT secret
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        env:
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: >-
-          printf '%s' "$JWT_SECRET" |
-          pnpm --filter @services/api-gateway exec wrangler secret put JWT_SECRET
-          --config .wrangler/deploy-production.json --env production
-
-      - name: Confirm gateway JWT secret is provisioned
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: >-
-          pnpm --filter @services/api-gateway exec wrangler secret list
-          --config .wrangler/deploy-production.json --env production --format json
-          | jq -e 'any(.[]; .name == "JWT_SECRET")'
-
-      - name: Build dapp
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: pnpm --filter @apps/dapp build
-        env:
-          NODE_ENV: production
-          NEXT_PUBLIC_PROJECT_NAME: ${{ vars.NEXT_PUBLIC_PROJECT_NAME }}
-          NEXT_PUBLIC_API_ENDPOINT: ${{ vars.NEXT_PUBLIC_API_ENDPOINT }}
-          NEXT_PUBLIC_BASE_URL: ${{ vars.NEXT_PUBLIC_BASE_URL }}
-          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
-          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-          DEMO_AUTH_EMAIL: ${{ secrets.DEMO_AUTH_EMAIL }}
-          DEMO_AUTH_PASSWORD: ${{ secrets.DEMO_AUTH_PASSWORD }}
-          # Presence of SENTRY_ORG + SENTRY_PROJECT switches on the Sentry
-          # webpack plugin in next.config.ts, which needs SENTRY_AUTH_TOKEN to
-          # actually authenticate the source-map upload — without it, this is
-          # the one real deploy path and source maps were never uploaded.
-          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      - name: Build admin
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: pnpm --filter @apps/admin build
-        env:
-          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
-          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
-      - name: Build landing
-        run: pnpm --filter @apps/landing build
-        env:
-          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
-          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
-      - name: Deploy gateway
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: |
-          pnpm --filter @services/api-gateway exec wrangler deploy --strict \
-            --config .wrangler/deploy-production.json --env production
-          echo 'GATEWAY_DEPLOYED=true' >> "$GITHUB_ENV"
-
-      - name: Deploy dapp
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: |
-          pnpm --filter @apps/dapp exec wrangler deploy --env production --strict
-          echo 'DAPP_DEPLOYED=true' >> "$GITHUB_ENV"
-
-      - name: Deploy landing
-        run: |
-          pnpm --filter @apps/landing exec wrangler deploy --env production --strict
-          echo 'LANDING_DEPLOYED=true' >> "$GITHUB_ENV"
-
-      - name: Capture current admin Pages deployment
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        shell: bash
-        run: |
-          response=$(curl --fail --silent --show-error \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$ADMIN_PAGES_PROJECT/deployments" \
-            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
-          previous=$(jq -r '.result | map(select(.environment == "production")) | first | .id // empty' <<<"$response")
-          if [[ -n "$previous" ]]; then
-            echo "PREVIOUS_ADMIN_DEPLOYMENT_ID=$previous" >> "$GITHUB_ENV"
-          fi
-
-      - name: Deploy admin (Pages)
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: |
-          pnpm --filter @apps/admin exec wrangler pages deploy dist \
-            --project-name "$ADMIN_PAGES_PROJECT" --branch main
-          echo 'ADMIN_DEPLOYED=true' >> "$GITHUB_ENV"
-
-      - name: Smoke-test the complete production release
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true'
-        run: node scripts/smoke-deployment.ts
-        env:
-          SMOKE_ADMIN_EMAIL: ${{ secrets.ADMIN_AUTH_EMAIL }}
-          SMOKE_ADMIN_PASSWORD: ${{ secrets.ADMIN_AUTH_PASSWORD }}
-          SMOKE_ADMIN_URL: ${{ vars.ADMIN_PUBLIC_URL }}
-          SMOKE_DAPP_EMAIL: ${{ secrets.DEMO_AUTH_EMAIL }}
-          SMOKE_DAPP_PASSWORD: ${{ secrets.DEMO_AUTH_PASSWORD }}
-          SMOKE_DAPP_URL: ${{ vars.NEXT_PUBLIC_BASE_URL }}
-          SMOKE_GATEWAY_URL: ${{ vars.NEXT_PUBLIC_API_ENDPOINT }}
-          SMOKE_LANDING_URL: ${{ vars.PUBLIC_SITE_URL }}
-
-      - name: Smoke-test landing
-        if: env.FULL_STACK_DEPLOY_ENABLED != 'true'
-        env:
-          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
-        run: >-
-          curl --fail --silent --show-error --location
-          --retry 5 --retry-delay 3 --retry-all-errors
-          "$PUBLIC_SITE_URL/" >/dev/null
-
-      - name: Roll back admin Pages after a failed release
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true' && failure() && env.ADMIN_DEPLOYED == 'true' && env.PREVIOUS_ADMIN_DEPLOYMENT_ID != ''
-        continue-on-error: true
-        run: >-
-          curl --fail --silent --show-error --request POST
-          "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$ADMIN_PAGES_PROJECT/deployments/$PREVIOUS_ADMIN_DEPLOYMENT_ID/rollback"
-          --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN"
-
-      - name: Roll back landing after a failed release
-        if: failure() && env.LANDING_DEPLOYED == 'true'
-        continue-on-error: true
-        run: pnpm --filter @apps/landing exec wrangler rollback --env production --message "Automatic rollback after failed release"
-
-      - name: Roll back dapp after a failed release
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true' && failure() && env.DAPP_DEPLOYED == 'true'
-        continue-on-error: true
-        run: pnpm --filter @apps/dapp exec wrangler rollback --env production --message "Automatic rollback after failed release"
-
-      - name: Roll back gateway after a failed release
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true' && failure() && env.GATEWAY_DEPLOYED == 'true'
-        continue-on-error: true
-        run: >-
-          pnpm --filter @services/api-gateway exec wrangler rollback
-          --config .wrangler/deploy-production.json --env production
-          --message "Automatic rollback after failed release"
-
-      - name: Roll back RPC services after a failed release
-        if: env.FULL_STACK_DEPLOY_ENABLED == 'true' && failure() && env.PREVIOUS_RPC_IMAGE_TAG != ''
-        continue-on-error: true
-        run: infra/terraform/rollback-rpc.sh production "$PREVIOUS_RPC_IMAGE_TAG"
-        env:
-          AWS_REGION: ${{ vars.AWS_REGION }}
-          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
-          TF_STATE_KMS_KEY_ARN: ${{ vars.TF_STATE_KMS_KEY_ARN }}

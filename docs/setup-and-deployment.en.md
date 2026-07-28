@@ -28,10 +28,12 @@ Configuration sources of truth:
 | Staging | Push/merge to `develop` | Landing Worker | Runs only after CI succeeds |
 | Production | Push/merge to `main` | Landing Worker | Requires GitHub Environment approval |
 
-> The current deployment mode is **landing-only**. The AWS/RPC, gateway, dapp,
-> and admin steps remain in the workflow but are gated by
-> `FULL_STACK_DEPLOY_ENABLED: 'false'`. The full-stack sections below are the
-> runbook for re-enabling those targets, not prerequisites for landing deploys.
+> The current deployment mode is **landing-only**. AWS/RPC, gateway, dapp, and
+> admin orchestration lives in the dedicated
+> [full-stack composite action](../.github/actions/deploy-full-stack/action.yml),
+> but the workflow gates it behind `FULL_STACK_DEPLOY_ENABLED: 'false'`. The
+> full-stack sections below are the runbook for re-enabling those targets, not
+> prerequisites for landing deploys.
 
 Both RPC services and PostgreSQL 18/pgBackRest run as Docker containers on one
 fixed private EC2 instance per environment. Terraform provisions ECR,
@@ -309,7 +311,7 @@ Add these variables to each environment:
 | `NEXT_PUBLIC_BASE_URL` | `https://<staging-dapp>` | Public dapp origin |
 | `ADMIN_PUBLIC_URL` | `https://<staging-admin>` | Public admin origin used by release smoke tests |
 | `PUBLIC_API_URL` | `https://<staging-gateway>` | Gateway URL built into admin |
-| `PUBLIC_SITE_URL` | `https://<staging-landing>` | Canonical landing origin |
+| `PUBLIC_SITE_URL` | `https://ai-first-landing-staging.hibra.workers.dev` | Canonical landing origin; must be a public HTTPS origin without a path |
 | `NEXT_PUBLIC_SENTRY_DSN` | empty or a DSN | dapp runtime monitoring |
 | `PUBLIC_SENTRY_DSN` | empty or a DSN | Shared by admin and landing in the current workflow |
 | `GATEWAY_CORS_ORIGINS` | `https://<admin>,https://<dapp>` | Explicit allow-list; `*` is rejected |
@@ -389,6 +391,10 @@ logs.
 - The commit has been verified in staging.
 - The `production` GitHub Environment contains the `CLOUDFLARE_API_TOKEN` and
   `CLOUDFLARE_ACCOUNT_ID` secrets plus the production `PUBLIC_SITE_URL`.
+- Production `PUBLIC_SITE_URL` is
+  `https://vibe-code-stack-for-ceos.duongnamtruong.com`.
+- Wrangler owns this Custom Domain as the source of truth; production
+  `workers.dev` and Preview URLs are disabled.
 - Required reviewers are enabled and an operator is available for rollback.
 
 ### Deployment steps

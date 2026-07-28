@@ -127,47 +127,12 @@ test('should provision the complete AWS and Cloudflare RPC boundary', () => {
   assert.match(bootstrap, /exec \/usr\/local\/bin\/vibe-rpc-deploy/u);
 });
 
-test('should deploy only landing while preserving the guarded RPC release path', () => {
-  const deployWorkflow = readRootFile('.github/workflows/deploy.yml');
+test('should preserve the guarded RPC release path', () => {
   const terraformWorkflow = readRootFile('.github/workflows/terraform.yml');
   const deployScript = readRootFile('infra/terraform/deploy-rpc.sh');
   const rollbackScript = readRootFile('infra/terraform/rollback-rpc.sh');
   const hostDeployScript = readRootFile(
     'infra/terraform/modules/rpc-stack/files/deploy.sh',
-  );
-
-  assert.doesNotMatch(deployWorkflow, /^\s+id-token: write$/mu);
-  assert.equal(
-    (deployWorkflow.match(/FULL_STACK_DEPLOY_ENABLED: 'false'/gu) ?? []).length,
-    2,
-  );
-  assert.equal(
-    (deployWorkflow.match(/- name: Build landing\n\s+run:/gu) ?? []).length,
-    2,
-  );
-  assert.equal(
-    (deployWorkflow.match(/- name: Deploy landing\n\s+run:/gu) ?? []).length,
-    2,
-  );
-  assert.equal(
-    (deployWorkflow.match(/- name: Smoke-test landing/gu) ?? []).length,
-    2,
-  );
-  assert.match(
-    deployWorkflow,
-    /- name: Authenticate to AWS with GitHub OIDC\n\s+if: env\.FULL_STACK_DEPLOY_ENABLED == 'true'\n\s+uses: aws-actions\/configure-aws-credentials@[0-9a-f]{40}/u,
-  );
-  assert.match(
-    deployWorkflow,
-    /- name: Build, scan, and deploy RPC services to EC2\n\s+if: env\.FULL_STACK_DEPLOY_ENABLED == 'true'\n\s+run: infra\/terraform\/deploy-rpc\.sh staging/u,
-  );
-  assert.match(
-    deployWorkflow,
-    /- name: Build, scan, and deploy RPC services to EC2\n\s+if: env\.FULL_STACK_DEPLOY_ENABLED == 'true'\n\s+run: infra\/terraform\/deploy-rpc\.sh production/u,
-  );
-  assert.doesNotMatch(
-    deployWorkflow,
-    /vars\.(?:TRADING|ADMIN)_RPC_VPC_SERVICE_ID/u,
   );
 
   assert.match(terraformWorkflow, /workflow_dispatch:/u);

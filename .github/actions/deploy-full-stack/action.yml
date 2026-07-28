@@ -1,0 +1,199 @@
+name: Deploy full stack
+description: Deploy and verify the guarded RPC, gateway, dapp, landing, and admin release
+
+inputs:
+  environment:
+    description: Target GitHub and runtime environment
+    required: true
+  commit-sha:
+    description: Immutable commit to release
+    required: true
+  admin-pages-project:
+    description: Cloudflare Pages project for the admin app
+    required: true
+  public-site-url:
+    description: Canonical landing origin
+    required: true
+  public-sentry-dsn:
+    description: Optional browser-facing Sentry DSN
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Validate full-stack deployment values
+      shell: bash
+      env:
+        DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        required=(AWS_REGION AWS_RPC_DEPLOY_ROLE_ARN TF_STATE_BUCKET TF_STATE_KMS_KEY_ARN NEXT_PUBLIC_PROJECT_NAME NEXT_PUBLIC_API_ENDPOINT NEXT_PUBLIC_BASE_URL ADMIN_PUBLIC_URL PUBLIC_API_URL SESSION_SECRET DEMO_AUTH_EMAIL DEMO_AUTH_PASSWORD GATEWAY_CORS_ORIGINS ADMIN_AUTH_EMAIL ADMIN_AUTH_PASSWORD JWT_SECRET COINGECKO_API_KEY POSTGRES_PASSWORD POSTGRES_REPLICATION_PASSWORD R2_PITR_BUCKET R2_PITR_ACCESS_KEY_ID R2_PITR_SECRET_ACCESS_KEY R2_ARCHIVE_BUCKET R2_ARCHIVE_ACCESS_KEY_ID R2_ARCHIVE_SECRET_ACCESS_KEY PGBACKREST_CIPHER_PASSPHRASE POSTGRES_ARCHIVE_AGE_RECIPIENT POSTGRES_BACKUP_AGE_IDENTITY)
+        missing=false
+        for name in "${required[@]}"; do
+          if [[ -z "${!name:-}" ]]; then
+            echo "::error::Missing required $DEPLOY_ENVIRONMENT full-stack value: ${name}"
+            missing=true
+          fi
+        done
+        if [[ "$missing" == true ]]; then
+          echo "Configure the $DEPLOY_ENVIRONMENT full-stack values documented in docs/setup-and-deployment.md."
+          exit 1
+        fi
+
+    - name: Authenticate to AWS with GitHub OIDC
+      uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+      with:
+        role-to-assume: ${{ env.AWS_RPC_DEPLOY_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+        role-session-name: deploy-rpc-${{ inputs.environment }}
+
+    - name: Build, scan, and deploy RPC services to EC2
+      shell: bash
+      env:
+        DEPLOY_COMMIT_SHA: ${{ inputs.commit-sha }}
+        DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      run: infra/terraform/deploy-rpc.sh "$DEPLOY_ENVIRONMENT" "$DEPLOY_COMMIT_SHA"
+
+    - name: Prepare and validate gateway deployment config
+      shell: bash
+      env:
+        DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      run: pnpm --filter @services/api-gateway exec tsx scripts/create-deploy-config.ts "$DEPLOY_ENVIRONMENT"
+
+    - name: Provision matching gateway JWT secret
+      shell: bash
+      env:
+        DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      run: >-
+        printf '%s' "$JWT_SECRET" |
+        pnpm --filter @services/api-gateway exec wrangler secret put JWT_SECRET
+        --config ".wrangler/deploy-$DEPLOY_ENVIRONMENT.json" --env "$DEPLOY_ENVIRONMENT"
+
+    - name: Confirm gateway JWT secret is provisioned
+      shell: bash
+      env:
+        DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      run: >-
+        pnpm --filter @services/api-gateway exec wrangler secret list
+        --config ".wrangler/deploy-$DEPLOY_ENVIRONMENT.json" --env "$DEPLOY_ENVIRONMENT" --format json
+        | jq -e 'any(.[]; .name == "JWT_SECRET")'
+
+    - name: Build dapp
+      shell: bash
+      env:
+        NODE_ENV: production
+      run: pnpm --filter @apps/dapp build
+
+    - name: Build admin
+      shell: bash
+      run: pnpm --filter @apps/admin build
+
+    - name: Deploy gateway
+      shell: bash
+      env:
+        DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        pnpm --filter @services/api-gateway exec wrangler deploy --strict \
+          --config ".wrangler/deploy-$DEPLOY_ENVIRONMENT.json" --env "$DEPLOY_ENVIRONMENT"
+        echo 'GATEWAY_DEPLOYED=true' >> "$GITHUB_ENV"
+
+    - name: Deploy dapp
+      shell: bash
+      env:
+        DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        pnpm --filter @apps/dapp exec wrangler deploy --env "$DEPLOY_ENVIRONMENT" --strict
+        echo 'DAPP_DEPLOYED=true' >> "$GITHUB_ENV"
+
+    - name: Build and deploy landing
+      uses: ./.github/actions/deploy-landing
+      with:
+        environment: ${{ inputs.environment }}
+        public-site-url: ${{ inputs.public-site-url }}
+        public-sentry-dsn: ${{ inputs.public-sentry-dsn }}
+        smoke: 'false'
+        rollback-on-failure: 'false'
+
+    - name: Capture current admin Pages deployment
+      shell: bash
+      env:
+        ADMIN_PAGES_PROJECT: ${{ inputs.admin-pages-project }}
+      run: |
+        response=$(curl --fail --silent --show-error \
+          "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$ADMIN_PAGES_PROJECT/deployments" \
+          --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
+        previous=$(jq -r '.result | map(select(.environment == "production")) | first | .id // empty' <<<"$response")
+        if [[ -n "$previous" ]]; then
+          echo "PREVIOUS_ADMIN_DEPLOYMENT_ID=$previous" >> "$GITHUB_ENV"
+        fi
+
+    - name: Deploy admin Pages
+      shell: bash
+      env:
+        ADMIN_PAGES_PROJECT: ${{ inputs.admin-pages-project }}
+      run: |
+        pnpm --filter @apps/admin exec wrangler pages deploy dist \
+          --project-name "$ADMIN_PAGES_PROJECT" --branch main
+        echo 'ADMIN_DEPLOYED=true' >> "$GITHUB_ENV"
+
+    - name: Smoke-test the complete release
+      shell: bash
+      env:
+        SMOKE_ADMIN_EMAIL: ${{ env.ADMIN_AUTH_EMAIL }}
+        SMOKE_ADMIN_PASSWORD: ${{ env.ADMIN_AUTH_PASSWORD }}
+        SMOKE_ADMIN_URL: ${{ env.ADMIN_PUBLIC_URL }}
+        SMOKE_DAPP_EMAIL: ${{ env.DEMO_AUTH_EMAIL }}
+        SMOKE_DAPP_PASSWORD: ${{ env.DEMO_AUTH_PASSWORD }}
+        SMOKE_DAPP_URL: ${{ env.NEXT_PUBLIC_BASE_URL }}
+        SMOKE_GATEWAY_URL: ${{ env.NEXT_PUBLIC_API_ENDPOINT }}
+        SMOKE_LANDING_URL: ${{ inputs.public-site-url }}
+      run: node scripts/smoke-deployment.ts
+
+    - name: Roll back admin Pages after a failed release
+      if: failure() && env.ADMIN_DEPLOYED == 'true' && env.PREVIOUS_ADMIN_DEPLOYMENT_ID != ''
+      continue-on-error: true
+      shell: bash
+      env:
+        ADMIN_PAGES_PROJECT: ${{ inputs.admin-pages-project }}
+      run: >-
+        curl --fail --silent --show-error --request POST
+        "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$ADMIN_PAGES_PROJECT/deployments/$PREVIOUS_ADMIN_DEPLOYMENT_ID/rollback"
+        --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+
+    - name: Roll back landing after a failed release
+      if: failure() && env.LANDING_DEPLOYED == 'true' && env.PREVIOUS_LANDING_VERSION_ID != ''
+      continue-on-error: true
+      shell: bash
+      env:
+        DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      run: >-
+        pnpm --filter @apps/landing exec wrangler rollback
+        "$PREVIOUS_LANDING_VERSION_ID" --env "$DEPLOY_ENVIRONMENT"
+        --message "Automatic rollback after failed release"
+
+    - name: Roll back dapp after a failed release
+      if: failure() && env.DAPP_DEPLOYED == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      run: pnpm --filter @apps/dapp exec wrangler rollback --env "$DEPLOY_ENVIRONMENT" --message "Automatic rollback after failed release"
+
+    - name: Roll back gateway after a failed release
+      if: failure() && env.GATEWAY_DEPLOYED == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      run: >-
+        pnpm --filter @services/api-gateway exec wrangler rollback
+        --config ".wrangler/deploy-$DEPLOY_ENVIRONMENT.json" --env "$DEPLOY_ENVIRONMENT"
+        --message "Automatic rollback after failed release"
+
+    - name: Roll back RPC services after a failed release
+      if: failure() && env.PREVIOUS_RPC_IMAGE_TAG != ''
+      continue-on-error: true
+      shell: bash
+      env:
+        DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      run: infra/terraform/rollback-rpc.sh "$DEPLOY_ENVIRONMENT" "$PREVIOUS_RPC_IMAGE_TAG"

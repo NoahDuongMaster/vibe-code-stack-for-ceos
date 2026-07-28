@@ -11,10 +11,20 @@
   // `wrangler rollback --env production`.
   "env": {
     "staging": {
-      "name": "ai-first-landing-staging"
+      "name": "vibe-code-stack-for-ceos-staging"
     },
     "production": {
-      "name": "ai-first-landing"
+      "name": "vibe-code-stack-for-ceos",
+      // Production is reachable only through the canonical Custom Domain.
+      // Disable both the stable workers.dev URL and per-version Preview URLs.
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [
+        {
+          "pattern": "vibe-code-stack-for-ceos.duongnamtruong.com",
+          "custom_domain": true
+        }
+      ]
     }
   }
 }
