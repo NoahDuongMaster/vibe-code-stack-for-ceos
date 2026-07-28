@@ -72,13 +72,23 @@ test('should deploy only landing through the shared environment-aware action', (
   assert.match(deployLandingAction, /WRANGLER_OUTPUT_FILE_PATH=/u);
   assert.match(
     deployLandingAction,
+    /jq -e 'select\(\.type == "deploy"\)' "\$output_file"/u,
+  );
+  assert.doesNotMatch(deployLandingAction, /LANDING_DEPLOYMENT_URL/u);
+  assert.match(
+    deployLandingAction,
     /wrangler rollback\n\s+"\$PREVIOUS_LANDING_VERSION_ID" --env "\$DEPLOY_ENVIRONMENT"/u,
+  );
+  assert.match(
+    deployLandingAction,
+    /--message "Automatic rollback after failed release" --yes/u,
   );
   assert.match(
     deployLandingAction,
     /PUBLIC_SITE_URL must be a public HTTPS origin without a path, query, or fragment/u,
   );
   assert.match(deployLandingAction, /--retry 24 --retry-delay 5/u);
+  assert.match(deployLandingAction, /echo "Smoke-testing \$landing_origin\/"/u);
   assert.match(
     deployLandingAction,
     /Landing canonical URL does not match PUBLIC_SITE_URL/u,
